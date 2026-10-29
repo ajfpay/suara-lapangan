@@ -44,3 +44,6 @@ yarn-error.log*
 
 # next-env.d.ts is deliberately NOT ignored: it declares the module types
 # (`*.css` and friends) that `tsc --noEmit` needs before a build has run.
+
+# suara-lapangan starters (klon referensi, bukan artefak)
+.scratch/suara-lapangan-starters/
