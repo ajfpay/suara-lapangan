@@ -54,7 +54,7 @@
     "bukti": "twelve hundred"
   },
   "expectation": {
-    "field": "pekerjaan[0].jumlah",
+    "field": "pekerjaan[0].harga_satuan",
     "verdict": "butuh_konfirmasi"
   }
 }

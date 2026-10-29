@@ -49,7 +49,8 @@ const EXTENSION_DEFECT_CODES = [
 const ALL_DEFECT_CODES = [...FROZEN_DEFECT_CODES, ...EXTENSION_DEFECT_CODES];
 
 const VERDICTS = ["butuh_konfirmasi", "tolak_dokumen"];
-const NOMOR_PATTERN = /^SL\/QTN\/\d{4}-\d{2}-\d{2}\/\d{3}$/;
+const NOMOR_PATTERN =
+    /^SL\/QTN\/(?:\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|02-(?:0[1-9]|[12]\d)))\/\d{3}$/;
 
 // Canonical unit -> how it is said, in either language. Longest phrase first
 // when scanning, so "meter persegi" is not read as a bare "meter".
@@ -125,6 +126,11 @@ const ALLOWED_KEYWORDS = new Set([
     "minimum",
     "exclusiveMinimum",
     "minItems",
+    "anyOf",
+    "allOf",
+    "if",
+    "then",
+    "else",
 ]);
 const ALLOWED_TYPES = new Set([
     "object",
@@ -152,7 +158,7 @@ function typeMatches(expected, value) {
 }
 
 /** Structural rules every schema node must satisfy. Returns problems. */
-function schemaProblems(node, pointer, problems) {
+function schemaProblems(node, pointer, problems, isSubschema = false) {
     if (node === null || typeof node !== "object" || Array.isArray(node)) {
         problems.push(`${pointer}: schema node is not an object`);
         return problems;
@@ -164,8 +170,12 @@ function schemaProblems(node, pointer, problems) {
             );
         }
     }
-    if (!node.type) problems.push(`${pointer}: missing "type"`);
-    const types = Array.isArray(node.type) ? node.type : [node.type];
+    if (!isSubschema && !node.type) problems.push(`${pointer}: missing "type"`);
+    const types = node.type
+        ? Array.isArray(node.type)
+            ? node.type
+            : [node.type]
+        : [];
     for (const type of types) {
         if (!ALLOWED_TYPES.has(type))
             problems.push(`${pointer}: unknown type "${type}"`);
@@ -197,6 +207,10 @@ function schemaProblems(node, pointer, problems) {
         for (const [name, child] of Object.entries(node.properties ?? {})) {
             schemaProblems(child, `${pointer}.properties.${name}`, problems);
         }
+    } else if (node.properties) {
+        for (const [name, child] of Object.entries(node.properties)) {
+            schemaProblems(child, `${pointer}.properties.${name}`, problems, true);
+        }
     }
     if (types.includes("array")) {
         if (!node.items)
@@ -217,6 +231,27 @@ function schemaProblems(node, pointer, problems) {
             );
         }
     }
+    if (node.anyOf) {
+        if (!Array.isArray(node.anyOf) || node.anyOf.length === 0) {
+            problems.push(`${pointer}: "anyOf" must be a non-empty array`);
+        } else {
+            node.anyOf.forEach((child, index) =>
+                schemaProblems(child, `${pointer}.anyOf[${index}]`, problems, true)
+            );
+        }
+    }
+    if (node.allOf) {
+        if (!Array.isArray(node.allOf) || node.allOf.length === 0) {
+            problems.push(`${pointer}: "allOf" must be a non-empty array`);
+        } else {
+            node.allOf.forEach((child, index) =>
+                schemaProblems(child, `${pointer}.allOf[${index}]`, problems, true)
+            );
+        }
+    }
+    if (node.if) schemaProblems(node.if, `${pointer}.if`, problems, true);
+    if (node.then) schemaProblems(node.then, `${pointer}.then`, problems, true);
+    if (node.else) schemaProblems(node.else, `${pointer}.else`, problems, true);
     return problems;
 }
 
@@ -231,12 +266,14 @@ function collectRefs(node, pointer, refs) {
 
 /** Validates a value against one schema node. Returns a list of problems. */
 function valueProblems(schema, value, pointer, problems) {
-    const types = Array.isArray(schema.type) ? schema.type : [schema.type];
-    if (!types.some((type) => typeMatches(type, value))) {
-        problems.push(
-            `${pointer}: expected ${types.join("|")}, got ${typeOf(value)}`
-        );
-        return problems;
+    if (schema.type) {
+        const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+        if (!types.some((type) => typeMatches(type, value))) {
+            problems.push(
+                `${pointer}: expected ${types.join("|")}, got ${typeOf(value)}`
+            );
+            return problems;
+        }
     }
     if (schema.enum && !schema.enum.includes(value)) {
         problems.push(
@@ -301,6 +338,28 @@ function valueProblems(schema, value, pointer, problems) {
             valueProblems(child, entry, `${pointer}.${name}`, problems);
         }
     }
+    if (schema.anyOf) {
+        const matches = schema.anyOf.some((branch) => {
+            const bp = valueProblems(branch, value, pointer, []);
+            return bp.length === 0;
+        });
+        if (!matches) {
+            problems.push(`${pointer}: does not match any branch in anyOf`);
+        }
+    }
+    if (schema.allOf) {
+        for (let i = 0; i < schema.allOf.length; i++) {
+            valueProblems(schema.allOf[i], value, `${pointer}.allOf[${i}]`, problems);
+        }
+    }
+    if (schema.if && schema.then) {
+        const ifProblems = valueProblems(schema.if, value, pointer, []);
+        if (ifProblems.length === 0) {
+            valueProblems(schema.then, value, pointer, problems);
+        } else if (schema.else) {
+            valueProblems(schema.else, value, pointer, problems);
+        }
+    }
     return problems;
 }
 
@@ -343,6 +402,139 @@ test("quotation schema accepts en/USD and id/IDR documents", () => {
     }
 });
 
+test("quotation schema rejects mismatched locale and currency", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+    const enWithIdr = { ...valid, locale: "en", mata_uang: "IDR" };
+    assert.ok(
+        valueProblems(schema, enWithIdr, "enWithIdr", []).length > 0,
+        "schema must reject en + IDR"
+    );
+    const idWithUsd = { ...valid, locale: "id", mata_uang: "USD" };
+    assert.ok(
+        valueProblems(schema, idWithUsd, "idWithUsd", []).length > 0,
+        "schema must reject id + USD"
+    );
+});
+
+test("quotation schema rejects impossible calendar dates and turn_0 citations", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+    const feb31 = { ...valid, tanggal: "2026-02-31" };
+    assert.ok(
+        valueProblems(schema, feb31, "feb31", []).length > 0,
+        "schema must reject 2026-02-31"
+    );
+    const turn0 = {
+        ...valid,
+        pekerjaan: [{ ...valid.pekerjaan[0], sumber_kutipan: "turn_0" }],
+    };
+    assert.ok(
+        valueProblems(schema, turn0, "turn0", []).length > 0,
+        "schema must reject turn_0"
+    );
+});
+
+function terbilangNumber(n) {
+    const SATUAN = [
+        "", "satu", "dua", "tiga", "empat", "lima",
+        "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"
+    ];
+    if (n === 0) return "nol";
+    if (n < 12) return SATUAN[n];
+    if (n < 20) return terbilangNumber(n - 10) + " belas";
+    if (n < 100) {
+        const rest = n % 10;
+        return (
+            terbilangNumber(Math.floor(n / 10)) +
+            " puluh" +
+            (rest ? " " + terbilangNumber(rest) : "")
+        );
+    }
+    if (n < 200)
+        return "seratus" + (n % 100 ? " " + terbilangNumber(n % 100) : "");
+    if (n < 1000) {
+        const rest = n % 100;
+        return (
+            terbilangNumber(Math.floor(n / 100)) +
+            " ratus" +
+            (rest ? " " + terbilangNumber(rest) : "")
+        );
+    }
+    if (n < 2000)
+        return "seribu" + (n % 1000 ? " " + terbilangNumber(n % 1000) : "");
+    if (n < 1000000) {
+        const rest = n % 1000;
+        return (
+            terbilangNumber(Math.floor(n / 1000)) +
+            " ribu" +
+            (rest ? " " + terbilangNumber(rest) : "")
+        );
+    }
+    if (n < 1000000000) {
+        const rest = n % 1000000;
+        return (
+            terbilangNumber(Math.floor(n / 1000000)) +
+            " juta" +
+            (rest ? " " + terbilangNumber(rest) : "")
+        );
+    }
+    return "";
+}
+
+function terbilang(n) {
+    const text = terbilangNumber(Math.round(n));
+    return text.charAt(0).toUpperCase() + text.slice(1) + " rupiah";
+}
+
+function englishNumber(n) {
+    const ONES = [
+        "", "one", "two", "three", "four", "five", "six", "seven",
+        "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen",
+        "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"
+    ];
+    const TENS = [
+        "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy",
+        "eighty", "ninety"
+    ];
+    if (n === 0) return "zero";
+    if (n < 20) return ONES[n];
+    if (n < 100) {
+        const rest = n % 10;
+        return TENS[Math.floor(n / 10)] + (rest ? "-" + ONES[rest] : "");
+    }
+    if (n < 1000) {
+        const rest = n % 100;
+        return (
+            ONES[Math.floor(n / 100)] +
+            " hundred" +
+            (rest ? " " + englishNumber(rest) : "")
+        );
+    }
+    if (n < 1000000) {
+        const rest = n % 1000;
+        return (
+            englishNumber(Math.floor(n / 1000)) +
+            " thousand" +
+            (rest ? " " + englishNumber(rest) : "")
+        );
+    }
+    if (n < 1000000000) {
+        const rest = n % 1000000;
+        return (
+            englishNumber(Math.floor(n / 1000000)) +
+            " million" +
+            (rest ? " " + englishNumber(rest) : "")
+        );
+    }
+    return "";
+}
+
+function amountInWords(n) {
+    const text = englishNumber(Math.round(n));
+    return text.charAt(0).toUpperCase() + text.slice(1) + " US dollars";
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures (K4): valid set
 // ---------------------------------------------------------------------------
@@ -370,10 +562,15 @@ test("fixtures/transcripts has at least 30 cases, both locales well covered", ()
 });
 
 test("fixture ids and session ids are unique", () => {
-    const ids = [...validFixtures, ...defectiveFixtures].map(
-        ({ data }) => data.id
-    );
+    const all = [...validFixtures, ...defectiveFixtures];
+    const ids = all.map(({ data }) => data.id);
     assert.equal(new Set(ids).size, ids.length, "duplicate fixture id");
+    const sessionIds = all.map(({ data }) => data.session_id);
+    assert.equal(
+        new Set(sessionIds).size,
+        sessionIds.length,
+        "duplicate session id"
+    );
 });
 
 test("every valid fixture has turns that a server can consume as K3 turns", () => {
@@ -470,10 +667,19 @@ test("every reference document is internally consistent and traceable", () => {
             total,
             `${where} total_nominal must be the sum of jumlah`
         );
-        assert.match(
+        const [y, m, d] = doc.tanggal.split("-").map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        assert.equal(
+            dt.getUTCDate(),
+            d,
+            `${where} tanggal must be a valid calendar date`
+        );
+        assert.equal(
             doc.terbilang,
-            data.locale === "en" ? /dollars?$/i : /rupiah$/i,
-            `${where} terbilang must end in the locale's currency`
+            data.locale === "en"
+                ? amountInWords(doc.total_nominal)
+                : terbilang(doc.total_nominal),
+            `${where} terbilang must match total_nominal in words`
         );
     }
 });
@@ -511,6 +717,20 @@ test("every defective fixture names a known defect, with written reason and evid
             data.cacat.bukti?.length > 0,
             `${where} the defect needs quoted evidence`
         );
+        if (["kutipan_sesi_lain", "kutipan_non_final"].includes(data.cacat.code)) {
+            const citedTurns = data.document.pekerjaan.map((p) => p.sumber_kutipan);
+            const turnIds = data.turns.map((t) => t.turn_id);
+            assert.ok(
+                citedTurns.includes(data.cacat.bukti) || turnIds.includes(data.cacat.bukti),
+                `${where} citation defect evidence must identify the offending citation or turn`
+            );
+        } else {
+            const transcript = data.turns.map((t) => t.transcript).join(" \n ");
+            assert.ok(
+                transcript.includes(data.cacat.bukti),
+                `${where} ordinary evidence must be a transcript substring`
+            );
+        }
         assert.ok(
             VERDICTS.includes(data.expectation?.verdict),
             `${where} unknown expected verdict`

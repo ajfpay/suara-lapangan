@@ -72,7 +72,7 @@
               "fixture"
             ]
           },
-          "sumber_kutipan": { "type": "string", "pattern": "^turn_[0-9]+$" }
+          "sumber_kutipan": { "type": "string", "pattern": "^turn_[1-9][0-9]*$" }
         }
       }
     },
@@ -106,7 +106,7 @@
               "fixture"
             ]
           },
-          "sumber_kutipan": { "type": "string", "pattern": "^turn_[0-9]+$" }
+          "sumber_kutipan": { "type": "string", "pattern": "^turn_[1-9][0-9]*$" }
         }
       }
     },
@@ -120,7 +120,7 @@
           "uraian": { "type": "string", "minLength": 1 },
           "sumber_kutipan": {
             "type": ["string", "null"],
-            "pattern": "^turn_[0-9]+$"
+            "pattern": "^turn_[1-9][0-9]*$"
           }
         }
       }
@@ -137,7 +137,7 @@
           "alasan": { "type": "string", "minLength": 1 },
           "sumber_kutipan": {
             "type": ["string", "null"],
-            "pattern": "^turn_[0-9]+$"
+            "pattern": "^turn_[1-9][0-9]*$"
           }
         }
       }
