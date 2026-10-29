@@ -1,0 +1,18 @@
+import { fileURLToPath } from "node:url";
+
+import { defineConfig } from "vitest/config";
+
+/**
+ * Unit and route-level tests. The `e2e` directory belongs to Playwright, so it
+ * is excluded here or its specs would run twice under two runners.
+ */
+export default defineConfig({
+    resolve: {
+        alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
+    },
+    test: {
+        environment: "node",
+        include: ["**/*.test.ts"],
+        exclude: ["node_modules/**", "e2e/**", ".next/**"],
+    },
+});
