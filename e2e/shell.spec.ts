@@ -12,7 +12,7 @@ import { collectProblems, expectNoOverflow } from "./helpers";
  */
 
 const STEPS = [
-    { path: "", heading: "Rekam", next: "Next: Susun" },
+    { path: "/rekam", heading: "Rekam", next: "Next: Susun" },
     { path: "/susun", heading: "Susun", next: "Next: Dokumen" },
     { path: "/dokumen", heading: "Dokumen", next: null },
 ] as const;
@@ -24,7 +24,7 @@ test.describe("suara lapangan shell", () => {
 
         await page.goto("/");
 
-        await expect(page).toHaveURL(/\/en$/);
+        await expect(page).toHaveURL(/\/en\/rekam$/);
         await expect(page.getByRole("heading", { level: 1 })).toHaveText(
             "Rekam"
         );
@@ -54,7 +54,7 @@ test.describe("suara lapangan shell", () => {
     });
 
     test("next and previous walk the three steps", async ({ page }) => {
-        await page.goto("/en");
+        await page.goto("/en/rekam");
 
         await page.getByRole("link", { name: "Next: Susun" }).click();
         await expect(page).toHaveURL(/\/en\/susun$/);
@@ -70,7 +70,7 @@ test.describe("suara lapangan shell", () => {
     });
 
     test("the primary action is at least 96px tall", async ({ page }) => {
-        await page.goto("/en");
+        await page.goto("/en/rekam");
 
         // The field user is wearing work gloves; the tap target is the design
         // requirement, not a detail.

@@ -36,7 +36,13 @@
         "primary": "Start recording",
         "workItemsTitle": "Work items",
         "workItemsEmpty": "No work items yet",
-        "workItemsEmptyBody": "Items are collected from your recording. Nothing has been recorded on this device yet."
+        "workItemsEmptyBody": "Items are collected from your recording. Nothing has been recorded on this device yet.",
+        "uploadPending": "Upload Pending",
+        "recording": "Recording...",
+        "stop": "Done",
+        "processing": "Processing audio...",
+        "holdHint": "Touch and hold ≥0.3s",
+        "recordingHint": "Press Done when finished speaking"
     },
     "susun": {
         "heading": "Susun",

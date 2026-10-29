@@ -13,8 +13,8 @@ test.describe("locales", () => {
     test("each locale advertises itself correctly to crawlers", async ({
         request,
     }) => {
-        const en = await request.get("/en");
-        const id = await request.get("/id");
+        const en = await request.get("/en/rekam");
+        const id = await request.get("/id/rekam");
         expect(en.status()).toBe(200);
         expect(id.status()).toBe(200);
 
@@ -37,8 +37,8 @@ test.describe("locales", () => {
         // canonical, not the title.
         expect(titleOf(enHtml)).toContain("Suara Lapangan");
         expect(descriptionOf(enHtml)).not.toBe(descriptionOf(idHtml));
-        expect(canonicalOf(enHtml)).toMatch(/\/en$/);
-        expect(canonicalOf(idHtml)).toMatch(/\/id$/);
+        expect(canonicalOf(enHtml)).toMatch(/\/en\/rekam$/);
+        expect(canonicalOf(idHtml)).toMatch(/\/id\/rekam$/);
         expect(langOf(enHtml)).toBe("en");
         expect(langOf(idHtml)).toBe("id");
 

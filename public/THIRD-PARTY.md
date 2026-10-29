@@ -25,11 +25,13 @@ here, or listed but no longer installed. Regenerate the table with
 | `lucide-react@0.279.0` | ISC |
 | `next@15.3.8` | MIT |
 | `next-intl@4.3.9` | MIT |
+| `pg@8.23.1` | MIT |
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
 | `tailwind-merge@1.14.0` | MIT |
 | `@playwright/test@1.62.1` | Apache-2.0 |
-| `@types/node@20.6.2` | MIT |
+| `@types/node@20.19.43` | MIT |
+| `@types/pg@8.23.1` | MIT |
 | `@types/react@18.3.31` | MIT |
 | `@types/react-dom@18.3.7` | MIT |
 | `autoprefixer@10.4.15` | MIT |
@@ -41,6 +43,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `tailwindcss@3.3.5` | MIT |
 | `tailwindcss-animate@1.0.7` | MIT |
 | `typescript@5.2.2` | Apache-2.0 |
+| `vitest@3.2.7` | MIT |
 <!-- END DEPENDENCIES -->
 
 ## What this repository no longer uses

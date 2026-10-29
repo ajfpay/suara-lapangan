@@ -36,7 +36,13 @@
         "primary": "Mulai merekam",
         "workItemsTitle": "Item pekerjaan",
         "workItemsEmpty": "Belum ada item pekerjaan",
-        "workItemsEmptyBody": "Item diambil dari rekaman Anda. Belum ada rekaman di perangkat ini."
+        "workItemsEmptyBody": "Item diambil dari rekaman Anda. Belum ada rekaman di perangkat ini.",
+        "uploadPending": "Unggah Tertunda",
+        "recording": "Merekam...",
+        "stop": "Selesai",
+        "processing": "Memproses audio...",
+        "holdHint": "Sentuh dan tahan ≥0,3 dtk",
+        "recordingHint": "Tekan Selesai setelah selesai berbicara"
     },
     "susun": {
         "heading": "Susun",
