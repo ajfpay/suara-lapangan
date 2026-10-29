@@ -1,0 +1,104 @@
+import { AsrError, httpStatusFor, userMessage } from "@/lib/server/asr/errors";
+import {
+    DEFAULT_ASR_LOCALE,
+    parseLocale,
+    type Locale,
+} from "@/lib/server/asr/locale";
+import { logAsrFailure } from "@/lib/server/asr/log";
+import { MAX_AUDIO_BYTES } from "@/lib/server/asr/meta";
+import { transcribeSession } from "@/lib/server/asr/transcribe";
+
+/**
+ * Client-generated, so it must not be able to escape a query parameter or a log
+ * line, and it must be stable enough to be the idempotency key.
+ */
+const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+type Upload = {
+    sessionId: string;
+    locale: Locale;
+    audio: Uint8Array;
+};
+
+async function parseUpload(request: Request): Promise<Upload> {
+    let form: FormData;
+    try {
+        form = await request.formData();
+    } catch (cause) {
+        throw new AsrError("invalid_request", {
+            detail: "body is not multipart",
+            cause,
+        });
+    }
+
+    const audio = form.get("audio");
+    if (!(audio instanceof Blob) || audio.size === 0) {
+        throw new AsrError("invalid_request", {
+            detail: "audio part is missing or empty",
+        });
+    }
+    if (audio.size > MAX_AUDIO_BYTES) {
+        throw new AsrError("too_large", {
+            detail: `audio is ${audio.size} bytes`,
+        });
+    }
+
+    const sessionId = String(form.get("sessionId") ?? "");
+    if (!SESSION_ID.test(sessionId)) {
+        throw new AsrError("invalid_request", {
+            detail: "sessionId is missing or malformed",
+        });
+    }
+
+    const locale = parseLocale(form.get("locale"));
+    if (!locale) {
+        throw new AsrError("invalid_request", {
+            detail: "locale is not one of the shipped locales",
+        });
+    }
+
+    return {
+        sessionId,
+        locale,
+        audio: new Uint8Array(await audio.arrayBuffer()),
+    };
+}
+
+/**
+ * Uploads one recording, answers with the numbered turns Meta found in it.
+ *
+ * The client is told what it can act on and nothing about what failed inside:
+ * the code and sentence come from one table, the upstream's own words stay in
+ * the log.
+ */
+export async function POST(request: Request): Promise<Response> {
+    let sessionId = "";
+    let locale: Locale = DEFAULT_ASR_LOCALE;
+
+    try {
+        const upload = await parseUpload(request);
+        sessionId = upload.sessionId;
+        locale = upload.locale;
+
+        const turns = await transcribeSession(upload);
+
+        return Response.json({ sessionId, turns }, { status: 200 });
+    } catch (error) {
+        const failure =
+            error instanceof AsrError
+                ? error
+                : new AsrError("internal_error", { cause: error });
+
+        logAsrFailure(failure, { sessionId });
+
+        return Response.json(
+            {
+                error: {
+                    code: failure.code,
+                    message: userMessage(failure.code, locale),
+                },
+            },
+            { status: httpStatusFor(failure.code) }
+        );
+    }
+}

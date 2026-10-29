@@ -1,0 +1,22 @@
+{
+  "sessionId": "sess_01JQ8Z2K7YV4Q9W3",
+  "transcript": "Good morning. I need ten meters of rebar for the second floor. And two bags of cement.",
+  "audioDurationMs": 1000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 300,
+      "transcript": "Good morning."
+    },
+    {
+      "startMs": 300,
+      "endMs": 700,
+      "transcript": "I need ten meters of rebar for the second floor."
+    },
+    {
+      "startMs": 700,
+      "endMs": 1000,
+      "transcript": "And two bags of cement."
+    }
+  ]
+}
