@@ -10,9 +10,9 @@ spec, spec menang; laporkan tabrakannya, jangan diakali.
 Setiap tiket punya worktree + cabang sendiri. Satu folder hanya punya SATU pemilik tulis.
 
 - **Tiket 05** pemilik tunggal `app/api/documents/**` dan `lib/server/guard/**`. Tiket 05 yang
-  membangun rute `PATCH /api/documents/{id}`.
-- **Tiket 07** hanya boleh menulis di `app/[locale]/(suara)/**`. Ia boleh memakai rute
-  `PATCH /api/documents/{id}` dari tiket 05, tetapi tidak boleh membangunnya.
+  membangun rute `POST /api/documents`.
+- **Tiket 07** hanya boleh menulis di `app/[locale]/(suara)/**`. Ia yang membangun rute
+  `PATCH /api/documents/{id}`; `POST /api/documents` tetap milik tiket 05.
 - **Tiket 08** hanya boleh menulis di `app/api/pdf/**` dan `app/components/templates/**`.
 - **Siapa pun yang perlu mengubah `app/api/documents/**` harus lewat tiket 05.** Agen lain tidak
   boleh mengedit langsung, bahkan untuk "satu baris"; ajukan perubahan ke pekerja/verifikator tiket 05.
