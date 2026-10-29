@@ -1,0 +1,60 @@
+{
+  "id": "d03-desimal-koma",
+  "locale": "id",
+  "session_id": "sess-def-03",
+  "project": {
+    "nama": "Plester Lantai Dua",
+    "lokasi": "Bantul, Yogyakarta",
+    "klien": "Bu Ratna"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Plester dinding, 24,5 meter persegi, empat puluh lima ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6800,
+      "endMs": 9000,
+      "transcript": "Rumah Bu Ratna, Bantul.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/033",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Plester Lantai Dua",
+      "lokasi": "Bantul, Yogyakarta",
+      "klien": "Bu Ratna"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Plester dinding lantai dua",
+        "volume": 245,
+        "satuan": "m2",
+        "harga_satuan": 45000,
+        "jumlah": 11025000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 11025000,
+    "terbilang": "Sebelas juta dua puluh lima ribu rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "desimal_koma_id",
+    "alasan": "The Indonesian decimal comma was read as a thousands separator: 24,5 became 245, ten times too large. Guard rule 4 must normalise comma decimals before comparing.",
+    "bukti": "24,5 meter persegi"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].volume",
+    "verdict": "butuh_konfirmasi"
+  }
+}

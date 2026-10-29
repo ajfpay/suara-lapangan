@@ -1,0 +1,51 @@
+{
+  "id": "id-15-kusen",
+  "locale": "id",
+  "session_id": "sess-id-15",
+  "project": {
+    "nama": "Kusen Pintu dan Jendela",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Bu Lestari"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5800,
+      "transcript": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6000,
+      "endMs": 8400,
+      "transcript": "Rumah Bu Lestari, Sleman.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/030",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Kusen Pintu dan Jendela",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Bu Lestari"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Kusen pintu dan jendela",
+        "volume": 6,
+        "satuan": "unit",
+        "harga_satuan": 450000,
+        "jumlah": 2700000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 2700000,
+    "terbilang": "Dua juta tujuh ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

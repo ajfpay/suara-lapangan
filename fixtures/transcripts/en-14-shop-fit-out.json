@@ -1,0 +1,66 @@
+{
+  "id": "en-14-shop-fit-out",
+  "locale": "en",
+  "session_id": "sess-en-14",
+  "project": {
+    "nama": "Shop Fit-out",
+    "lokasi": "Elgin, TX",
+    "klien": "Mr. Boateng"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5000,
+      "transcript": "Eight light points in the shop, sixty-five dollars a point.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5200,
+      "endMs": 7600,
+      "transcript": "Two electrical panels at three hundred dollars each.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_3",
+      "startMs": 7800,
+      "endMs": 9600,
+      "transcript": "Boateng shop fit-out, Elgin.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-30/014",
+    "tanggal": "2026-10-30",
+    "proyek": {
+      "nama": "Shop Fit-out",
+      "lokasi": "Elgin, TX",
+      "klien": "Mr. Boateng"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Light points (shop)",
+        "volume": 8,
+        "satuan": "point",
+        "harga_satuan": 65,
+        "jumlah": 520,
+        "sumber_kutipan": "turn_1"
+      },
+      {
+        "uraian": "Electrical panels",
+        "volume": 2,
+        "satuan": "unit",
+        "harga_satuan": 300,
+        "jumlah": 600,
+        "sumber_kutipan": "turn_2"
+      }
+    ],
+    "total_nominal": 1120,
+    "terbilang": "One thousand one hundred twenty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "en-13-driveway-base",
+  "locale": "en",
+  "session_id": "sess-en-13",
+  "project": {
+    "nama": "Driveway Base",
+    "lokasi": "Manor, TX",
+    "klien": "Mr. Tran"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Thirty bags of gravel for the driveway base, nine dollars a bag.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5600,
+      "endMs": 7600,
+      "transcript": "Tran driveway, Manor, Texas.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-30/013",
+    "tanggal": "2026-10-30",
+    "proyek": {
+      "nama": "Driveway Base",
+      "lokasi": "Manor, TX",
+      "klien": "Mr. Tran"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Gravel for driveway base",
+        "volume": 30,
+        "satuan": "bag",
+        "harga_satuan": 9,
+        "jumlah": 270,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 270,
+    "terbilang": "Two hundred seventy US dollars",
+    "butuh_konfirmasi": []
+  }
+}

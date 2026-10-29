@@ -1,0 +1,72 @@
+{
+  "id": "d11-total-tidak-cocok",
+  "locale": "en",
+  "session_id": "sess-def-11",
+  "project": {
+    "nama": "Office Partition",
+    "lokasi": "Austin, TX",
+    "klien": "Ms. Lindqvist"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6000,
+      "transcript": "Twenty square feet of drywall at twenty-five dollars a square foot.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6200,
+      "endMs": 8800,
+      "transcript": "Four bags of joint compound, thirty dollars a bag.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_3",
+      "startMs": 9000,
+      "endMs": 11200,
+      "transcript": "Lindqvist office partition, Austin.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/041",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Office Partition",
+      "lokasi": "Austin, TX",
+      "klien": "Ms. Lindqvist"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall for office partition",
+        "volume": 20,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 500,
+        "sumber_kutipan": "turn_1"
+      },
+      {
+        "uraian": "Joint compound",
+        "volume": 4,
+        "satuan": "bag",
+        "harga_satuan": 30,
+        "jumlah": 120,
+        "sumber_kutipan": "turn_2"
+      }
+    ],
+    "total_nominal": 720,
+    "terbilang": "Seven hundred twenty US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "total_tidak_cocok",
+    "alasan": "total_nominal (720) disagrees with the sum of the rows (500 + 120 = 620). Guard rule 5 makes the server the only source of the total.",
+    "bukti": "twenty-five dollars a square foot"
+  },
+  "expectation": { "field": "total_nominal", "verdict": "butuh_konfirmasi" }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "en-01-drywall-living-room",
+  "locale": "en",
+  "session_id": "sess-en-01",
+  "project": {
+    "nama": "Living Room Remodel",
+    "lokasi": "Austin, TX",
+    "klien": "Mr. Carter"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5200,
+      "transcript": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5400,
+      "endMs": 8200,
+      "transcript": "This is for Mr. Carter's place in Austin, Texas.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/001",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Living Room Remodel",
+      "lokasi": "Austin, TX",
+      "klien": "Mr. Carter"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall installation and taping (living room)",
+        "volume": 24,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 600,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 600,
+    "terbilang": "Six hundred US dollars",
+    "butuh_konfirmasi": []
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "d08-setengah-juta",
+  "locale": "id",
+  "session_id": "sess-def-08",
+  "project": {
+    "nama": "Borongan Taman",
+    "lokasi": "Depok, Sleman",
+    "klien": "Bu Kartika"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 4200,
+      "transcript": "Borongan taman belakang setengah juta.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 4400,
+      "endMs": 6800,
+      "transcript": "Rumah Bu Kartika, Depok.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/038",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Borongan Taman",
+      "lokasi": "Depok, Sleman",
+      "klien": "Bu Kartika"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Borongan taman belakang",
+        "volume": 1,
+        "satuan": "unit",
+        "harga_satuan": 5000000,
+        "jumlah": 5000000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 5000000,
+    "terbilang": "Lima juta rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "setengah_juta_id",
+    "alasan": "\"Setengah juta\" is 500,000; the document wrote 5,000,000, ten times too high. The Indonesian fraction words must be normalised (guard rule 4).",
+    "bukti": "setengah juta"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].harga_satuan",
+    "verdict": "butuh_konfirmasi"
+  }
+}

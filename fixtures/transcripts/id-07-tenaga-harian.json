@@ -1,0 +1,51 @@
+{
+  "id": "id-07-tenaga-harian",
+  "locale": "id",
+  "session_id": "sess-id-07",
+  "project": {
+    "nama": "Pemasangan Rangka",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Dedi"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Tenaga harian enam hari, dua ratus lima puluh ribu per hari.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5600,
+      "endMs": 8200,
+      "transcript": "Pemasangan rangka rumah Pak Dedi, Sleman.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-31/022",
+    "tanggal": "2026-10-31",
+    "proyek": {
+      "nama": "Pemasangan Rangka",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Dedi"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Tenaga harian pemasangan rangka",
+        "volume": 6,
+        "satuan": "hari",
+        "harga_satuan": 250000,
+        "jumlah": 1500000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1500000,
+    "terbilang": "Satu juta lima ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "id": "en-12-office-partition",
+  "locale": "en",
+  "session_id": "sess-en-12",
+  "project": {
+    "nama": "Office Partition",
+    "lokasi": "Austin, TX",
+    "klien": "Ms. Lindqvist"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6600,
+      "endMs": 9200,
+      "transcript": "And four bags of joint compound, thirty dollars a bag.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_3",
+      "startMs": 9400,
+      "endMs": 12000,
+      "transcript": "This is for Ms. Lindqvist, office partition in Austin.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-30/012",
+    "tanggal": "2026-10-30",
+    "proyek": {
+      "nama": "Office Partition",
+      "lokasi": "Austin, TX",
+      "klien": "Ms. Lindqvist"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall for office partition",
+        "volume": 20,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 500,
+        "sumber_kutipan": "turn_1"
+      },
+      {
+        "uraian": "Joint compound",
+        "volume": 4,
+        "satuan": "bag",
+        "harga_satuan": 30,
+        "jumlah": 120,
+        "sumber_kutipan": "turn_2"
+      }
+    ],
+    "total_nominal": 620,
+    "terbilang": "Six hundred twenty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

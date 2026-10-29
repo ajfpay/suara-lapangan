@@ -1,0 +1,60 @@
+{
+  "id": "d10-jumlah-tidak-cocok",
+  "locale": "id",
+  "session_id": "sess-def-10",
+  "project": {
+    "nama": "Pekerjaan Plester",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Dedi"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5200,
+      "transcript": "Semen dua puluh sak, enam puluh dua ribu per sak.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5400,
+      "endMs": 7800,
+      "transcript": "Proyek Pak Dedi, Sleman.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/040",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Pekerjaan Plester",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Dedi"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Semen untuk pekerjaan plester",
+        "volume": 20,
+        "satuan": "sak",
+        "harga_satuan": 62000,
+        "jumlah": 1420000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1420000,
+    "terbilang": "Satu juta empat ratus dua puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "jumlah_tidak_cocok",
+    "alasan": "The model's jumlah (1,420,000) is not volume × harga_satuan (20 × 62,000 = 1,240,000). Guard rule 5 recomputes in the server and the model's figure is ignored.",
+    "bukti": "Semen dua puluh sak, enam puluh dua ribu per sak."
+  },
+  "expectation": {
+    "field": "pekerjaan[0].jumlah",
+    "verdict": "butuh_konfirmasi"
+  }
+}

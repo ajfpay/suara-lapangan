@@ -1,0 +1,51 @@
+{
+  "id": "id-05-plester-dinding",
+  "locale": "id",
+  "session_id": "sess-id-05",
+  "project": {
+    "nama": "Plester Dinding Belakang",
+    "lokasi": "Mlati, Sleman",
+    "klien": "Pak Hartono"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 7400,
+      "transcript": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7600,
+      "endMs": 9800,
+      "transcript": "Rumah Pak Hartono, Mlati.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-31/020",
+    "tanggal": "2026-10-31",
+    "proyek": {
+      "nama": "Plester Dinding Belakang",
+      "lokasi": "Mlati, Sleman",
+      "klien": "Pak Hartono"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Plester dinding belakang",
+        "volume": 85,
+        "satuan": "m2",
+        "harga_satuan": 45000,
+        "jumlah": 3825000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 3825000,
+    "terbilang": "Tiga juta delapan ratus dua puluh lima ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}
