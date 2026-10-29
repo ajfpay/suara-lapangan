@@ -34,6 +34,8 @@ Diperbarui 29 Okt 2026.
     13/13 tes hijau.
   - Tiket 12 — commit `a315798` di repo dokumen `/home/ubuntu/repos/prototype`: dokumen arsitektur
     disinkronkan.
-- **Batch 2 — SEDANG BERJALAN.** Tiket 02 (layar UI; `app/[locale]/(suara)/**` + `lib/client/**`)
-  dan tiket 03 (endpoint ASR; `app/api/asr/**` + `lib/server/**` + `db/**`).
+- **Batch 2 — SEDANG BERJALAN.** Tiket 02 (layar UI; `app/[locale]/(suara)/**` + `lib/client/**`,
+  thread `T-01a185a8-7872-7705-92b7-dcff4746e323`, worker `test-automation-engineer`) dan tiket 03
+  (endpoint ASR; `app/api/asr/**` + `lib/server/**` + `db/**`, thread
+  `T-01a185a8-87f6-74e1-ad19-a76acda0dfc7`, worker `senior-developer`).
 - Belum ada remote dan belum ada push; **merge hanya oleh manusia**.
