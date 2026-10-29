@@ -20,3 +20,20 @@ Setiap tiket punya worktree + cabang sendiri. Satu folder hanya punya SATU pemil
 Batasan lain yang sudah berlaku: pekerja tidak menyentuh worktree tiket lain, tidak merge, tidak
 menghapus cabang/worktree, dan tidak membuat repo publik atau deploy (butuh persetujuan tertulis
 pemilik).
+
+## Project Status
+
+Diperbarui 29 Okt 2026.
+
+- **Batch 1 — SELESAI.**
+  - Tiket 01 — commit `56a112a`: kerangka Next.js App Router + `next-intl`, tiga layar (Rekam,
+    Susun, Dokumen) di `app/[locale]/`, locale `en` + `id`, alur faktur dihapus, notis lisensi MIT
+    dipertahankan, 32/32 tes hijau.
+  - Tiket 04 — commit `3add279` di cabang `agent/04-skema-fixtures-v2`, **belum merge ke `main`**:
+    skema Quotation `strict` `en`/`id` di `contracts/`, 30 fixture bersih, 12 transkrip cacat,
+    13/13 tes hijau.
+  - Tiket 12 — commit `a315798` di repo dokumen `/home/ubuntu/repos/prototype`: dokumen arsitektur
+    disinkronkan.
+- **Batch 2 — SEDANG BERJALAN.** Tiket 02 (layar UI; `app/[locale]/(suara)/**` + `lib/client/**`)
+  dan tiket 03 (endpoint ASR; `app/api/asr/**` + `lib/server/**` + `db/**`).
+- Belum ada remote dan belum ada push; **merge hanya oleh manusia**.
