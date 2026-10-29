@@ -1,0 +1,134 @@
+{
+  "id": "id-03-besi-cor-dak",
+  "locale": "id",
+  "sessionId": "sess-id-03",
+  "turnCount": 2,
+  "reference": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo, Klaten.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 19,
+    "referenceWords": 19,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 3,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "besi"
+      },
+      {
+        "op": "delete",
+        "ref": "sepuluh"
+      },
+      {
+        "op": "delete",
+        "ref": "milimeter"
+      },
+      {
+        "op": "substitute",
+        "ref": "tiga",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "tujuh",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "cor",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "dak",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "teras",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "waluyo",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "klaten",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 11,
+    "referenceTokens": [
+      "sepuluh",
+      "tiga",
+      "puluh",
+      "lima",
+      "batang",
+      "tujuh",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 11,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 11
+  }
+}

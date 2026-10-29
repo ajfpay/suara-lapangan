@@ -1,0 +1,106 @@
+{
+  "id": "en-08-backyard-fence",
+  "locale": "en",
+  "sessionId": "sess-en-08",
+  "turnCount": 2,
+  "reference": "Eighteen fence posts, thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+  "hypothesis": "Eighteen fence posts at thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+  "overall": {
+    "wer": 0.08333333333333333,
+    "distance": 1,
+    "referenceWords": 12,
+    "hypothesisWords": 13,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "eighteen",
+        "hyp": "eighteen"
+      },
+      {
+        "op": "equal",
+        "ref": "fence",
+        "hyp": "fence"
+      },
+      {
+        "op": "equal",
+        "ref": "posts",
+        "hyp": "posts"
+      },
+      {
+        "op": "insert",
+        "hyp": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "thirty",
+        "hyp": "thirty"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "each",
+        "hyp": "each"
+      },
+      {
+        "op": "equal",
+        "ref": "ramirez",
+        "hyp": "ramirez"
+      },
+      {
+        "op": "equal",
+        "ref": "backyard",
+        "hyp": "backyard"
+      },
+      {
+        "op": "equal",
+        "ref": "fence",
+        "hyp": "fence"
+      },
+      {
+        "op": "equal",
+        "ref": "buda",
+        "hyp": "buda"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "eighteen",
+      "thirty",
+      "five",
+      "dollars",
+      "each"
+    ],
+    "hypothesisTokens": [
+      "eighteen",
+      "thirty",
+      "five",
+      "dollars",
+      "each"
+    ],
+    "referenceCount": 5,
+    "hypothesisCount": 5,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

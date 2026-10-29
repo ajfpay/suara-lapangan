@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-15",
+  "transcript": "Kusen pintu jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari di Sleman.",
+  "audioDurationMs": 8400,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5800,
+      "transcript": "Kusen pintu jendela enam unit, empat ratus lima puluh ribu per unit."
+    },
+    {
+      "startMs": 6000,
+      "endMs": 8400,
+      "transcript": "Rumah Bu Lestari di Sleman."
+    }
+  ]
+}

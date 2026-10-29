@@ -1,0 +1,130 @@
+{
+  "id": "id-04-titik-lampu",
+  "locale": "id",
+  "sessionId": "sess-id-04",
+  "turnCount": 2,
+  "reference": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu per titik. Rumah Bu Kartika di Depok, Sleman.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 18,
+    "referenceWords": 18,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 2,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "titik"
+      },
+      {
+        "op": "delete",
+        "ref": "lampu"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "belas",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "titik",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "seratus",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "tujuh",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "titik",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "kartika",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "di",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "depok",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sleman",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 11,
+    "referenceTokens": [
+      "titik",
+      "dua",
+      "belas",
+      "titik",
+      "seratus",
+      "tujuh",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "titik"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 11,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 11
+  }
+}

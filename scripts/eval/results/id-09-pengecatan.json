@@ -1,0 +1,136 @@
+{
+  "id": "id-09-pengecatan",
+  "locale": "id",
+  "sessionId": "sess-id-09",
+  "turnCount": 2,
+  "reference": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi, Sleman.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 19,
+    "referenceWords": 19,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 3,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "pengecatan"
+      },
+      {
+        "op": "delete",
+        "ref": "tiga"
+      },
+      {
+        "op": "delete",
+        "ref": "kamar"
+      },
+      {
+        "op": "substitute",
+        "ref": "seratus",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "tiga",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "andi",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sleman",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 13,
+    "referenceTokens": [
+      "tiga",
+      "seratus",
+      "dua",
+      "puluh",
+      "meter",
+      "persegi",
+      "tiga",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 13,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 13
+  }
+}

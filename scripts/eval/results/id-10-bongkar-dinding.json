@@ -1,0 +1,130 @@
+{
+  "id": "id-10-bongkar-dinding",
+  "locale": "id",
+  "sessionId": "sess-id-10",
+  "turnCount": 2,
+  "reference": "Bongkar dinding dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari, Ngaglik.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 18,
+    "referenceWords": 18,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 2,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "bongkar"
+      },
+      {
+        "op": "delete",
+        "ref": "dinding"
+      },
+      {
+        "op": "substitute",
+        "ref": "dapur",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "belas",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "dapur",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "sari",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ngaglik",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 11,
+    "referenceTokens": [
+      "lima",
+      "belas",
+      "meter",
+      "persegi",
+      "lima",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 11,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 11
+  }
+}

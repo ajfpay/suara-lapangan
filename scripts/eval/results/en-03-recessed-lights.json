@@ -1,0 +1,122 @@
+{
+  "id": "en-03-recessed-lights",
+  "locale": "en",
+  "sessionId": "sess-en-03",
+  "turnCount": 2,
+  "reference": "Five recessed light points in the kitchen, eighty dollars each. Mr. Nguyen's kitchen, Dallas, Texas.",
+  "hypothesis": "Five recessed light points in the kitchen, eighty dollars per point. Mr. Nguyen's kitchen, Dallas, Texas.",
+  "overall": {
+    "wer": 0.13333333333333333,
+    "distance": 2,
+    "referenceWords": 15,
+    "hypothesisWords": 16,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "recessed",
+        "hyp": "recessed"
+      },
+      {
+        "op": "equal",
+        "ref": "light",
+        "hyp": "light"
+      },
+      {
+        "op": "equal",
+        "ref": "points",
+        "hyp": "points"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "kitchen",
+        "hyp": "kitchen"
+      },
+      {
+        "op": "equal",
+        "ref": "eighty",
+        "hyp": "eighty"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "insert",
+        "hyp": "per"
+      },
+      {
+        "op": "substitute",
+        "ref": "each",
+        "hyp": "point"
+      },
+      {
+        "op": "equal",
+        "ref": "mr",
+        "hyp": "mr"
+      },
+      {
+        "op": "equal",
+        "ref": "nguyens",
+        "hyp": "nguyens"
+      },
+      {
+        "op": "equal",
+        "ref": "kitchen",
+        "hyp": "kitchen"
+      },
+      {
+        "op": "equal",
+        "ref": "dallas",
+        "hyp": "dallas"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.4,
+    "distance": 2,
+    "referenceTokens": [
+      "five",
+      "points",
+      "eighty",
+      "dollars",
+      "each"
+    ],
+    "hypothesisTokens": [
+      "five",
+      "points",
+      "eighty",
+      "dollars",
+      "per",
+      "point"
+    ],
+    "referenceCount": 5,
+    "hypothesisCount": 6,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0
+  }
+}

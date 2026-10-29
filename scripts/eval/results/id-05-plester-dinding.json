@@ -1,0 +1,135 @@
+{
+  "id": "id-05-plester-dinding",
+  "locale": "id",
+  "sessionId": "sess-id-05",
+  "turnCount": 2,
+  "reference": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono, Mlati.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 19,
+    "referenceWords": 19,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 3,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "plester"
+      },
+      {
+        "op": "delete",
+        "ref": "dinding"
+      },
+      {
+        "op": "delete",
+        "ref": "belakang"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "empat",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "hartono",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "mlati",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 12,
+    "referenceTokens": [
+      "delapan",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "empat",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 12,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 12
+  }
+}

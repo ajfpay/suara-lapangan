@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-02",
+  "transcript": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna di Bantul.",
+  "audioDurationMs": 8000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 4800,
+      "transcript": "Semen empat puluh sak, enam puluh dua ribu per sak."
+    },
+    {
+      "startMs": 5000,
+      "endMs": 8000,
+      "transcript": "Plester lantai dua, rumah Bu Ratna di Bantul."
+    }
+  ]
+}

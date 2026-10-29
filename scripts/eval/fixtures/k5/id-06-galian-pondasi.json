@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-06",
+  "transcript": "Galian pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno di Godean.",
+  "audioDurationMs": 9400,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6800,
+      "transcript": "Galian pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik."
+    },
+    {
+      "startMs": 7000,
+      "endMs": 9400,
+      "transcript": "Pondasi rumah Pak Sutrisno di Godean."
+    }
+  ]
+}

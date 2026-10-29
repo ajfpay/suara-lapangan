@@ -1,0 +1,132 @@
+{
+  "id": "en-09-plumbing-fixtures",
+  "locale": "en",
+  "sessionId": "sess-en-09",
+  "turnCount": 2,
+  "reference": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars a fixture. Whitfield's place in Kyle.",
+  "hypothesis": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars per fixture. Whitfield's place in Kyle.",
+  "overall": {
+    "wer": 0.058823529411764705,
+    "distance": 1,
+    "referenceWords": 17,
+    "hypothesisWords": 17,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "three",
+        "hyp": "three"
+      },
+      {
+        "op": "equal",
+        "ref": "plumbing",
+        "hyp": "plumbing"
+      },
+      {
+        "op": "equal",
+        "ref": "fixtures",
+        "hyp": "fixtures"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "bathroom",
+        "hyp": "bathroom"
+      },
+      {
+        "op": "equal",
+        "ref": "refit",
+        "hyp": "refit"
+      },
+      {
+        "op": "equal",
+        "ref": "two",
+        "hyp": "two"
+      },
+      {
+        "op": "equal",
+        "ref": "hundred",
+        "hyp": "hundred"
+      },
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "substitute",
+        "ref": "a",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "fixture",
+        "hyp": "fixture"
+      },
+      {
+        "op": "equal",
+        "ref": "whitfields",
+        "hyp": "whitfields"
+      },
+      {
+        "op": "equal",
+        "ref": "place",
+        "hyp": "place"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "kyle",
+        "hyp": "kyle"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.14285714285714285,
+    "distance": 1,
+    "referenceTokens": [
+      "three",
+      "fixtures",
+      "two",
+      "hundred",
+      "twenty",
+      "dollars",
+      "fixture"
+    ],
+    "hypothesisTokens": [
+      "three",
+      "fixtures",
+      "two",
+      "hundred",
+      "twenty",
+      "dollars",
+      "per",
+      "fixture"
+    ],
+    "referenceCount": 7,
+    "hypothesisCount": 8,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0
+  }
+}

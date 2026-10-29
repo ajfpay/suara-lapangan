@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-07",
+  "transcript": "Tenaga harian enam hari, dua ratus lima puluh ribu tiap hari. Pemasangan rangka Pak Dedi di Sleman.",
+  "audioDurationMs": 8200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Tenaga harian enam hari, dua ratus lima puluh ribu tiap hari."
+    },
+    {
+      "startMs": 5600,
+      "endMs": 8200,
+      "transcript": "Pemasangan rangka Pak Dedi di Sleman."
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "id": "en-07-bathroom-tile",
+  "locale": "en",
+  "sessionId": "sess-en-07",
+  "turnCount": 2,
+  "reference": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+  "hypothesis": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 18,
+    "hypothesisWords": 18,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "tile",
+        "hyp": "tile"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "bathroom",
+        "hyp": "bathroom"
+      },
+      {
+        "op": "equal",
+        "ref": "floor",
+        "hyp": "floor"
+      },
+      {
+        "op": "equal",
+        "ref": "thirty",
+        "hyp": "thirty"
+      },
+      {
+        "op": "equal",
+        "ref": "two",
+        "hyp": "two"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "feet",
+        "hyp": "feet"
+      },
+      {
+        "op": "equal",
+        "ref": "fourteen",
+        "hyp": "fourteen"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "foot",
+        "hyp": "foot"
+      },
+      {
+        "op": "equal",
+        "ref": "okoro",
+        "hyp": "okoro"
+      },
+      {
+        "op": "equal",
+        "ref": "bathroom",
+        "hyp": "bathroom"
+      },
+      {
+        "op": "equal",
+        "ref": "cedar",
+        "hyp": "cedar"
+      },
+      {
+        "op": "equal",
+        "ref": "park",
+        "hyp": "park"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "thirty",
+      "two",
+      "square",
+      "feet",
+      "fourteen",
+      "dollars",
+      "square",
+      "foot"
+    ],
+    "hypothesisTokens": [
+      "thirty",
+      "two",
+      "square",
+      "feet",
+      "fourteen",
+      "dollars",
+      "square",
+      "foot"
+    ],
+    "referenceCount": 8,
+    "hypothesisCount": 8,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

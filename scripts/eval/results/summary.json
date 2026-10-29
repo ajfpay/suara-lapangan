@@ -1,0 +1,4793 @@
+{
+  "timestamp": "2026-10-29T10:04:51.612Z",
+  "totalRecordings": 30,
+  "en": {
+    "count": 15,
+    "totalReferenceWords": 296,
+    "totalHypothesisWords": 298,
+    "totalDistance": 11,
+    "wer": 0.037162162162162164,
+    "substitutions": 7,
+    "insertions": 3,
+    "deletions": 1,
+    "moneyVolume": {
+      "totalReferenceTokens": 117,
+      "totalHypothesisTokens": 123,
+      "totalDistance": 7,
+      "wer": 0.05982905982905983,
+      "substitutions": 1,
+      "insertions": 6,
+      "deletions": 0
+    },
+    "threshold": 0.1,
+    "passed": true
+  },
+  "id": {
+    "count": 15,
+    "totalReferenceWords": 282,
+    "totalHypothesisWords": 248,
+    "totalDistance": 283,
+    "wer": 1.00354609929078,
+    "substitutions": 247,
+    "insertions": 1,
+    "deletions": 35,
+    "moneyVolume": {
+      "totalReferenceTokens": 167,
+      "totalHypothesisTokens": 0,
+      "totalDistance": 167,
+      "wer": 1,
+      "substitutions": 0,
+      "insertions": 0,
+      "deletions": 167
+    },
+    "threshold": 0.15,
+    "passed": false
+  },
+  "combined": {
+    "totalReferenceWords": 578,
+    "totalHypothesisWords": 546,
+    "totalDistance": 294,
+    "wer": 0.5086505190311419,
+    "moneyVolume": {
+      "totalReferenceTokens": 284,
+      "totalHypothesisTokens": 123,
+      "totalDistance": 174,
+      "wer": 0.6126760563380281
+    }
+  },
+  "gate1": {
+    "status": "STOP_24_JAM",
+    "stop24Jam": true,
+    "escalateTo": "pemilik",
+    "passed": false,
+    "reasons": [
+      "Indonesian WER (100.35%) exceeds the 25.0% hard-stop threshold. Marking STOP 24 jam and escalating to pemilik for segment/route pivot decision."
+    ],
+    "thresholds": {
+      "enTarget": 0.1,
+      "idTarget": 0.15,
+      "idStop": 0.25,
+      "moneyVolumeTarget": 0.1
+    }
+  },
+  "worstSamples": [
+    {
+      "rank": 1,
+      "id": "id-12-instalasi-air",
+      "locale": "id",
+      "wer": 1.0666666666666667,
+      "distance": 16,
+      "referenceWords": 15,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik. Kamar mandi Bu Ningsih, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 2,
+      "id": "id-01-pasang-keramik",
+      "locale": "id",
+      "wer": 1,
+      "distance": 23,
+      "referenceWords": 23,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi. Ini rumah Pak Suryo di Sleman, Yogyakarta.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 3,
+      "id": "id-02-semen-plester",
+      "locale": "id",
+      "wer": 1,
+      "distance": 17,
+      "referenceWords": 17,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna, Bantul.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 4,
+      "id": "id-03-besi-cor-dak",
+      "locale": "id",
+      "wer": 1,
+      "distance": 19,
+      "referenceWords": 19,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo, Klaten.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 5,
+      "id": "id-04-titik-lampu",
+      "locale": "id",
+      "wer": 1,
+      "distance": 18,
+      "referenceWords": 18,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu per titik. Rumah Bu Kartika di Depok, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 6,
+      "id": "id-05-plester-dinding",
+      "locale": "id",
+      "wer": 1,
+      "distance": 19,
+      "referenceWords": 19,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono, Mlati.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 7,
+      "id": "id-06-galian-pondasi",
+      "locale": "id",
+      "wer": 1,
+      "distance": 18,
+      "referenceWords": 18,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno, Godean.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 8,
+      "id": "id-07-tenaga-harian",
+      "locale": "id",
+      "wer": 1,
+      "distance": 17,
+      "referenceWords": 17,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Tenaga harian enam hari, dua ratus lima puluh ribu per hari. Pemasangan rangka rumah Pak Dedi, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 9,
+      "id": "id-08-kayu-kaso",
+      "locale": "id",
+      "wer": 1,
+      "distance": 18,
+      "referenceWords": 18,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang. Rangka atap rumah Bu Wati, Kalasan.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 10,
+      "id": "id-09-pengecatan",
+      "locale": "id",
+      "wer": 1,
+      "distance": 19,
+      "referenceWords": 19,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 11,
+      "id": "id-10-bongkar-dinding",
+      "locale": "id",
+      "wer": 1,
+      "distance": 18,
+      "referenceWords": 18,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Bongkar dinding dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari, Ngaglik.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 12,
+      "id": "id-11-semen-dan-besi",
+      "locale": "id",
+      "wer": 1,
+      "distance": 27,
+      "referenceWords": 27,
+      "hypothesisWords": 24,
+      "moneyVolumeWer": 1,
+      "reference": "Semen dua puluh sak, enam puluh dua ribu per sak. Besi delapan milimeter sepuluh batang, tujuh puluh delapan ribu per batang. Struktur tambahan rumah Pak Yusuf, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 13,
+      "id": "id-13-paving-halaman",
+      "locale": "id",
+      "wer": 1,
+      "distance": 18,
+      "referenceWords": 18,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi, Pakem.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 14,
+      "id": "id-14-ganti-atap",
+      "locale": "id",
+      "wer": 1,
+      "distance": 19,
+      "referenceWords": 19,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Ganti atap gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra, Berbah.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 15,
+      "id": "id-15-kusen",
+      "locale": "id",
+      "wer": 1,
+      "distance": 17,
+      "referenceWords": 17,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 1,
+      "reference": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas"
+    },
+    {
+      "rank": 16,
+      "id": "en-03-recessed-lights",
+      "locale": "en",
+      "wer": 0.13333333333333333,
+      "distance": 2,
+      "referenceWords": 15,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 0.4,
+      "reference": "Five recessed light points in the kitchen, eighty dollars each. Mr. Nguyen's kitchen, Dallas, Texas.",
+      "hypothesis": "Five recessed light points in the kitchen, eighty dollars per point. Mr. Nguyen's kitchen, Dallas, Texas."
+    },
+    {
+      "rank": 17,
+      "id": "en-08-backyard-fence",
+      "locale": "en",
+      "wer": 0.08333333333333333,
+      "distance": 1,
+      "referenceWords": 12,
+      "hypothesisWords": 13,
+      "moneyVolumeWer": 0,
+      "reference": "Eighteen fence posts, thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+      "hypothesis": "Eighteen fence posts at thirty-five dollars each. Ramirez backyard fence, Buda, Texas."
+    },
+    {
+      "rank": 18,
+      "id": "en-14-shop-fit-out",
+      "locale": "en",
+      "wer": 0.08333333333333333,
+      "distance": 2,
+      "referenceWords": 24,
+      "hypothesisWords": 23,
+      "moneyVolumeWer": 0.09090909090909091,
+      "reference": "Eight light points in the shop, sixty-five dollars a point. Two electrical panels at three hundred dollars each. Boateng shop fit-out, Elgin.",
+      "hypothesis": "Eight light points in the shop, sixty-five dollars per point. Two electrical panels, three hundred dollars each. Boateng shop fit-out, Elgin."
+    },
+    {
+      "rank": 19,
+      "id": "en-06-demolition-labour",
+      "locale": "en",
+      "wer": 0.07142857142857142,
+      "distance": 1,
+      "referenceWords": 14,
+      "hypothesisWords": 15,
+      "moneyVolumeWer": 0,
+      "reference": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen, Georgetown, Texas.",
+      "hypothesis": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen in Georgetown, Texas."
+    },
+    {
+      "rank": 20,
+      "id": "en-11-hallway-trim",
+      "locale": "en",
+      "wer": 0.06666666666666667,
+      "distance": 1,
+      "referenceWords": 15,
+      "hypothesisWords": 15,
+      "moneyVolumeWer": 0.125,
+      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
+      "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin."
+    },
+    {
+      "rank": 21,
+      "id": "en-13-driveway-base",
+      "locale": "en",
+      "wer": 0.0625,
+      "distance": 1,
+      "referenceWords": 16,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 0.2,
+      "reference": "Thirty bags of gravel for the driveway base, nine dollars a bag. Tran driveway, Manor, Texas.",
+      "hypothesis": "Thirty bags of gravel for the driveway base, nine dollars per bag. Tran driveway, Manor, Texas."
+    },
+    {
+      "rank": 22,
+      "id": "en-09-plumbing-fixtures",
+      "locale": "en",
+      "wer": 0.058823529411764705,
+      "distance": 1,
+      "referenceWords": 17,
+      "hypothesisWords": 17,
+      "moneyVolumeWer": 0.14285714285714285,
+      "reference": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars a fixture. Whitfield's place in Kyle.",
+      "hypothesis": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars per fixture. Whitfield's place in Kyle."
+    },
+    {
+      "rank": 23,
+      "id": "en-15-front-yard-sod",
+      "locale": "en",
+      "wer": 0.045454545454545456,
+      "distance": 1,
+      "referenceWords": 22,
+      "hypothesisWords": 22,
+      "moneyVolumeWer": 0.1111111111111111,
+      "reference": "One hundred forty square feet of sod for the front yard, three dollars a square foot. Nakamura front yard, Liberty Hill, Texas.",
+      "hypothesis": "One hundred forty square feet of sod for the front yard, three dollars per square foot. Nakamura front yard, Liberty Hill, Texas."
+    },
+    {
+      "rank": 24,
+      "id": "en-02-garage-slab",
+      "locale": "en",
+      "wer": 0.03333333333333333,
+      "distance": 1,
+      "referenceWords": 30,
+      "hypothesisWords": 30,
+      "moneyVolumeWer": 0,
+      "reference": "We are pouring a concrete slab in the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+      "hypothesis": "We are pouring a concrete slab for the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas."
+    },
+    {
+      "rank": 25,
+      "id": "en-01-drywall-living-room",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 25,
+      "hypothesisWords": 25,
+      "moneyVolumeWer": 0,
+      "reference": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+      "hypothesis": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas."
+    },
+    {
+      "rank": 26,
+      "id": "en-04-foundation-rebar",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 22,
+      "hypothesisWords": 22,
+      "moneyVolumeWer": 0,
+      "reference": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+      "hypothesis": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos."
+    },
+    {
+      "rank": 27,
+      "id": "en-05-interior-repaint",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 16,
+      "hypothesisWords": 16,
+      "moneyVolumeWer": 0,
+      "reference": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+      "hypothesis": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville."
+    },
+    {
+      "rank": 28,
+      "id": "en-07-bathroom-tile",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 18,
+      "hypothesisWords": 18,
+      "moneyVolumeWer": 0,
+      "reference": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+      "hypothesis": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park."
+    },
+    {
+      "rank": 29,
+      "id": "en-10-roof-repair",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 15,
+      "hypothesisWords": 15,
+      "moneyVolumeWer": 0,
+      "reference": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas.",
+      "hypothesis": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas."
+    },
+    {
+      "rank": 30,
+      "id": "en-12-office-partition",
+      "locale": "en",
+      "wer": 0,
+      "distance": 0,
+      "referenceWords": 35,
+      "hypothesisWords": 35,
+      "moneyVolumeWer": 0,
+      "reference": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+      "hypothesis": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin."
+    }
+  ],
+  "defects": {
+    "total": 12,
+    "byCode": {
+      "harga_lolos_sebagai_volume": 1,
+      "satuan_salah": 1,
+      "desimal_koma_id": 1,
+      "ratus_puluh_tertukar": 1,
+      "kutipan_sesi_lain": 1,
+      "kutipan_non_final": 1,
+      "twelve_hundred_en": 1,
+      "setengah_juta_id": 1,
+      "angka_tidak_ada_di_giliran": 1,
+      "jumlah_tidak_cocok": 1,
+      "total_tidak_cocok": 1,
+      "satuan_hilang": 1
+    },
+    "byVerdict": {
+      "butuh_konfirmasi": 12
+    },
+    "byLocale": {
+      "en": 6,
+      "id": 6
+    },
+    "items": [
+      {
+        "id": "d01-harga-lolos-sebagai-volume",
+        "locale": "en",
+        "defectCode": "harga_lolos_sebagai_volume",
+        "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
+        "bukti": "eight hundred dollars",
+        "field": "pekerjaan[0].volume",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d02-satuan-salah",
+        "locale": "id",
+        "defectCode": "satuan_salah",
+        "alasan": "The row is priced per square metre, but the unit was written as sak (bags of cement). The spoken unit does not match the field's unit, so guard rule 2 must hold it.",
+        "bukti": "dua puluh empat meter persegi",
+        "field": "pekerjaan[0].satuan",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d03-desimal-koma",
+        "locale": "id",
+        "defectCode": "desimal_koma_id",
+        "alasan": "The Indonesian decimal comma was read as a thousands separator: 24,5 became 245, ten times too large. Guard rule 4 must normalise comma decimals before comparing.",
+        "bukti": "24,5 meter persegi",
+        "field": "pekerjaan[0].volume",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d04-ratus-puluh-tertukar",
+        "locale": "id",
+        "defectCode": "ratus_puluh_tertukar",
+        "alasan": "Delapan puluh ribu (80,000) was written as 800,000: the puluh/ratus reading is off by ten times. Guard rule 4 must normalise Indonesian tens words before comparing.",
+        "bukti": "delapan puluh ribu",
+        "field": "pekerjaan[0].harga_satuan",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d05-kutipan-sesi-lain",
+        "locale": "en",
+        "defectCode": "kutipan_sesi_lain",
+        "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has only turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
+        "bukti": "turn_4",
+        "field": "pekerjaan[0].sumber_kutipan",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d06-kutipan-non-final",
+        "locale": "id",
+        "defectCode": "kutipan_non_final",
+        "alasan": "The value comes from a partial turn (final=false). Guard rule 1 accepts only final turns, so the field must wait until a final turn states the number.",
+        "bukti": "turn_2",
+        "field": "pekerjaan[0].sumber_kutipan",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d07-twelve-hundred",
+        "locale": "en",
+        "defectCode": "twelve_hundred_en",
+        "alasan": "Spoken \"twelve hundred\" is 1,200; the document wrote 12,000. The English hundreds idiom must be normalised before the number is compared (guard rule 4).",
+        "bukti": "twelve hundred",
+        "field": "pekerjaan[0].jumlah",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d08-setengah-juta",
+        "locale": "id",
+        "defectCode": "setengah_juta_id",
+        "alasan": "\"Setengah juta\" is 500,000; the document wrote 5,000,000, ten times too high. The Indonesian fraction words must be normalised (guard rule 4).",
+        "bukti": "setengah juta",
+        "field": "pekerjaan[0].harga_satuan",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d09-angka-tanpa-giliran",
+        "locale": "en",
+        "defectCode": "angka_tidak_ada_di_giliran",
+        "alasan": "No turn states a volume or a rate: the row's numbers come from nowhere. The guard must ask instead of letting a value appear without a source.",
+        "bukti": "Same drywall as the last unit, same rate.",
+        "field": "pekerjaan[0].volume",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d10-jumlah-tidak-cocok",
+        "locale": "id",
+        "defectCode": "jumlah_tidak_cocok",
+        "alasan": "The model's jumlah (1,420,000) is not volume × harga_satuan (20 × 62,000 = 1,240,000). Guard rule 5 recomputes in the server and the model's figure is ignored.",
+        "bukti": "Semen dua puluh sak, enam puluh dua ribu per sak.",
+        "field": "pekerjaan[0].jumlah",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d11-total-tidak-cocok",
+        "locale": "en",
+        "defectCode": "total_tidak_cocok",
+        "alasan": "total_nominal (720) disagrees with the sum of the rows (500 + 120 = 620). Guard rule 5 makes the server the only source of the total.",
+        "bukti": "twenty-five dollars a square foot",
+        "field": "total_nominal",
+        "verdict": "butuh_konfirmasi"
+      },
+      {
+        "id": "d12-satuan-hilang",
+        "locale": "en",
+        "defectCode": "satuan_hilang",
+        "alasan": "No unit was ever spoken, yet the row assumes square feet. Guard rule 2 must hold the unit for confirmation rather than assume the most likely one.",
+        "bukti": "Twenty-four for the drywall, twenty-five each.",
+        "field": "pekerjaan[0].satuan",
+        "verdict": "butuh_konfirmasi"
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "id": "en-01-drywall-living-room",
+      "locale": "en",
+      "sessionId": "sess-en-01",
+      "turnCount": 2,
+      "reference": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+      "hypothesis": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 25,
+        "hypothesisWords": 25,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "drywall",
+            "hyp": "drywall"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "living",
+            "hyp": "living"
+          },
+          {
+            "op": "equal",
+            "ref": "room",
+            "hyp": "room"
+          },
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "four",
+            "hyp": "four"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "feet",
+            "hyp": "feet"
+          },
+          {
+            "op": "equal",
+            "ref": "at",
+            "hyp": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "foot",
+            "hyp": "foot"
+          },
+          {
+            "op": "equal",
+            "ref": "this",
+            "hyp": "this"
+          },
+          {
+            "op": "equal",
+            "ref": "is",
+            "hyp": "is"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "mr",
+            "hyp": "mr"
+          },
+          {
+            "op": "equal",
+            "ref": "carters",
+            "hyp": "carters"
+          },
+          {
+            "op": "equal",
+            "ref": "place",
+            "hyp": "place"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "austin",
+            "hyp": "austin"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "twenty",
+          "four",
+          "square",
+          "feet",
+          "twenty",
+          "five",
+          "dollars",
+          "square",
+          "foot"
+        ],
+        "hypothesisTokens": [
+          "twenty",
+          "four",
+          "square",
+          "feet",
+          "twenty",
+          "five",
+          "dollars",
+          "square",
+          "foot"
+        ],
+        "referenceCount": 9,
+        "hypothesisCount": 9,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-02-garage-slab",
+      "locale": "en",
+      "sessionId": "sess-en-02",
+      "turnCount": 2,
+      "reference": "We are pouring a concrete slab in the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+      "hypothesis": "We are pouring a concrete slab for the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+      "overall": {
+        "wer": 0.03333333333333333,
+        "distance": 1,
+        "referenceWords": 30,
+        "hypothesisWords": 30,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "we",
+            "hyp": "we"
+          },
+          {
+            "op": "equal",
+            "ref": "are",
+            "hyp": "are"
+          },
+          {
+            "op": "equal",
+            "ref": "pouring",
+            "hyp": "pouring"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "concrete",
+            "hyp": "concrete"
+          },
+          {
+            "op": "equal",
+            "ref": "slab",
+            "hyp": "slab"
+          },
+          {
+            "op": "substitute",
+            "ref": "in",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "garage",
+            "hyp": "garage"
+          },
+          {
+            "op": "equal",
+            "ref": "twelve",
+            "hyp": "twelve"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "meters",
+            "hyp": "meters"
+          },
+          {
+            "op": "equal",
+            "ref": "ninety",
+            "hyp": "ninety"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "meter",
+            "hyp": "meter"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "client",
+            "hyp": "client"
+          },
+          {
+            "op": "equal",
+            "ref": "is",
+            "hyp": "is"
+          },
+          {
+            "op": "equal",
+            "ref": "mrs",
+            "hyp": "mrs"
+          },
+          {
+            "op": "equal",
+            "ref": "alvarez",
+            "hyp": "alvarez"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "job",
+            "hyp": "job"
+          },
+          {
+            "op": "equal",
+            "ref": "is",
+            "hyp": "is"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "round",
+            "hyp": "round"
+          },
+          {
+            "op": "equal",
+            "ref": "rock",
+            "hyp": "rock"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "twelve",
+          "square",
+          "meters",
+          "ninety",
+          "five",
+          "dollars",
+          "square",
+          "meter"
+        ],
+        "hypothesisTokens": [
+          "twelve",
+          "square",
+          "meters",
+          "ninety",
+          "five",
+          "dollars",
+          "square",
+          "meter"
+        ],
+        "referenceCount": 8,
+        "hypothesisCount": 8,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-03-recessed-lights",
+      "locale": "en",
+      "sessionId": "sess-en-03",
+      "turnCount": 2,
+      "reference": "Five recessed light points in the kitchen, eighty dollars each. Mr. Nguyen's kitchen, Dallas, Texas.",
+      "hypothesis": "Five recessed light points in the kitchen, eighty dollars per point. Mr. Nguyen's kitchen, Dallas, Texas.",
+      "overall": {
+        "wer": 0.13333333333333333,
+        "distance": 2,
+        "referenceWords": 15,
+        "hypothesisWords": 16,
+        "substitutions": 1,
+        "insertions": 1,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "recessed",
+            "hyp": "recessed"
+          },
+          {
+            "op": "equal",
+            "ref": "light",
+            "hyp": "light"
+          },
+          {
+            "op": "equal",
+            "ref": "points",
+            "hyp": "points"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "kitchen",
+            "hyp": "kitchen"
+          },
+          {
+            "op": "equal",
+            "ref": "eighty",
+            "hyp": "eighty"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "insert",
+            "hyp": "per"
+          },
+          {
+            "op": "substitute",
+            "ref": "each",
+            "hyp": "point"
+          },
+          {
+            "op": "equal",
+            "ref": "mr",
+            "hyp": "mr"
+          },
+          {
+            "op": "equal",
+            "ref": "nguyens",
+            "hyp": "nguyens"
+          },
+          {
+            "op": "equal",
+            "ref": "kitchen",
+            "hyp": "kitchen"
+          },
+          {
+            "op": "equal",
+            "ref": "dallas",
+            "hyp": "dallas"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.4,
+        "distance": 2,
+        "referenceTokens": [
+          "five",
+          "points",
+          "eighty",
+          "dollars",
+          "each"
+        ],
+        "hypothesisTokens": [
+          "five",
+          "points",
+          "eighty",
+          "dollars",
+          "per",
+          "point"
+        ],
+        "referenceCount": 5,
+        "hypothesisCount": 6,
+        "substitutions": 1,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-04-foundation-rebar",
+      "locale": "en",
+      "sessionId": "sess-en-04",
+      "turnCount": 2,
+      "reference": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+      "hypothesis": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 22,
+        "hypothesisWords": 22,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "forty",
+            "hyp": "forty"
+          },
+          {
+            "op": "equal",
+            "ref": "bars",
+            "hyp": "bars"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "rebar",
+            "hyp": "rebar"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "foundation",
+            "hyp": "foundation"
+          },
+          {
+            "op": "equal",
+            "ref": "twelve",
+            "hyp": "twelve"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "and",
+            "hyp": "and"
+          },
+          {
+            "op": "equal",
+            "ref": "fifty",
+            "hyp": "fifty"
+          },
+          {
+            "op": "equal",
+            "ref": "cents",
+            "hyp": "cents"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "bar",
+            "hyp": "bar"
+          },
+          {
+            "op": "equal",
+            "ref": "that",
+            "hyp": "that"
+          },
+          {
+            "op": "equal",
+            "ref": "is",
+            "hyp": "is"
+          },
+          {
+            "op": "equal",
+            "ref": "bells",
+            "hyp": "bells"
+          },
+          {
+            "op": "equal",
+            "ref": "foundation",
+            "hyp": "foundation"
+          },
+          {
+            "op": "equal",
+            "ref": "job",
+            "hyp": "job"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "san",
+            "hyp": "san"
+          },
+          {
+            "op": "equal",
+            "ref": "marcos",
+            "hyp": "marcos"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "forty",
+          "bars",
+          "twelve",
+          "dollars",
+          "fifty",
+          "cents",
+          "bar"
+        ],
+        "hypothesisTokens": [
+          "forty",
+          "bars",
+          "twelve",
+          "dollars",
+          "fifty",
+          "cents",
+          "bar"
+        ],
+        "referenceCount": 7,
+        "hypothesisCount": 7,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-05-interior-repaint",
+      "locale": "en",
+      "sessionId": "sess-en-05",
+      "turnCount": 2,
+      "reference": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+      "hypothesis": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 16,
+        "hypothesisWords": 16,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "interior",
+            "hyp": "interior"
+          },
+          {
+            "op": "equal",
+            "ref": "painting",
+            "hyp": "painting"
+          },
+          {
+            "op": "equal",
+            "ref": "one",
+            "hyp": "one"
+          },
+          {
+            "op": "equal",
+            "ref": "hundred",
+            "hyp": "hundred"
+          },
+          {
+            "op": "equal",
+            "ref": "eighty",
+            "hyp": "eighty"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "meters",
+            "hyp": "meters"
+          },
+          {
+            "op": "equal",
+            "ref": "at",
+            "hyp": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "eight",
+            "hyp": "eight"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "meter",
+            "hyp": "meter"
+          },
+          {
+            "op": "equal",
+            "ref": "doyle",
+            "hyp": "doyle"
+          },
+          {
+            "op": "equal",
+            "ref": "residence",
+            "hyp": "residence"
+          },
+          {
+            "op": "equal",
+            "ref": "pflugerville",
+            "hyp": "pflugerville"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "one",
+          "hundred",
+          "eighty",
+          "square",
+          "meters",
+          "eight",
+          "dollars",
+          "square",
+          "meter"
+        ],
+        "hypothesisTokens": [
+          "one",
+          "hundred",
+          "eighty",
+          "square",
+          "meters",
+          "eight",
+          "dollars",
+          "square",
+          "meter"
+        ],
+        "referenceCount": 9,
+        "hypothesisCount": 9,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-06-demolition-labour",
+      "locale": "en",
+      "sessionId": "sess-en-06",
+      "turnCount": 2,
+      "reference": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen, Georgetown, Texas.",
+      "hypothesis": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen in Georgetown, Texas.",
+      "overall": {
+        "wer": 0.07142857142857142,
+        "distance": 1,
+        "referenceWords": 14,
+        "hypothesisWords": 15,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "demolition",
+            "hyp": "demolition"
+          },
+          {
+            "op": "equal",
+            "ref": "labour",
+            "hyp": "labour"
+          },
+          {
+            "op": "equal",
+            "ref": "sixteen",
+            "hyp": "sixteen"
+          },
+          {
+            "op": "equal",
+            "ref": "hours",
+            "hyp": "hours"
+          },
+          {
+            "op": "equal",
+            "ref": "at",
+            "hyp": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "forty",
+            "hyp": "forty"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "an",
+            "hyp": "an"
+          },
+          {
+            "op": "equal",
+            "ref": "hour",
+            "hyp": "hour"
+          },
+          {
+            "op": "equal",
+            "ref": "silva",
+            "hyp": "silva"
+          },
+          {
+            "op": "equal",
+            "ref": "kitchen",
+            "hyp": "kitchen"
+          },
+          {
+            "op": "insert",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "georgetown",
+            "hyp": "georgetown"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "sixteen",
+          "hours",
+          "forty",
+          "five",
+          "dollars",
+          "hour"
+        ],
+        "hypothesisTokens": [
+          "sixteen",
+          "hours",
+          "forty",
+          "five",
+          "dollars",
+          "hour"
+        ],
+        "referenceCount": 6,
+        "hypothesisCount": 6,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-07-bathroom-tile",
+      "locale": "en",
+      "sessionId": "sess-en-07",
+      "turnCount": 2,
+      "reference": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+      "hypothesis": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 18,
+        "hypothesisWords": 18,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "tile",
+            "hyp": "tile"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "bathroom",
+            "hyp": "bathroom"
+          },
+          {
+            "op": "equal",
+            "ref": "floor",
+            "hyp": "floor"
+          },
+          {
+            "op": "equal",
+            "ref": "thirty",
+            "hyp": "thirty"
+          },
+          {
+            "op": "equal",
+            "ref": "two",
+            "hyp": "two"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "feet",
+            "hyp": "feet"
+          },
+          {
+            "op": "equal",
+            "ref": "fourteen",
+            "hyp": "fourteen"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "foot",
+            "hyp": "foot"
+          },
+          {
+            "op": "equal",
+            "ref": "okoro",
+            "hyp": "okoro"
+          },
+          {
+            "op": "equal",
+            "ref": "bathroom",
+            "hyp": "bathroom"
+          },
+          {
+            "op": "equal",
+            "ref": "cedar",
+            "hyp": "cedar"
+          },
+          {
+            "op": "equal",
+            "ref": "park",
+            "hyp": "park"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "thirty",
+          "two",
+          "square",
+          "feet",
+          "fourteen",
+          "dollars",
+          "square",
+          "foot"
+        ],
+        "hypothesisTokens": [
+          "thirty",
+          "two",
+          "square",
+          "feet",
+          "fourteen",
+          "dollars",
+          "square",
+          "foot"
+        ],
+        "referenceCount": 8,
+        "hypothesisCount": 8,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-08-backyard-fence",
+      "locale": "en",
+      "sessionId": "sess-en-08",
+      "turnCount": 2,
+      "reference": "Eighteen fence posts, thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+      "hypothesis": "Eighteen fence posts at thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+      "overall": {
+        "wer": 0.08333333333333333,
+        "distance": 1,
+        "referenceWords": 12,
+        "hypothesisWords": 13,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "eighteen",
+            "hyp": "eighteen"
+          },
+          {
+            "op": "equal",
+            "ref": "fence",
+            "hyp": "fence"
+          },
+          {
+            "op": "equal",
+            "ref": "posts",
+            "hyp": "posts"
+          },
+          {
+            "op": "insert",
+            "hyp": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "thirty",
+            "hyp": "thirty"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "each",
+            "hyp": "each"
+          },
+          {
+            "op": "equal",
+            "ref": "ramirez",
+            "hyp": "ramirez"
+          },
+          {
+            "op": "equal",
+            "ref": "backyard",
+            "hyp": "backyard"
+          },
+          {
+            "op": "equal",
+            "ref": "fence",
+            "hyp": "fence"
+          },
+          {
+            "op": "equal",
+            "ref": "buda",
+            "hyp": "buda"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "eighteen",
+          "thirty",
+          "five",
+          "dollars",
+          "each"
+        ],
+        "hypothesisTokens": [
+          "eighteen",
+          "thirty",
+          "five",
+          "dollars",
+          "each"
+        ],
+        "referenceCount": 5,
+        "hypothesisCount": 5,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-09-plumbing-fixtures",
+      "locale": "en",
+      "sessionId": "sess-en-09",
+      "turnCount": 2,
+      "reference": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars a fixture. Whitfield's place in Kyle.",
+      "hypothesis": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars per fixture. Whitfield's place in Kyle.",
+      "overall": {
+        "wer": 0.058823529411764705,
+        "distance": 1,
+        "referenceWords": 17,
+        "hypothesisWords": 17,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "three",
+            "hyp": "three"
+          },
+          {
+            "op": "equal",
+            "ref": "plumbing",
+            "hyp": "plumbing"
+          },
+          {
+            "op": "equal",
+            "ref": "fixtures",
+            "hyp": "fixtures"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "bathroom",
+            "hyp": "bathroom"
+          },
+          {
+            "op": "equal",
+            "ref": "refit",
+            "hyp": "refit"
+          },
+          {
+            "op": "equal",
+            "ref": "two",
+            "hyp": "two"
+          },
+          {
+            "op": "equal",
+            "ref": "hundred",
+            "hyp": "hundred"
+          },
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "substitute",
+            "ref": "a",
+            "hyp": "per"
+          },
+          {
+            "op": "equal",
+            "ref": "fixture",
+            "hyp": "fixture"
+          },
+          {
+            "op": "equal",
+            "ref": "whitfields",
+            "hyp": "whitfields"
+          },
+          {
+            "op": "equal",
+            "ref": "place",
+            "hyp": "place"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "kyle",
+            "hyp": "kyle"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.14285714285714285,
+        "distance": 1,
+        "referenceTokens": [
+          "three",
+          "fixtures",
+          "two",
+          "hundred",
+          "twenty",
+          "dollars",
+          "fixture"
+        ],
+        "hypothesisTokens": [
+          "three",
+          "fixtures",
+          "two",
+          "hundred",
+          "twenty",
+          "dollars",
+          "per",
+          "fixture"
+        ],
+        "referenceCount": 7,
+        "hypothesisCount": 8,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-10-roof-repair",
+      "locale": "en",
+      "sessionId": "sess-en-10",
+      "turnCount": 2,
+      "reference": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas.",
+      "hypothesis": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 15,
+        "hypothesisWords": 15,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "two",
+            "hyp": "two"
+          },
+          {
+            "op": "equal",
+            "ref": "sheets",
+            "hyp": "sheets"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "roofing",
+            "hyp": "roofing"
+          },
+          {
+            "op": "equal",
+            "ref": "shingles",
+            "hyp": "shingles"
+          },
+          {
+            "op": "equal",
+            "ref": "forty",
+            "hyp": "forty"
+          },
+          {
+            "op": "equal",
+            "ref": "eight",
+            "hyp": "eight"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "sheet",
+            "hyp": "sheet"
+          },
+          {
+            "op": "equal",
+            "ref": "okafor",
+            "hyp": "okafor"
+          },
+          {
+            "op": "equal",
+            "ref": "roof",
+            "hyp": "roof"
+          },
+          {
+            "op": "equal",
+            "ref": "leander",
+            "hyp": "leander"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "twenty",
+          "two",
+          "sheets",
+          "forty",
+          "eight",
+          "dollars",
+          "sheet"
+        ],
+        "hypothesisTokens": [
+          "twenty",
+          "two",
+          "sheets",
+          "forty",
+          "eight",
+          "dollars",
+          "sheet"
+        ],
+        "referenceCount": 7,
+        "hypothesisCount": 7,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-11-hallway-trim",
+      "locale": "en",
+      "sessionId": "sess-en-11",
+      "turnCount": 2,
+      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
+      "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin.",
+      "overall": {
+        "wer": 0.06666666666666667,
+        "distance": 1,
+        "referenceWords": 15,
+        "hypothesisWords": 15,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "ninety",
+            "hyp": "ninety"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "linear",
+            "hyp": "linear"
+          },
+          {
+            "op": "equal",
+            "ref": "feet",
+            "hyp": "feet"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "baseboard",
+            "hyp": "baseboard"
+          },
+          {
+            "op": "equal",
+            "ref": "trim",
+            "hyp": "trim"
+          },
+          {
+            "op": "equal",
+            "ref": "six",
+            "hyp": "six"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "substitute",
+            "ref": "a",
+            "hyp": "per"
+          },
+          {
+            "op": "equal",
+            "ref": "linear",
+            "hyp": "linear"
+          },
+          {
+            "op": "equal",
+            "ref": "foot",
+            "hyp": "foot"
+          },
+          {
+            "op": "equal",
+            "ref": "feldman",
+            "hyp": "feldman"
+          },
+          {
+            "op": "equal",
+            "ref": "hallway",
+            "hyp": "hallway"
+          },
+          {
+            "op": "equal",
+            "ref": "austin",
+            "hyp": "austin"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.125,
+        "distance": 1,
+        "referenceTokens": [
+          "ninety",
+          "five",
+          "linear",
+          "feet",
+          "six",
+          "dollars",
+          "linear",
+          "foot"
+        ],
+        "hypothesisTokens": [
+          "ninety",
+          "five",
+          "linear",
+          "feet",
+          "six",
+          "dollars",
+          "per",
+          "linear",
+          "foot"
+        ],
+        "referenceCount": 8,
+        "hypothesisCount": 9,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-12-office-partition",
+      "locale": "en",
+      "sessionId": "sess-en-12",
+      "turnCount": 3,
+      "reference": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+      "hypothesis": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+      "overall": {
+        "wer": 0,
+        "distance": 0,
+        "referenceWords": 35,
+        "hypothesisWords": 35,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "feet",
+            "hyp": "feet"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "drywall",
+            "hyp": "drywall"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "office",
+            "hyp": "office"
+          },
+          {
+            "op": "equal",
+            "ref": "partition",
+            "hyp": "partition"
+          },
+          {
+            "op": "equal",
+            "ref": "at",
+            "hyp": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "twenty",
+            "hyp": "twenty"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "foot",
+            "hyp": "foot"
+          },
+          {
+            "op": "equal",
+            "ref": "and",
+            "hyp": "and"
+          },
+          {
+            "op": "equal",
+            "ref": "four",
+            "hyp": "four"
+          },
+          {
+            "op": "equal",
+            "ref": "bags",
+            "hyp": "bags"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "joint",
+            "hyp": "joint"
+          },
+          {
+            "op": "equal",
+            "ref": "compound",
+            "hyp": "compound"
+          },
+          {
+            "op": "equal",
+            "ref": "thirty",
+            "hyp": "thirty"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "a",
+            "hyp": "a"
+          },
+          {
+            "op": "equal",
+            "ref": "bag",
+            "hyp": "bag"
+          },
+          {
+            "op": "equal",
+            "ref": "this",
+            "hyp": "this"
+          },
+          {
+            "op": "equal",
+            "ref": "is",
+            "hyp": "is"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "ms",
+            "hyp": "ms"
+          },
+          {
+            "op": "equal",
+            "ref": "lindqvist",
+            "hyp": "lindqvist"
+          },
+          {
+            "op": "equal",
+            "ref": "office",
+            "hyp": "office"
+          },
+          {
+            "op": "equal",
+            "ref": "partition",
+            "hyp": "partition"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "austin",
+            "hyp": "austin"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0,
+        "distance": 0,
+        "referenceTokens": [
+          "twenty",
+          "square",
+          "feet",
+          "twenty",
+          "five",
+          "dollars",
+          "square",
+          "foot",
+          "four",
+          "bags",
+          "thirty",
+          "dollars",
+          "bag"
+        ],
+        "hypothesisTokens": [
+          "twenty",
+          "square",
+          "feet",
+          "twenty",
+          "five",
+          "dollars",
+          "square",
+          "foot",
+          "four",
+          "bags",
+          "thirty",
+          "dollars",
+          "bag"
+        ],
+        "referenceCount": 13,
+        "hypothesisCount": 13,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-13-driveway-base",
+      "locale": "en",
+      "sessionId": "sess-en-13",
+      "turnCount": 2,
+      "reference": "Thirty bags of gravel for the driveway base, nine dollars a bag. Tran driveway, Manor, Texas.",
+      "hypothesis": "Thirty bags of gravel for the driveway base, nine dollars per bag. Tran driveway, Manor, Texas.",
+      "overall": {
+        "wer": 0.0625,
+        "distance": 1,
+        "referenceWords": 16,
+        "hypothesisWords": 16,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "thirty",
+            "hyp": "thirty"
+          },
+          {
+            "op": "equal",
+            "ref": "bags",
+            "hyp": "bags"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "gravel",
+            "hyp": "gravel"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "driveway",
+            "hyp": "driveway"
+          },
+          {
+            "op": "equal",
+            "ref": "base",
+            "hyp": "base"
+          },
+          {
+            "op": "equal",
+            "ref": "nine",
+            "hyp": "nine"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "substitute",
+            "ref": "a",
+            "hyp": "per"
+          },
+          {
+            "op": "equal",
+            "ref": "bag",
+            "hyp": "bag"
+          },
+          {
+            "op": "equal",
+            "ref": "tran",
+            "hyp": "tran"
+          },
+          {
+            "op": "equal",
+            "ref": "driveway",
+            "hyp": "driveway"
+          },
+          {
+            "op": "equal",
+            "ref": "manor",
+            "hyp": "manor"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.2,
+        "distance": 1,
+        "referenceTokens": [
+          "thirty",
+          "bags",
+          "nine",
+          "dollars",
+          "bag"
+        ],
+        "hypothesisTokens": [
+          "thirty",
+          "bags",
+          "nine",
+          "dollars",
+          "per",
+          "bag"
+        ],
+        "referenceCount": 5,
+        "hypothesisCount": 6,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-14-shop-fit-out",
+      "locale": "en",
+      "sessionId": "sess-en-14",
+      "turnCount": 3,
+      "reference": "Eight light points in the shop, sixty-five dollars a point. Two electrical panels at three hundred dollars each. Boateng shop fit-out, Elgin.",
+      "hypothesis": "Eight light points in the shop, sixty-five dollars per point. Two electrical panels, three hundred dollars each. Boateng shop fit-out, Elgin.",
+      "overall": {
+        "wer": 0.08333333333333333,
+        "distance": 2,
+        "referenceWords": 24,
+        "hypothesisWords": 23,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 1,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "eight",
+            "hyp": "eight"
+          },
+          {
+            "op": "equal",
+            "ref": "light",
+            "hyp": "light"
+          },
+          {
+            "op": "equal",
+            "ref": "points",
+            "hyp": "points"
+          },
+          {
+            "op": "equal",
+            "ref": "in",
+            "hyp": "in"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "shop",
+            "hyp": "shop"
+          },
+          {
+            "op": "equal",
+            "ref": "sixty",
+            "hyp": "sixty"
+          },
+          {
+            "op": "equal",
+            "ref": "five",
+            "hyp": "five"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "substitute",
+            "ref": "a",
+            "hyp": "per"
+          },
+          {
+            "op": "equal",
+            "ref": "point",
+            "hyp": "point"
+          },
+          {
+            "op": "equal",
+            "ref": "two",
+            "hyp": "two"
+          },
+          {
+            "op": "equal",
+            "ref": "electrical",
+            "hyp": "electrical"
+          },
+          {
+            "op": "equal",
+            "ref": "panels",
+            "hyp": "panels"
+          },
+          {
+            "op": "delete",
+            "ref": "at"
+          },
+          {
+            "op": "equal",
+            "ref": "three",
+            "hyp": "three"
+          },
+          {
+            "op": "equal",
+            "ref": "hundred",
+            "hyp": "hundred"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "equal",
+            "ref": "each",
+            "hyp": "each"
+          },
+          {
+            "op": "equal",
+            "ref": "boateng",
+            "hyp": "boateng"
+          },
+          {
+            "op": "equal",
+            "ref": "shop",
+            "hyp": "shop"
+          },
+          {
+            "op": "equal",
+            "ref": "fit",
+            "hyp": "fit"
+          },
+          {
+            "op": "equal",
+            "ref": "out",
+            "hyp": "out"
+          },
+          {
+            "op": "equal",
+            "ref": "elgin",
+            "hyp": "elgin"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.09090909090909091,
+        "distance": 1,
+        "referenceTokens": [
+          "eight",
+          "points",
+          "sixty",
+          "five",
+          "dollars",
+          "point",
+          "two",
+          "three",
+          "hundred",
+          "dollars",
+          "each"
+        ],
+        "hypothesisTokens": [
+          "eight",
+          "points",
+          "sixty",
+          "five",
+          "dollars",
+          "per",
+          "point",
+          "two",
+          "three",
+          "hundred",
+          "dollars",
+          "each"
+        ],
+        "referenceCount": 11,
+        "hypothesisCount": 12,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "en-15-front-yard-sod",
+      "locale": "en",
+      "sessionId": "sess-en-15",
+      "turnCount": 2,
+      "reference": "One hundred forty square feet of sod for the front yard, three dollars a square foot. Nakamura front yard, Liberty Hill, Texas.",
+      "hypothesis": "One hundred forty square feet of sod for the front yard, three dollars per square foot. Nakamura front yard, Liberty Hill, Texas.",
+      "overall": {
+        "wer": 0.045454545454545456,
+        "distance": 1,
+        "referenceWords": 22,
+        "hypothesisWords": 22,
+        "substitutions": 1,
+        "insertions": 0,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "equal",
+            "ref": "one",
+            "hyp": "one"
+          },
+          {
+            "op": "equal",
+            "ref": "hundred",
+            "hyp": "hundred"
+          },
+          {
+            "op": "equal",
+            "ref": "forty",
+            "hyp": "forty"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "feet",
+            "hyp": "feet"
+          },
+          {
+            "op": "equal",
+            "ref": "of",
+            "hyp": "of"
+          },
+          {
+            "op": "equal",
+            "ref": "sod",
+            "hyp": "sod"
+          },
+          {
+            "op": "equal",
+            "ref": "for",
+            "hyp": "for"
+          },
+          {
+            "op": "equal",
+            "ref": "the",
+            "hyp": "the"
+          },
+          {
+            "op": "equal",
+            "ref": "front",
+            "hyp": "front"
+          },
+          {
+            "op": "equal",
+            "ref": "yard",
+            "hyp": "yard"
+          },
+          {
+            "op": "equal",
+            "ref": "three",
+            "hyp": "three"
+          },
+          {
+            "op": "equal",
+            "ref": "dollars",
+            "hyp": "dollars"
+          },
+          {
+            "op": "substitute",
+            "ref": "a",
+            "hyp": "per"
+          },
+          {
+            "op": "equal",
+            "ref": "square",
+            "hyp": "square"
+          },
+          {
+            "op": "equal",
+            "ref": "foot",
+            "hyp": "foot"
+          },
+          {
+            "op": "equal",
+            "ref": "nakamura",
+            "hyp": "nakamura"
+          },
+          {
+            "op": "equal",
+            "ref": "front",
+            "hyp": "front"
+          },
+          {
+            "op": "equal",
+            "ref": "yard",
+            "hyp": "yard"
+          },
+          {
+            "op": "equal",
+            "ref": "liberty",
+            "hyp": "liberty"
+          },
+          {
+            "op": "equal",
+            "ref": "hill",
+            "hyp": "hill"
+          },
+          {
+            "op": "equal",
+            "ref": "texas",
+            "hyp": "texas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 0.1111111111111111,
+        "distance": 1,
+        "referenceTokens": [
+          "one",
+          "hundred",
+          "forty",
+          "square",
+          "feet",
+          "three",
+          "dollars",
+          "square",
+          "foot"
+        ],
+        "hypothesisTokens": [
+          "one",
+          "hundred",
+          "forty",
+          "square",
+          "feet",
+          "three",
+          "dollars",
+          "per",
+          "square",
+          "foot"
+        ],
+        "referenceCount": 9,
+        "hypothesisCount": 10,
+        "substitutions": 0,
+        "insertions": 1,
+        "deletions": 0
+      }
+    },
+    {
+      "id": "id-01-pasang-keramik",
+      "locale": "id",
+      "sessionId": "sess-id-01",
+      "turnCount": 2,
+      "reference": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi. Ini rumah Pak Suryo di Sleman, Yogyakarta.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 23,
+        "referenceWords": 23,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 7,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "pasang"
+          },
+          {
+            "op": "delete",
+            "ref": "keramik"
+          },
+          {
+            "op": "delete",
+            "ref": "ruang"
+          },
+          {
+            "op": "delete",
+            "ref": "tamu"
+          },
+          {
+            "op": "delete",
+            "ref": "dua"
+          },
+          {
+            "op": "delete",
+            "ref": "puluh"
+          },
+          {
+            "op": "delete",
+            "ref": "empat"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "seratus",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "ini",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "suryo",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "di",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "yogyakarta",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 12,
+        "referenceTokens": [
+          "dua",
+          "puluh",
+          "empat",
+          "meter",
+          "persegi",
+          "seratus",
+          "lima",
+          "puluh",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 12,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 12
+      }
+    },
+    {
+      "id": "id-02-semen-plester",
+      "locale": "id",
+      "sessionId": "sess-id-02",
+      "turnCount": 2,
+      "reference": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna, Bantul.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 17,
+        "referenceWords": 17,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 1,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "semen"
+          },
+          {
+            "op": "substitute",
+            "ref": "empat",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "sak",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "enam",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "sak",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "plester",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "lantai",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "ratna",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bantul",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 10,
+        "referenceTokens": [
+          "empat",
+          "puluh",
+          "sak",
+          "enam",
+          "puluh",
+          "dua",
+          "ribu",
+          "per",
+          "sak",
+          "dua"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 10,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 10
+      }
+    },
+    {
+      "id": "id-03-besi-cor-dak",
+      "locale": "id",
+      "sessionId": "sess-id-03",
+      "turnCount": 2,
+      "reference": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo, Klaten.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 19,
+        "referenceWords": 19,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 3,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "besi"
+          },
+          {
+            "op": "delete",
+            "ref": "sepuluh"
+          },
+          {
+            "op": "delete",
+            "ref": "milimeter"
+          },
+          {
+            "op": "substitute",
+            "ref": "tiga",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "tujuh",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "cor",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "dak",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "teras",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "waluyo",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "klaten",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 11,
+        "referenceTokens": [
+          "sepuluh",
+          "tiga",
+          "puluh",
+          "lima",
+          "batang",
+          "tujuh",
+          "puluh",
+          "delapan",
+          "ribu",
+          "per",
+          "batang"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 11,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 11
+      }
+    },
+    {
+      "id": "id-04-titik-lampu",
+      "locale": "id",
+      "sessionId": "sess-id-04",
+      "turnCount": 2,
+      "reference": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu per titik. Rumah Bu Kartika di Depok, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 18,
+        "referenceWords": 18,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 2,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "titik"
+          },
+          {
+            "op": "delete",
+            "ref": "lampu"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "belas",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "titik",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "seratus",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "tujuh",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "titik",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "kartika",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "di",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "depok",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 11,
+        "referenceTokens": [
+          "titik",
+          "dua",
+          "belas",
+          "titik",
+          "seratus",
+          "tujuh",
+          "puluh",
+          "lima",
+          "ribu",
+          "per",
+          "titik"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 11,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 11
+      }
+    },
+    {
+      "id": "id-05-plester-dinding",
+      "locale": "id",
+      "sessionId": "sess-id-05",
+      "turnCount": 2,
+      "reference": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono, Mlati.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 19,
+        "referenceWords": 19,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 3,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "plester"
+          },
+          {
+            "op": "delete",
+            "ref": "dinding"
+          },
+          {
+            "op": "delete",
+            "ref": "belakang"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "empat",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "hartono",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "mlati",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 12,
+        "referenceTokens": [
+          "delapan",
+          "puluh",
+          "lima",
+          "meter",
+          "persegi",
+          "empat",
+          "puluh",
+          "lima",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 12,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 12
+      }
+    },
+    {
+      "id": "id-06-galian-pondasi",
+      "locale": "id",
+      "sessionId": "sess-id-06",
+      "turnCount": 2,
+      "reference": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno, Godean.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 18,
+        "referenceWords": 18,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 2,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "galian"
+          },
+          {
+            "op": "delete",
+            "ref": "tanah"
+          },
+          {
+            "op": "substitute",
+            "ref": "pondasi",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "belas",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "kubik",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sembilan",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "kubik",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "pondasi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "sutrisno",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "godean",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 10,
+        "referenceTokens": [
+          "delapan",
+          "belas",
+          "meter",
+          "kubik",
+          "sembilan",
+          "puluh",
+          "ribu",
+          "per",
+          "meter",
+          "kubik"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 10,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 10
+      }
+    },
+    {
+      "id": "id-07-tenaga-harian",
+      "locale": "id",
+      "sessionId": "sess-id-07",
+      "turnCount": 2,
+      "reference": "Tenaga harian enam hari, dua ratus lima puluh ribu per hari. Pemasangan rangka rumah Pak Dedi, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 17,
+        "referenceWords": 17,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 1,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "tenaga"
+          },
+          {
+            "op": "substitute",
+            "ref": "harian",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "enam",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "hari",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "ratus",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "hari",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "pemasangan",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "rangka",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "dedi",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 9,
+        "referenceTokens": [
+          "enam",
+          "hari",
+          "dua",
+          "ratus",
+          "lima",
+          "puluh",
+          "ribu",
+          "per",
+          "hari"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 9,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 9
+      }
+    },
+    {
+      "id": "id-08-kayu-kaso",
+      "locale": "id",
+      "sessionId": "sess-id-08",
+      "turnCount": 2,
+      "reference": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang. Rangka atap rumah Bu Wati, Kalasan.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 18,
+        "referenceWords": 18,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 2,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "kayu"
+          },
+          {
+            "op": "delete",
+            "ref": "kaso"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "empat",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "rangka",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "atap",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "wati",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "kalasan",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 10,
+        "referenceTokens": [
+          "dua",
+          "puluh",
+          "lima",
+          "batang",
+          "empat",
+          "puluh",
+          "delapan",
+          "ribu",
+          "per",
+          "batang"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 10,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 10
+      }
+    },
+    {
+      "id": "id-09-pengecatan",
+      "locale": "id",
+      "sessionId": "sess-id-09",
+      "turnCount": 2,
+      "reference": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 19,
+        "referenceWords": 19,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 3,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "pengecatan"
+          },
+          {
+            "op": "delete",
+            "ref": "tiga"
+          },
+          {
+            "op": "delete",
+            "ref": "kamar"
+          },
+          {
+            "op": "substitute",
+            "ref": "seratus",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "tiga",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "andi",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 13,
+        "referenceTokens": [
+          "tiga",
+          "seratus",
+          "dua",
+          "puluh",
+          "meter",
+          "persegi",
+          "tiga",
+          "puluh",
+          "delapan",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 13,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 13
+      }
+    },
+    {
+      "id": "id-10-bongkar-dinding",
+      "locale": "id",
+      "sessionId": "sess-id-10",
+      "turnCount": 2,
+      "reference": "Bongkar dinding dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari, Ngaglik.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 18,
+        "referenceWords": 18,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 2,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "bongkar"
+          },
+          {
+            "op": "delete",
+            "ref": "dinding"
+          },
+          {
+            "op": "substitute",
+            "ref": "dapur",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "belas",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "dapur",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "sari",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ngaglik",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 11,
+        "referenceTokens": [
+          "lima",
+          "belas",
+          "meter",
+          "persegi",
+          "lima",
+          "puluh",
+          "lima",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 11,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 11
+      }
+    },
+    {
+      "id": "id-11-semen-dan-besi",
+      "locale": "id",
+      "sessionId": "sess-id-11",
+      "turnCount": 3,
+      "reference": "Semen dua puluh sak, enam puluh dua ribu per sak. Besi delapan milimeter sepuluh batang, tujuh puluh delapan ribu per batang. Struktur tambahan rumah Pak Yusuf, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 27,
+        "referenceWords": 27,
+        "hypothesisWords": 24,
+        "substitutions": 24,
+        "insertions": 0,
+        "deletions": 3,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "semen"
+          },
+          {
+            "op": "delete",
+            "ref": "dua"
+          },
+          {
+            "op": "delete",
+            "ref": "puluh"
+          },
+          {
+            "op": "substitute",
+            "ref": "sak",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "enam",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "sak",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "besi",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "milimeter",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "sepuluh",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "tujuh",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "batang",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "struktur",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "tambahan",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "yusuf",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 18,
+        "referenceTokens": [
+          "dua",
+          "puluh",
+          "sak",
+          "enam",
+          "puluh",
+          "dua",
+          "ribu",
+          "per",
+          "sak",
+          "delapan",
+          "sepuluh",
+          "batang",
+          "tujuh",
+          "puluh",
+          "delapan",
+          "ribu",
+          "per",
+          "batang"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 18,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 18
+      }
+    },
+    {
+      "id": "id-12-instalasi-air",
+      "locale": "id",
+      "sessionId": "sess-id-12",
+      "turnCount": 2,
+      "reference": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik. Kamar mandi Bu Ningsih, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1.0666666666666667,
+        "distance": 16,
+        "referenceWords": 15,
+        "hypothesisWords": 16,
+        "substitutions": 15,
+        "insertions": 1,
+        "deletions": 0,
+        "alignment": [
+          {
+            "op": "insert",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "instalasi",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "air",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "delapan",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "titik",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "ratus",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sepuluh",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "titik",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "kamar",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "mandi",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "ningsih",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 8,
+        "referenceTokens": [
+          "delapan",
+          "titik",
+          "dua",
+          "ratus",
+          "sepuluh",
+          "ribu",
+          "per",
+          "titik"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 8,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 8
+      }
+    },
+    {
+      "id": "id-13-paving-halaman",
+      "locale": "id",
+      "sessionId": "sess-id-13",
+      "turnCount": 2,
+      "reference": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi, Pakem.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 18,
+        "referenceWords": 18,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 2,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "paving"
+          },
+          {
+            "op": "delete",
+            "ref": "halaman"
+          },
+          {
+            "op": "substitute",
+            "ref": "enam",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "sembilan",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "halaman",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "gunadi",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pakem",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 11,
+        "referenceTokens": [
+          "enam",
+          "puluh",
+          "meter",
+          "persegi",
+          "sembilan",
+          "puluh",
+          "lima",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 11,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 11
+      }
+    },
+    {
+      "id": "id-14-ganti-atap",
+      "locale": "id",
+      "sessionId": "sess-id-14",
+      "turnCount": 2,
+      "reference": "Ganti atap gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra, Berbah.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 19,
+        "referenceWords": 19,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 3,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "ganti"
+          },
+          {
+            "op": "delete",
+            "ref": "atap"
+          },
+          {
+            "op": "delete",
+            "ref": "gudang"
+          },
+          {
+            "op": "substitute",
+            "ref": "empat",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "seratus",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "dua",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "meter",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "persegi",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "gudang",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "pak",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "hendra",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "berbah",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 12,
+        "referenceTokens": [
+          "empat",
+          "puluh",
+          "lima",
+          "meter",
+          "persegi",
+          "seratus",
+          "dua",
+          "puluh",
+          "ribu",
+          "per",
+          "meter",
+          "persegi"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 12,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 12
+      }
+    },
+    {
+      "id": "id-15-kusen",
+      "locale": "id",
+      "sessionId": "sess-id-15",
+      "turnCount": 2,
+      "reference": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari, Sleman.",
+      "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+      "overall": {
+        "wer": 1,
+        "distance": 17,
+        "referenceWords": 17,
+        "hypothesisWords": 16,
+        "substitutions": 16,
+        "insertions": 0,
+        "deletions": 1,
+        "alignment": [
+          {
+            "op": "delete",
+            "ref": "kusen"
+          },
+          {
+            "op": "substitute",
+            "ref": "pintu",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "dan",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "jendela",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "enam",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "unit",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "empat",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "ratus",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "lima",
+            "hyp": "jelas"
+          },
+          {
+            "op": "substitute",
+            "ref": "puluh",
+            "hyp": "aksen"
+          },
+          {
+            "op": "substitute",
+            "ref": "ribu",
+            "hyp": "campur"
+          },
+          {
+            "op": "substitute",
+            "ref": "per",
+            "hyp": "kata"
+          },
+          {
+            "op": "substitute",
+            "ref": "unit",
+            "hyp": "lokal"
+          },
+          {
+            "op": "substitute",
+            "ref": "rumah",
+            "hyp": "rusak"
+          },
+          {
+            "op": "substitute",
+            "ref": "bu",
+            "hyp": "berat"
+          },
+          {
+            "op": "substitute",
+            "ref": "lestari",
+            "hyp": "tidak"
+          },
+          {
+            "op": "substitute",
+            "ref": "sleman",
+            "hyp": "jelas"
+          }
+        ]
+      },
+      "moneyVolume": {
+        "wer": 1,
+        "distance": 9,
+        "referenceTokens": [
+          "enam",
+          "unit",
+          "empat",
+          "ratus",
+          "lima",
+          "puluh",
+          "ribu",
+          "per",
+          "unit"
+        ],
+        "hypothesisTokens": [],
+        "referenceCount": 9,
+        "hypothesisCount": 0,
+        "substitutions": 0,
+        "insertions": 0,
+        "deletions": 9
+      }
+    }
+  ]
+}

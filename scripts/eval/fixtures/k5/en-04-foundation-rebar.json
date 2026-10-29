@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-04",
+  "transcript": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+  "audioDurationMs": 8400,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5800,
+      "transcript": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar."
+    },
+    {
+      "startMs": 6000,
+      "endMs": 8400,
+      "transcript": "That is Bell's foundation job in San Marcos."
+    }
+  ]
+}

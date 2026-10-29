@@ -1,0 +1,129 @@
+{
+  "id": "id-08-kayu-kaso",
+  "locale": "id",
+  "sessionId": "sess-id-08",
+  "turnCount": 2,
+  "reference": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang. Rangka atap rumah Bu Wati, Kalasan.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 18,
+    "referenceWords": 18,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 2,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "kayu"
+      },
+      {
+        "op": "delete",
+        "ref": "kaso"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "empat",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "rangka",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "atap",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "wati",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "kalasan",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 10,
+    "referenceTokens": [
+      "dua",
+      "puluh",
+      "lima",
+      "batang",
+      "empat",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 10,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 10
+  }
+}

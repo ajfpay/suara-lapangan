@@ -1,0 +1,118 @@
+{
+  "id": "en-06-demolition-labour",
+  "locale": "en",
+  "sessionId": "sess-en-06",
+  "turnCount": 2,
+  "reference": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen, Georgetown, Texas.",
+  "hypothesis": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen in Georgetown, Texas.",
+  "overall": {
+    "wer": 0.07142857142857142,
+    "distance": 1,
+    "referenceWords": 14,
+    "hypothesisWords": 15,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "demolition",
+        "hyp": "demolition"
+      },
+      {
+        "op": "equal",
+        "ref": "labour",
+        "hyp": "labour"
+      },
+      {
+        "op": "equal",
+        "ref": "sixteen",
+        "hyp": "sixteen"
+      },
+      {
+        "op": "equal",
+        "ref": "hours",
+        "hyp": "hours"
+      },
+      {
+        "op": "equal",
+        "ref": "at",
+        "hyp": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "forty",
+        "hyp": "forty"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "an",
+        "hyp": "an"
+      },
+      {
+        "op": "equal",
+        "ref": "hour",
+        "hyp": "hour"
+      },
+      {
+        "op": "equal",
+        "ref": "silva",
+        "hyp": "silva"
+      },
+      {
+        "op": "equal",
+        "ref": "kitchen",
+        "hyp": "kitchen"
+      },
+      {
+        "op": "insert",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "georgetown",
+        "hyp": "georgetown"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "sixteen",
+      "hours",
+      "forty",
+      "five",
+      "dollars",
+      "hour"
+    ],
+    "hypothesisTokens": [
+      "sixteen",
+      "hours",
+      "forty",
+      "five",
+      "dollars",
+      "hour"
+    ],
+    "referenceCount": 6,
+    "hypothesisCount": 6,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

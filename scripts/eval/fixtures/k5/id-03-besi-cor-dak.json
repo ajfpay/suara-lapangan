@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-03",
+  "transcript": "Besi sepuluh mili, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo di Klaten.",
+  "audioDurationMs": 9400,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Besi sepuluh mili, tiga puluh lima batang, tujuh puluh delapan ribu per batang."
+    },
+    {
+      "startMs": 6800,
+      "endMs": 9400,
+      "transcript": "Cor dak teras Pak Waluyo di Klaten."
+    }
+  ]
+}

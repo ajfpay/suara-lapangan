@@ -1,0 +1,130 @@
+{
+  "id": "id-13-paving-halaman",
+  "locale": "id",
+  "sessionId": "sess-id-13",
+  "turnCount": 2,
+  "reference": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi, Pakem.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 18,
+    "referenceWords": 18,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 2,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "paving"
+      },
+      {
+        "op": "delete",
+        "ref": "halaman"
+      },
+      {
+        "op": "substitute",
+        "ref": "enam",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "sembilan",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "halaman",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "gunadi",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pakem",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 11,
+    "referenceTokens": [
+      "enam",
+      "puluh",
+      "meter",
+      "persegi",
+      "sembilan",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 11,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 11
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "id": "id-11-semen-dan-besi",
+  "locale": "id",
+  "sessionId": "sess-id-11",
+  "turnCount": 3,
+  "reference": "Semen dua puluh sak, enam puluh dua ribu per sak. Besi delapan milimeter sepuluh batang, tujuh puluh delapan ribu per batang. Struktur tambahan rumah Pak Yusuf, Sleman.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 27,
+    "referenceWords": 27,
+    "hypothesisWords": 24,
+    "substitutions": 24,
+    "insertions": 0,
+    "deletions": 3,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "semen"
+      },
+      {
+        "op": "delete",
+        "ref": "dua"
+      },
+      {
+        "op": "delete",
+        "ref": "puluh"
+      },
+      {
+        "op": "substitute",
+        "ref": "sak",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "enam",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "sak",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "besi",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "milimeter",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "sepuluh",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "tujuh",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "struktur",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "tambahan",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "yusuf",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sleman",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 18,
+    "referenceTokens": [
+      "dua",
+      "puluh",
+      "sak",
+      "enam",
+      "puluh",
+      "dua",
+      "ribu",
+      "per",
+      "sak",
+      "delapan",
+      "sepuluh",
+      "batang",
+      "tujuh",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 18,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 18
+  }
+}

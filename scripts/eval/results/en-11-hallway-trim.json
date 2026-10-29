@@ -1,0 +1,124 @@
+{
+  "id": "en-11-hallway-trim",
+  "locale": "en",
+  "sessionId": "sess-en-11",
+  "turnCount": 2,
+  "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
+  "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin.",
+  "overall": {
+    "wer": 0.06666666666666667,
+    "distance": 1,
+    "referenceWords": 15,
+    "hypothesisWords": 15,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "ninety",
+        "hyp": "ninety"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "linear",
+        "hyp": "linear"
+      },
+      {
+        "op": "equal",
+        "ref": "feet",
+        "hyp": "feet"
+      },
+      {
+        "op": "equal",
+        "ref": "of",
+        "hyp": "of"
+      },
+      {
+        "op": "equal",
+        "ref": "baseboard",
+        "hyp": "baseboard"
+      },
+      {
+        "op": "equal",
+        "ref": "trim",
+        "hyp": "trim"
+      },
+      {
+        "op": "equal",
+        "ref": "six",
+        "hyp": "six"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "substitute",
+        "ref": "a",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "linear",
+        "hyp": "linear"
+      },
+      {
+        "op": "equal",
+        "ref": "foot",
+        "hyp": "foot"
+      },
+      {
+        "op": "equal",
+        "ref": "feldman",
+        "hyp": "feldman"
+      },
+      {
+        "op": "equal",
+        "ref": "hallway",
+        "hyp": "hallway"
+      },
+      {
+        "op": "equal",
+        "ref": "austin",
+        "hyp": "austin"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.125,
+    "distance": 1,
+    "referenceTokens": [
+      "ninety",
+      "five",
+      "linear",
+      "feet",
+      "six",
+      "dollars",
+      "linear",
+      "foot"
+    ],
+    "hypothesisTokens": [
+      "ninety",
+      "five",
+      "linear",
+      "feet",
+      "six",
+      "dollars",
+      "per",
+      "linear",
+      "foot"
+    ],
+    "referenceCount": 8,
+    "hypothesisCount": 9,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0
+  }
+}

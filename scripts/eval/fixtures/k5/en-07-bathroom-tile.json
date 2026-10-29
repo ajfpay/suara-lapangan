@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-07",
+  "transcript": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot. Okoro bathroom, Cedar Park.",
+  "audioDurationMs": 8800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot."
+    },
+    {
+      "startMs": 6600,
+      "endMs": 8800,
+      "transcript": "Okoro bathroom, Cedar Park."
+    }
+  ]
+}

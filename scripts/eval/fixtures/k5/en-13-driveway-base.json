@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-13",
+  "transcript": "Thirty bags of gravel for the driveway base, nine dollars per bag. Tran driveway, Manor, Texas.",
+  "audioDurationMs": 7600,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Thirty bags of gravel for the driveway base, nine dollars per bag."
+    },
+    {
+      "startMs": 5600,
+      "endMs": 7600,
+      "transcript": "Tran driveway, Manor, Texas."
+    }
+  ]
+}

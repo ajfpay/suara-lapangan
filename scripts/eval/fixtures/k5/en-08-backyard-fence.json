@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-08",
+  "transcript": "Eighteen fence posts at thirty-five dollars each. Ramirez backyard fence, Buda, Texas.",
+  "audioDurationMs": 6800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 4200,
+      "transcript": "Eighteen fence posts at thirty-five dollars each."
+    },
+    {
+      "startMs": 4400,
+      "endMs": 6800,
+      "transcript": "Ramirez backyard fence, Buda, Texas."
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "sessionId": "sess-en-14",
+  "transcript": "Eight light points in the shop, sixty-five dollars per point. Two electrical panels, three hundred dollars each. Boateng shop fit-out, Elgin.",
+  "audioDurationMs": 9600,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5000,
+      "transcript": "Eight light points in the shop, sixty-five dollars per point."
+    },
+    {
+      "startMs": 5200,
+      "endMs": 7600,
+      "transcript": "Two electrical panels, three hundred dollars each."
+    },
+    {
+      "startMs": 7800,
+      "endMs": 9600,
+      "transcript": "Boateng shop fit-out, Elgin."
+    }
+  ]
+}

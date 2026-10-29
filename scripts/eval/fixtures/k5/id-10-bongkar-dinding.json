@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-10",
+  "transcript": "Bongkar tembok dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari di Ngaglik.",
+  "audioDurationMs": 9000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Bongkar tembok dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi."
+    },
+    {
+      "startMs": 6800,
+      "endMs": 9000,
+      "transcript": "Dapur Bu Sari di Ngaglik."
+    }
+  ]
+}

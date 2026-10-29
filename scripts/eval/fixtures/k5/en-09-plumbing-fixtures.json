@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-09",
+  "transcript": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars per fixture. Whitfield's place in Kyle.",
+  "audioDurationMs": 8200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6200,
+      "transcript": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars per fixture."
+    },
+    {
+      "startMs": 6400,
+      "endMs": 8200,
+      "transcript": "Whitfield's place in Kyle."
+    }
+  ]
+}

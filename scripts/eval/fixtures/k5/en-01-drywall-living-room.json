@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-01",
+  "transcript": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+  "audioDurationMs": 8200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5200,
+      "transcript": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot."
+    },
+    {
+      "startMs": 5400,
+      "endMs": 8200,
+      "transcript": "This is for Mr. Carter's place in Austin, Texas."
+    }
+  ]
+}

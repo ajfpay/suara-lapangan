@@ -1,0 +1,121 @@
+{
+  "id": "en-10-roof-repair",
+  "locale": "en",
+  "sessionId": "sess-en-10",
+  "turnCount": 2,
+  "reference": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas.",
+  "hypothesis": "Twenty-two sheets of roofing shingles, forty-eight dollars a sheet. Okafor roof, Leander, Texas.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 15,
+    "hypothesisWords": 15,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "two",
+        "hyp": "two"
+      },
+      {
+        "op": "equal",
+        "ref": "sheets",
+        "hyp": "sheets"
+      },
+      {
+        "op": "equal",
+        "ref": "of",
+        "hyp": "of"
+      },
+      {
+        "op": "equal",
+        "ref": "roofing",
+        "hyp": "roofing"
+      },
+      {
+        "op": "equal",
+        "ref": "shingles",
+        "hyp": "shingles"
+      },
+      {
+        "op": "equal",
+        "ref": "forty",
+        "hyp": "forty"
+      },
+      {
+        "op": "equal",
+        "ref": "eight",
+        "hyp": "eight"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "sheet",
+        "hyp": "sheet"
+      },
+      {
+        "op": "equal",
+        "ref": "okafor",
+        "hyp": "okafor"
+      },
+      {
+        "op": "equal",
+        "ref": "roof",
+        "hyp": "roof"
+      },
+      {
+        "op": "equal",
+        "ref": "leander",
+        "hyp": "leander"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "twenty",
+      "two",
+      "sheets",
+      "forty",
+      "eight",
+      "dollars",
+      "sheet"
+    ],
+    "hypothesisTokens": [
+      "twenty",
+      "two",
+      "sheets",
+      "forty",
+      "eight",
+      "dollars",
+      "sheet"
+    ],
+    "referenceCount": 7,
+    "hypothesisCount": 7,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

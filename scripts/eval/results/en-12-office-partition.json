@@ -1,0 +1,233 @@
+{
+  "id": "en-12-office-partition",
+  "locale": "en",
+  "sessionId": "sess-en-12",
+  "turnCount": 3,
+  "reference": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+  "hypothesis": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 35,
+    "hypothesisWords": 35,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "feet",
+        "hyp": "feet"
+      },
+      {
+        "op": "equal",
+        "ref": "of",
+        "hyp": "of"
+      },
+      {
+        "op": "equal",
+        "ref": "drywall",
+        "hyp": "drywall"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "office",
+        "hyp": "office"
+      },
+      {
+        "op": "equal",
+        "ref": "partition",
+        "hyp": "partition"
+      },
+      {
+        "op": "equal",
+        "ref": "at",
+        "hyp": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "foot",
+        "hyp": "foot"
+      },
+      {
+        "op": "equal",
+        "ref": "and",
+        "hyp": "and"
+      },
+      {
+        "op": "equal",
+        "ref": "four",
+        "hyp": "four"
+      },
+      {
+        "op": "equal",
+        "ref": "bags",
+        "hyp": "bags"
+      },
+      {
+        "op": "equal",
+        "ref": "of",
+        "hyp": "of"
+      },
+      {
+        "op": "equal",
+        "ref": "joint",
+        "hyp": "joint"
+      },
+      {
+        "op": "equal",
+        "ref": "compound",
+        "hyp": "compound"
+      },
+      {
+        "op": "equal",
+        "ref": "thirty",
+        "hyp": "thirty"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "bag",
+        "hyp": "bag"
+      },
+      {
+        "op": "equal",
+        "ref": "this",
+        "hyp": "this"
+      },
+      {
+        "op": "equal",
+        "ref": "is",
+        "hyp": "is"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "ms",
+        "hyp": "ms"
+      },
+      {
+        "op": "equal",
+        "ref": "lindqvist",
+        "hyp": "lindqvist"
+      },
+      {
+        "op": "equal",
+        "ref": "office",
+        "hyp": "office"
+      },
+      {
+        "op": "equal",
+        "ref": "partition",
+        "hyp": "partition"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "austin",
+        "hyp": "austin"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "twenty",
+      "square",
+      "feet",
+      "twenty",
+      "five",
+      "dollars",
+      "square",
+      "foot",
+      "four",
+      "bags",
+      "thirty",
+      "dollars",
+      "bag"
+    ],
+    "hypothesisTokens": [
+      "twenty",
+      "square",
+      "feet",
+      "twenty",
+      "five",
+      "dollars",
+      "square",
+      "foot",
+      "four",
+      "bags",
+      "thirty",
+      "dollars",
+      "bag"
+    ],
+    "referenceCount": 13,
+    "hypothesisCount": 13,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-13",
+  "transcript": "Paving halaman depan enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi di Pakem.",
+  "audioDurationMs": 9200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Paving halaman depan enam puluh meter persegi, sembilan puluh lima ribu per meter persegi."
+    },
+    {
+      "startMs": 6800,
+      "endMs": 9200,
+      "transcript": "Halaman rumah Pak Gunadi di Pakem."
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "id": "id-14-ganti-atap",
+  "locale": "id",
+  "sessionId": "sess-id-14",
+  "turnCount": 2,
+  "reference": "Ganti atap gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra, Berbah.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 19,
+    "referenceWords": 19,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 3,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "ganti"
+      },
+      {
+        "op": "delete",
+        "ref": "atap"
+      },
+      {
+        "op": "delete",
+        "ref": "gudang"
+      },
+      {
+        "op": "substitute",
+        "ref": "empat",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "seratus",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "persegi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "gudang",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "hendra",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "berbah",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 12,
+    "referenceTokens": [
+      "empat",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "seratus",
+      "dua",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 12,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 12
+  }
+}

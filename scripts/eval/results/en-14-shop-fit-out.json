@@ -1,0 +1,174 @@
+{
+  "id": "en-14-shop-fit-out",
+  "locale": "en",
+  "sessionId": "sess-en-14",
+  "turnCount": 3,
+  "reference": "Eight light points in the shop, sixty-five dollars a point. Two electrical panels at three hundred dollars each. Boateng shop fit-out, Elgin.",
+  "hypothesis": "Eight light points in the shop, sixty-five dollars per point. Two electrical panels, three hundred dollars each. Boateng shop fit-out, Elgin.",
+  "overall": {
+    "wer": 0.08333333333333333,
+    "distance": 2,
+    "referenceWords": 24,
+    "hypothesisWords": 23,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "eight",
+        "hyp": "eight"
+      },
+      {
+        "op": "equal",
+        "ref": "light",
+        "hyp": "light"
+      },
+      {
+        "op": "equal",
+        "ref": "points",
+        "hyp": "points"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "shop",
+        "hyp": "shop"
+      },
+      {
+        "op": "equal",
+        "ref": "sixty",
+        "hyp": "sixty"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "substitute",
+        "ref": "a",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "point",
+        "hyp": "point"
+      },
+      {
+        "op": "equal",
+        "ref": "two",
+        "hyp": "two"
+      },
+      {
+        "op": "equal",
+        "ref": "electrical",
+        "hyp": "electrical"
+      },
+      {
+        "op": "equal",
+        "ref": "panels",
+        "hyp": "panels"
+      },
+      {
+        "op": "delete",
+        "ref": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "three",
+        "hyp": "three"
+      },
+      {
+        "op": "equal",
+        "ref": "hundred",
+        "hyp": "hundred"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "each",
+        "hyp": "each"
+      },
+      {
+        "op": "equal",
+        "ref": "boateng",
+        "hyp": "boateng"
+      },
+      {
+        "op": "equal",
+        "ref": "shop",
+        "hyp": "shop"
+      },
+      {
+        "op": "equal",
+        "ref": "fit",
+        "hyp": "fit"
+      },
+      {
+        "op": "equal",
+        "ref": "out",
+        "hyp": "out"
+      },
+      {
+        "op": "equal",
+        "ref": "elgin",
+        "hyp": "elgin"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.09090909090909091,
+    "distance": 1,
+    "referenceTokens": [
+      "eight",
+      "points",
+      "sixty",
+      "five",
+      "dollars",
+      "point",
+      "two",
+      "three",
+      "hundred",
+      "dollars",
+      "each"
+    ],
+    "hypothesisTokens": [
+      "eight",
+      "points",
+      "sixty",
+      "five",
+      "dollars",
+      "per",
+      "point",
+      "two",
+      "three",
+      "hundred",
+      "dollars",
+      "each"
+    ],
+    "referenceCount": 11,
+    "hypothesisCount": 12,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0
+  }
+}

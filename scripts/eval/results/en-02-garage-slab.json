@@ -1,0 +1,198 @@
+{
+  "id": "en-02-garage-slab",
+  "locale": "en",
+  "sessionId": "sess-en-02",
+  "turnCount": 2,
+  "reference": "We are pouring a concrete slab in the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+  "hypothesis": "We are pouring a concrete slab for the garage, twelve square meters, ninety-five dollars a square meter. The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+  "overall": {
+    "wer": 0.03333333333333333,
+    "distance": 1,
+    "referenceWords": 30,
+    "hypothesisWords": 30,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "we",
+        "hyp": "we"
+      },
+      {
+        "op": "equal",
+        "ref": "are",
+        "hyp": "are"
+      },
+      {
+        "op": "equal",
+        "ref": "pouring",
+        "hyp": "pouring"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "concrete",
+        "hyp": "concrete"
+      },
+      {
+        "op": "equal",
+        "ref": "slab",
+        "hyp": "slab"
+      },
+      {
+        "op": "substitute",
+        "ref": "in",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "garage",
+        "hyp": "garage"
+      },
+      {
+        "op": "equal",
+        "ref": "twelve",
+        "hyp": "twelve"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "meters",
+        "hyp": "meters"
+      },
+      {
+        "op": "equal",
+        "ref": "ninety",
+        "hyp": "ninety"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "client",
+        "hyp": "client"
+      },
+      {
+        "op": "equal",
+        "ref": "is",
+        "hyp": "is"
+      },
+      {
+        "op": "equal",
+        "ref": "mrs",
+        "hyp": "mrs"
+      },
+      {
+        "op": "equal",
+        "ref": "alvarez",
+        "hyp": "alvarez"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "job",
+        "hyp": "job"
+      },
+      {
+        "op": "equal",
+        "ref": "is",
+        "hyp": "is"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "round",
+        "hyp": "round"
+      },
+      {
+        "op": "equal",
+        "ref": "rock",
+        "hyp": "rock"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "twelve",
+      "square",
+      "meters",
+      "ninety",
+      "five",
+      "dollars",
+      "square",
+      "meter"
+    ],
+    "hypothesisTokens": [
+      "twelve",
+      "square",
+      "meters",
+      "ninety",
+      "five",
+      "dollars",
+      "square",
+      "meter"
+    ],
+    "referenceCount": 8,
+    "hypothesisCount": 8,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

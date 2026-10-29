@@ -1,0 +1,129 @@
+{
+  "id": "id-06-galian-pondasi",
+  "locale": "id",
+  "sessionId": "sess-id-06",
+  "turnCount": 2,
+  "reference": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno, Godean.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 18,
+    "referenceWords": 18,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 2,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "galian"
+      },
+      {
+        "op": "delete",
+        "ref": "tanah"
+      },
+      {
+        "op": "substitute",
+        "ref": "pondasi",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "belas",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "kubik",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sembilan",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "meter",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "kubik",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "pondasi",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "pak",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "sutrisno",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "godean",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 10,
+    "referenceTokens": [
+      "delapan",
+      "belas",
+      "meter",
+      "kubik",
+      "sembilan",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "kubik"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 10,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 10
+  }
+}

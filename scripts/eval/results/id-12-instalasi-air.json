@@ -1,0 +1,118 @@
+{
+  "id": "id-12-instalasi-air",
+  "locale": "id",
+  "sessionId": "sess-id-12",
+  "turnCount": 2,
+  "reference": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik. Kamar mandi Bu Ningsih, Sleman.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1.0666666666666667,
+    "distance": 16,
+    "referenceWords": 15,
+    "hypothesisWords": 16,
+    "substitutions": 15,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "insert",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "instalasi",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "air",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "delapan",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "titik",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "ratus",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sepuluh",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "titik",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "kamar",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "mandi",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "ningsih",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sleman",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 8,
+    "referenceTokens": [
+      "delapan",
+      "titik",
+      "dua",
+      "ratus",
+      "sepuluh",
+      "ribu",
+      "per",
+      "titik"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 8,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 8
+  }
+}

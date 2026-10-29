@@ -1,0 +1,124 @@
+{
+  "id": "id-15-kusen",
+  "locale": "id",
+  "sessionId": "sess-id-15",
+  "turnCount": 2,
+  "reference": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari, Sleman.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 17,
+    "referenceWords": 17,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "kusen"
+      },
+      {
+        "op": "substitute",
+        "ref": "pintu",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "dan",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "jendela",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "enam",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "unit",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "empat",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "ratus",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "lima",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "unit",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "lestari",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "sleman",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 9,
+    "referenceTokens": [
+      "enam",
+      "unit",
+      "empat",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "unit"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 9,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 9
+  }
+}

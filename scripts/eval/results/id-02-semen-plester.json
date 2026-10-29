@@ -1,0 +1,125 @@
+{
+  "id": "id-02-semen-plester",
+  "locale": "id",
+  "sessionId": "sess-id-02",
+  "turnCount": 2,
+  "reference": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna, Bantul.",
+  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "overall": {
+    "wer": 1,
+    "distance": 17,
+    "referenceWords": 17,
+    "hypothesisWords": 16,
+    "substitutions": 16,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "delete",
+        "ref": "semen"
+      },
+      {
+        "op": "substitute",
+        "ref": "empat",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "sak",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "enam",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "puluh",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "ribu",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "jelas"
+      },
+      {
+        "op": "substitute",
+        "ref": "sak",
+        "hyp": "aksen"
+      },
+      {
+        "op": "substitute",
+        "ref": "plester",
+        "hyp": "campur"
+      },
+      {
+        "op": "substitute",
+        "ref": "lantai",
+        "hyp": "kata"
+      },
+      {
+        "op": "substitute",
+        "ref": "dua",
+        "hyp": "lokal"
+      },
+      {
+        "op": "substitute",
+        "ref": "rumah",
+        "hyp": "rusak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bu",
+        "hyp": "berat"
+      },
+      {
+        "op": "substitute",
+        "ref": "ratna",
+        "hyp": "tidak"
+      },
+      {
+        "op": "substitute",
+        "ref": "bantul",
+        "hyp": "jelas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 1,
+    "distance": 10,
+    "referenceTokens": [
+      "empat",
+      "puluh",
+      "sak",
+      "enam",
+      "puluh",
+      "dua",
+      "ribu",
+      "per",
+      "sak",
+      "dua"
+    ],
+    "hypothesisTokens": [],
+    "referenceCount": 10,
+    "hypothesisCount": 0,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 10
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-14",
+  "transcript": "Ganti atap untuk gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra di Berbah.",
+  "audioDurationMs": 9400,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6800,
+      "transcript": "Ganti atap untuk gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi."
+    },
+    {
+      "startMs": 7000,
+      "endMs": 9400,
+      "transcript": "Gudang Pak Hendra di Berbah."
+    }
+  ]
+}

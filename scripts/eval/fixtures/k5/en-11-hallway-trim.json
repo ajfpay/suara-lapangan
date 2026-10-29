@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-11",
+  "transcript": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin.",
+  "audioDurationMs": 7800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5800,
+      "transcript": "Ninety-five linear feet of baseboard trim, six dollars per linear foot."
+    },
+    {
+      "startMs": 6000,
+      "endMs": 7800,
+      "transcript": "Feldman hallway, Austin."
+    }
+  ]
+}
