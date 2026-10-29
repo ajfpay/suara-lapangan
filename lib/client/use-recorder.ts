@@ -7,6 +7,11 @@ import { getRecordQueue } from "@/lib/client/record-queue";
 export type RecorderStatus = "idle" | "recording" | "processing" | "error";
 
 export interface UseRecorderOptions {
+  /**
+   * Optional prefix for minted session IDs.
+   * Every completed recording generates a new unique sessionId prefixed with this value:
+   * `${sessionId}${crypto.randomUUID()}`.
+   */
   sessionId?: string;
   onRecordingComplete?: (blob: Blob) => void;
   minPressDurationMs?: number;
@@ -21,7 +26,6 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
 
-  const sessionIdRef = useRef<string>(options.sessionId ?? crypto.randomUUID());
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -65,9 +69,6 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const startRecording = useCallback(async () => {
     try {
       setError(null);
-      if (!sessionIdRef.current) {
-        sessionIdRef.current = crypto.randomUUID();
-      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -130,7 +131,15 @@ export function useRecorder(options: UseRecorderOptions = {}) {
 
         const wavBlob = toWav16k(audioBuffer);
         const queue = getRecordQueue();
-        await queue.add(wavBlob, sessionIdRef.current);
+        // Every completed recording requires a unique sessionId:
+        // 1. RecordQueue dedupes by sessionId; with an already-uploaded record, a matching
+        //    sessionId causes subsequent recordings to be silently discarded.
+        // 2. The ticket-03 ASR route replaces existing turns when the same sessionId arrives
+        //    with different audio.
+        // Generating a fresh id per recording guarantees all audio is preserved and uploaded.
+        const prefix = options.sessionId ?? "";
+        const recordingSessionId = `${prefix}${crypto.randomUUID()}`;
+        await queue.add(wavBlob, recordingSessionId);
         await refreshPendingCount();
 
         if (navigator.onLine) {
@@ -154,7 +163,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
 
     recorder.stop();
     return promise;
-  }, [onRecordingComplete, refreshPendingCount]);
+  }, [onRecordingComplete, refreshPendingCount, options.sessionId]);
 
   const toggleRecording = useCallback(() => {
     if (status === "recording") {

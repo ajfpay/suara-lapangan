@@ -78,13 +78,13 @@ function createSimpleMockIDB() {
         if (this.oncomplete) this.oncomplete();
       });
     }
-    objectStore(_name: string) {
+    objectStore() {
       return new MockObjectStore(this.storeName);
     }
   }
 
   class MockDB {
-    transaction(stores: string | string[], _mode: IDBTransactionMode) {
+    transaction(stores: string | string[]) {
       const storeName = Array.isArray(stores) ? stores[0] : stores;
       return new MockTx(storeName);
     }
@@ -99,7 +99,7 @@ function createSimpleMockIDB() {
   }
 
   return {
-    open: (_name: string, _version?: number) => {
+    open: () => {
       const req = new MockRequest();
       req.result = new MockDB();
       req.scheduleFire();
