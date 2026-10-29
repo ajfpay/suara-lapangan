@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
 import { getTurnsStore } from "@/lib/server/db/store";
+import {
+    assertQuotaAvailable,
+    recordUsage,
+} from "@/lib/server/quota/usage-meter";
 
 import { AsrError } from "./errors";
 import type { Locale } from "./locale";
@@ -33,6 +37,9 @@ export async function transcribeSession({
     const stored = await store.findSession(sessionId);
     if (stored && stored.audioSha256 === audioSha256) return stored.turns;
 
+    // Hard-stop check: reject NEW session when daily cap reached
+    await assertQuotaAvailable({ locale });
+
     const apiKey = process.env.MODEL_API_KEY;
     if (!apiKey) {
         throw new AsrError("not_configured", {
@@ -56,6 +63,17 @@ export async function transcribeSession({
                 ? meta.audioDurationMs
                 : null,
         turns,
+    });
+
+    const audioSeconds =
+        typeof meta.audioDurationMs === "number"
+            ? meta.audioDurationMs / 1000
+            : audio.byteLength / 32000;
+
+    await recordUsage({
+        audioSeconds,
+        tokens: 0,
+        estCost: (audioSeconds / 3600) * 0.18,
     });
 
     return turns;
