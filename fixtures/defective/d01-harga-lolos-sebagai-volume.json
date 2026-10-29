@@ -1,0 +1,60 @@
+{
+  "id": "d01-harga-lolos-sebagai-volume",
+  "locale": "en",
+  "session_id": "sess-def-01",
+  "project": {
+    "nama": "Living Room Remodel",
+    "lokasi": "Austin, TX",
+    "klien": "Mr. Carter"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6800,
+      "transcript": "Drywall for the living room, twenty-four square feet, eight hundred dollars for the whole thing.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7000,
+      "endMs": 8800,
+      "transcript": "Carter place, Austin.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/031",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Living Room Remodel",
+      "lokasi": "Austin, TX",
+      "klien": "Mr. Carter"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall installation and taping (living room)",
+        "volume": 800,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 20000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 20000,
+    "terbilang": "Twenty thousand US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "harga_lolos_sebagai_volume",
+    "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet; additionally, harga_satuan (25) is unsourced in the transcript. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
+    "bukti": "eight hundred dollars"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].volume",
+    "verdict": "butuh_konfirmasi"
+  }
+}

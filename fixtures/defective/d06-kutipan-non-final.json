@@ -1,0 +1,60 @@
+{
+  "id": "d06-kutipan-non-final",
+  "locale": "id",
+  "session_id": "sess-def-06",
+  "project": {
+    "nama": "Keramik Teras",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Bimo"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6200,
+      "transcript": "Keramik teras, dua belas meter persegi, seratus lima puluh ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6400,
+      "endMs": 8000,
+      "transcript": "Eh, mungkin dua belas koma lima.",
+      "final": false
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/036",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Keramik Teras",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Bimo"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Keramik teras",
+        "volume": 12.5,
+        "satuan": "m2",
+        "harga_satuan": 150000,
+        "jumlah": 1875000,
+        "sumber_kutipan": "turn_2"
+      }
+    ],
+    "total_nominal": 1875000,
+    "terbilang": "Satu juta delapan ratus tujuh puluh lima ribu rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "kutipan_non_final",
+    "alasan": "The value comes from a partial turn (final=false). Guard rule 1 accepts only final turns, so the field must wait until a final turn states the number.",
+    "bukti": "turn_2"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].sumber_kutipan",
+    "verdict": "butuh_konfirmasi"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "id-06-galian-pondasi",
+  "locale": "id",
+  "session_id": "sess-id-06",
+  "project": {
+    "nama": "Galian Pondasi",
+    "lokasi": "Godean, Sleman",
+    "klien": "Pak Sutrisno"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6800,
+      "transcript": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7000,
+      "endMs": 9400,
+      "transcript": "Pondasi rumah Pak Sutrisno, Godean.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-31/021",
+    "tanggal": "2026-10-31",
+    "proyek": {
+      "nama": "Galian Pondasi",
+      "lokasi": "Godean, Sleman",
+      "klien": "Pak Sutrisno"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Galian tanah pondasi",
+        "volume": 18,
+        "satuan": "m3",
+        "harga_satuan": 90000,
+        "jumlah": 1620000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1620000,
+    "terbilang": "Satu juta enam ratus dua puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

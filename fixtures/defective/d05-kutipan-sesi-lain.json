@@ -1,0 +1,60 @@
+{
+  "id": "d05-kutipan-sesi-lain",
+  "locale": "en",
+  "session_id": "sess-def-05",
+  "project": {
+    "nama": "Hallway Trim",
+    "lokasi": "Austin, TX",
+    "klien": "Mr. Feldman"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6000,
+      "transcript": "Baseboard trim, ninety-five linear feet, six dollars a linear foot.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6200,
+      "endMs": 8000,
+      "transcript": "Feldman hallway, Austin.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/035",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Hallway Trim",
+      "lokasi": "Austin, TX",
+      "klien": "Mr. Feldman"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Baseboard trim (hallway)",
+        "volume": 95,
+        "satuan": "lin_ft",
+        "harga_satuan": 6,
+        "jumlah": 570,
+        "sumber_kutipan": "turn_4"
+      }
+    ],
+    "total_nominal": 570,
+    "terbilang": "Five hundred seventy US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "kutipan_sesi_lain",
+    "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has turn_4 while sess-def-05 only has turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
+    "bukti": "turn_4"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].sumber_kutipan",
+    "verdict": "butuh_konfirmasi"
+  }
+}

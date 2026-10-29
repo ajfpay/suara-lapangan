@@ -1,0 +1,66 @@
+{
+  "id": "id-11-semen-dan-besi",
+  "locale": "id",
+  "session_id": "sess-id-11",
+  "project": {
+    "nama": "Struktur Tambahan",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Yusuf"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5000,
+      "transcript": "Semen dua puluh sak, enam puluh dua ribu per sak.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5200,
+      "endMs": 8200,
+      "transcript": "Besi delapan milimeter sepuluh batang, tujuh puluh delapan ribu per batang.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_3",
+      "startMs": 8400,
+      "endMs": 10800,
+      "transcript": "Struktur tambahan rumah Pak Yusuf, Sleman.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/026",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Struktur Tambahan",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Yusuf"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Semen untuk struktur tambahan",
+        "volume": 20,
+        "satuan": "sak",
+        "harga_satuan": 62000,
+        "jumlah": 1240000,
+        "sumber_kutipan": "turn_1"
+      },
+      {
+        "uraian": "Besi 8 mm",
+        "volume": 10,
+        "satuan": "batang",
+        "harga_satuan": 78000,
+        "jumlah": 780000,
+        "sumber_kutipan": "turn_2"
+      }
+    ],
+    "total_nominal": 2020000,
+    "terbilang": "Dua juta dua puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

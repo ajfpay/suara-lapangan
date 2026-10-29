@@ -1,0 +1,51 @@
+{
+  "id": "en-02-garage-slab",
+  "locale": "en",
+  "session_id": "sess-en-02",
+  "project": {
+    "nama": "Garage Slab",
+    "lokasi": "Round Rock, TX",
+    "klien": "Mrs. Alvarez"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "We are pouring a concrete slab in the garage, twelve square meters, ninety-five dollars a square meter.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6600,
+      "endMs": 9600,
+      "transcript": "The client is Mrs. Alvarez, the job is in Round Rock, Texas.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/002",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Garage Slab",
+      "lokasi": "Round Rock, TX",
+      "klien": "Mrs. Alvarez"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Concrete slab pour (garage)",
+        "volume": 12,
+        "satuan": "m2",
+        "harga_satuan": 95,
+        "jumlah": 1140,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1140,
+    "terbilang": "One thousand one hundred forty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

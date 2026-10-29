@@ -1,0 +1,51 @@
+{
+  "id": "id-09-pengecatan",
+  "locale": "id",
+  "session_id": "sess-id-09",
+  "project": {
+    "nama": "Pengecatan Tiga Kamar",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Andi"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 7200,
+      "transcript": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7400,
+      "endMs": 9600,
+      "transcript": "Rumah Pak Andi, Sleman.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-31/024",
+    "tanggal": "2026-10-31",
+    "proyek": {
+      "nama": "Pengecatan Tiga Kamar",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Andi"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Pengecatan tiga kamar",
+        "volume": 120,
+        "satuan": "m2",
+        "harga_satuan": 38000,
+        "jumlah": 4560000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 4560000,
+    "terbilang": "Empat juta lima ratus enam puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

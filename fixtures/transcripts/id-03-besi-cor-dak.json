@@ -1,0 +1,51 @@
+{
+  "id": "id-03-besi-cor-dak",
+  "locale": "id",
+  "session_id": "sess-id-03",
+  "project": {
+    "nama": "Cor Dak Teras",
+    "lokasi": "Klaten, Jawa Tengah",
+    "klien": "Pak Waluyo"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6800,
+      "endMs": 9400,
+      "transcript": "Cor dak teras Pak Waluyo, Klaten.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-30/018",
+    "tanggal": "2026-10-30",
+    "proyek": {
+      "nama": "Cor Dak Teras",
+      "lokasi": "Klaten, Jawa Tengah",
+      "klien": "Pak Waluyo"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Besi 10 mm untuk cor dak teras",
+        "volume": 35,
+        "satuan": "batang",
+        "harga_satuan": 78000,
+        "jumlah": 2730000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 2730000,
+    "terbilang": "Dua juta tujuh ratus tiga puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

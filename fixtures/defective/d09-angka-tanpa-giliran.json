@@ -1,0 +1,60 @@
+{
+  "id": "d09-angka-tanpa-giliran",
+  "locale": "en",
+  "session_id": "sess-def-09",
+  "project": {
+    "nama": "Shop Fit-out",
+    "lokasi": "Elgin, TX",
+    "klien": "Mr. Boateng"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 4400,
+      "transcript": "Same drywall as the last unit, same rate.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 4600,
+      "endMs": 6800,
+      "transcript": "Boateng unit two, Elgin.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/039",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Shop Fit-out",
+      "lokasi": "Elgin, TX",
+      "klien": "Mr. Boateng"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall for shop fit-out",
+        "volume": 30,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 750,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 750,
+    "terbilang": "Seven hundred fifty US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "angka_tidak_ada_di_giliran",
+    "alasan": "No turn states a volume or a rate: the row's numbers come from nowhere. The guard must ask instead of letting a value appear without a source.",
+    "bukti": "Same drywall as the last unit, same rate."
+  },
+  "expectation": {
+    "field": "pekerjaan[0].volume",
+    "verdict": "butuh_konfirmasi"
+  }
+}

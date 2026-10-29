@@ -1,0 +1,51 @@
+{
+  "id": "id-01-pasang-keramik",
+  "locale": "id",
+  "session_id": "sess-id-01",
+  "project": {
+    "nama": "Renovasi Rumah Pak Suryo",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Suryo"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 7200,
+      "transcript": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7400,
+      "endMs": 10000,
+      "transcript": "Ini rumah Pak Suryo di Sleman, Yogyakarta.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-30/016",
+    "tanggal": "2026-10-30",
+    "proyek": {
+      "nama": "Renovasi Rumah Pak Suryo",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Suryo"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Pasang keramik ruang tamu",
+        "volume": 24,
+        "satuan": "m2",
+        "harga_satuan": 150000,
+        "jumlah": 3600000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 3600000,
+    "terbilang": "Tiga juta enam ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

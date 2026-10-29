@@ -1,0 +1,51 @@
+{
+  "id": "id-12-instalasi-air",
+  "locale": "id",
+  "session_id": "sess-id-12",
+  "project": {
+    "nama": "Instalasi Air Kamar Mandi",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Bu Ningsih"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5600,
+      "endMs": 8200,
+      "transcript": "Kamar mandi Bu Ningsih, Sleman.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/027",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Instalasi Air Kamar Mandi",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Bu Ningsih"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Instalasi air kamar mandi",
+        "volume": 8,
+        "satuan": "titik",
+        "harga_satuan": 210000,
+        "jumlah": 1680000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1680000,
+    "terbilang": "Satu juta enam ratus delapan puluh ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}
