@@ -15,7 +15,7 @@ export const ROOTKEYWORDS = [
  * the page headings and the Next / Previous labels.
  */
 export const STEPS = [
-    { path: "/", messageKey: "rekam" },
+    { path: "/rekam", messageKey: "rekam" },
     { path: "/susun", messageKey: "susun" },
     { path: "/dokumen", messageKey: "dokumen" },
 ] as const;
@@ -27,7 +27,7 @@ export const localePath = (locale: string) => `/${locale}`;
 
 /** Full path for a step in a locale; the first step is the locale root. */
 export const stepPath = (locale: string, path: string) =>
-    path === "/" ? localePath(locale) : `${localePath(locale)}${path}`;
+    `${localePath(locale)}${path}`;
 
 /**
  * `alternates.languages` for Next's metadata.
