@@ -4,6 +4,13 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resetRateLimits } from "@/lib/server/quota/rate-limit";
+import {
+    recordUsage,
+    resetMemoryUsageStore,
+    setUsageStore,
+} from "@/lib/server/quota/usage-meter";
+
 import { POST } from "./route";
 
 /**
@@ -90,6 +97,9 @@ function upload({
 }
 
 beforeEach(() => {
+    resetRateLimits();
+    setUsageStore(null);
+    resetMemoryUsageStore();
     storeStub.findSession.mockReset().mockResolvedValue(null);
     storeStub.saveTranscription.mockReset().mockResolvedValue(undefined);
     fetchMock = vi.fn();
@@ -99,6 +109,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    resetRateLimits();
+    setUsageStore(null);
+    resetMemoryUsageStore();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     delete process.env.MODEL_API_KEY;
@@ -355,5 +368,25 @@ describe("POST /api/asr/transcribe", () => {
         expect(errorSpy.mock.calls.flat().join(" ")).toContain(
             "internal_error"
         );
+    });
+
+    it("returns 429 with X-Quota-Hard-Stop header when daily cap is reached", async () => {
+        await recordUsage({
+            estCost: 6.0,
+        });
+
+        const response = await POST(
+            upload({ sessionId: "sess-quota-hard-stop" })
+        );
+
+        expect(response.status).toBe(429);
+        expect(response.headers.get("X-Quota-Hard-Stop")).toBe("true");
+        const body = await response.json();
+        expect(body).toMatchObject({
+            error: {
+                code: "quota_exceeded",
+            },
+        });
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

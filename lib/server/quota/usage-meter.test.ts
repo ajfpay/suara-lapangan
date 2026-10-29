@@ -2,13 +2,14 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
     assertQuotaAvailable,
     formatDay,
     getDailyCostCap,
     getUsage,
+    getUsageStore,
     PostgresUsageStore,
     QuotaExceededError,
     recordUsage,
@@ -165,6 +166,34 @@ describe("usage-meter (in-memory)", () => {
         expect(formatDay("2026-10-29T14:30:00Z")).toBe("2026-10-29");
         expect(formatDay(new Date("2026-10-29T14:30:00Z"))).toBe("2026-10-29");
         expect(formatDay()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+
+    it("caches PostgresUsageStore instance when DATABASE_URL is set", () => {
+        const originalUrl = process.env.DATABASE_URL;
+        try {
+            process.env.DATABASE_URL = "postgres://dummy:5432/db";
+            const store1 = getUsageStore();
+            const store2 = getUsageStore();
+            expect(store1).toBe(store2);
+            expect(store1).toBeInstanceOf(PostgresUsageStore);
+        } finally {
+            if (originalUrl !== undefined) {
+                process.env.DATABASE_URL = originalUrl;
+            } else {
+                delete process.env.DATABASE_URL;
+            }
+        }
+    });
+
+    it("respects setUsageStore custom store hook and allows reset", () => {
+        const mockStore = {
+            recordUsage: vi.fn(),
+            getUsage: vi.fn(),
+        };
+        setUsageStore(mockStore);
+        expect(getUsageStore()).toBe(mockStore);
+        setUsageStore(null);
+        expect(getUsageStore()).not.toBe(mockStore);
     });
 });
 

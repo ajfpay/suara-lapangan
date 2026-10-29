@@ -68,11 +68,23 @@ describe("RateLimiter", () => {
 });
 
 describe("Client identifier & locale detection", () => {
-    it("identifies client by x-user-id header if present", () => {
+    it("does not trust x-user-id header for client identification", () => {
         const req = new Request("http://localhost/api/asr/transcribe", {
-            headers: { "x-user-id": "user-42" },
+            headers: {
+                "x-user-id": "attacker-42",
+                "x-forwarded-for": "203.0.113.195",
+            },
         });
-        expect(getClientIdentifier(req)).toBe("user:user-42");
+        expect(getClientIdentifier(req)).toBe("ip:203.0.113.195");
+    });
+
+    it("falls back to bounded client identifier when IP headers are absent", () => {
+        const req = new Request("http://localhost/api/asr/transcribe", {
+            headers: { "user-agent": "Mozilla/5.0 TestBrowser" },
+        });
+        expect(getClientIdentifier(req)).toBe(
+            "client:ua:Mozilla/5.0 TestBrowser"
+        );
     });
 
     it("identifies client by x-forwarded-for first IP", () => {
@@ -155,13 +167,13 @@ describe("withRateLimit middleware wrapper", () => {
         });
 
         const req1 = new Request("http://localhost/api/pdf", {
-            headers: { "x-user-id": "pdf-user" },
+            headers: { "x-forwarded-for": "198.51.100.50" },
         });
         const req2 = new Request("http://localhost/api/pdf", {
-            headers: { "x-user-id": "pdf-user" },
+            headers: { "x-forwarded-for": "198.51.100.50" },
         });
         const req3 = new Request("http://localhost/api/pdf", {
-            headers: { "x-user-id": "pdf-user" },
+            headers: { "x-forwarded-for": "198.51.100.50" },
         });
 
         const res1 = await wrapped(req1);

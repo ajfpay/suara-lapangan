@@ -225,10 +225,16 @@ export class PostgresUsageStore implements UsageStore {
     async reset(): Promise<void> {
         await this.pool.query("truncate usage_meter");
     }
+
+    async end(): Promise<void> {
+        await this.pool.end();
+    }
 }
 
 const memoryStore = new MemoryUsageStore();
 let customStore: UsageStore | null = null;
+let shared: PostgresUsageStore | null = null;
+let sharedConnectionString: string | null = null;
 
 export function setUsageStore(store: UsageStore | null): void {
     customStore = store;
@@ -239,7 +245,11 @@ export function getUsageStore(): UsageStore {
 
     const connectionString = process.env.DATABASE_URL;
     if (connectionString) {
-        return new PostgresUsageStore(connectionString);
+        if (!shared || sharedConnectionString !== connectionString) {
+            shared = new PostgresUsageStore(connectionString);
+            sharedConnectionString = connectionString;
+        }
+        return shared;
     }
 
     return memoryStore;

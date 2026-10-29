@@ -76,18 +76,37 @@ export function resetRateLimits(): void {
     globalLimiter.reset();
 }
 
+/**
+ * Derives the rate-limit client identifier from a server-trusted source.
+ *
+ * Trusted Reverse Proxy Assumption:
+ * We assume the application runs behind a reverse proxy (e.g. Caddy, Nginx,
+ * Cloudflare) that reliably sets or overwrites `x-forwarded-for` and/or `x-real-ip`
+ * with the verified downstream client IP address, stripping any client-supplied
+ * spoofed values. We deliberately do NOT trust client-supplied headers like
+ * `x-user-id` for rate limiting, as an attacker could randomize it per request
+ * to put each request into a fresh bucket and bypass the limiter entirely.
+ *
+ * Fallback:
+ * If proxy IP headers are absent (e.g. local dev or direct connections), we fall
+ * back to available client characteristics (such as User-Agent) rather than putting
+ * all unproxied traffic into a single shared bucket that allows one client to starve
+ * others, while keeping repeat requests from the same client bounded.
+ */
 export function getClientIdentifier(request: Request): string {
-    const userId = request.headers.get("x-user-id");
-    if (userId) return `user:${userId.trim()}`;
-
     const forwarded = request.headers.get("x-forwarded-for");
     if (forwarded) {
-        const firstIp = forwarded.split(",")[0].trim();
+        const firstIp = forwarded.split(",")[0]?.trim();
         if (firstIp) return `ip:${firstIp}`;
     }
 
-    const realIp = request.headers.get("x-real-ip");
-    if (realIp) return `ip:${realIp.trim()}`;
+    const realIp = request.headers.get("x-real-ip")?.trim();
+    if (realIp) return `ip:${realIp}`;
+
+    const userAgent = request.headers.get("user-agent")?.trim();
+    if (userAgent) {
+        return `client:ua:${userAgent.slice(0, 64)}`;
+    }
 
     return "client:default";
 }
