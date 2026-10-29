@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { AlertCircle, Square, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -107,22 +106,47 @@ export function TurnCard({
 
             if (isNumber) {
                 return (
-                    <span key={i} className="inline-flex items-baseline">
+                    <span key={i} className="inline-flex items-center align-middle mx-0.5">
                         <strong className="font-bold text-foreground underline decoration-primary/40 underline-offset-4">
                             {part}
                         </strong>
                         <button
                             type="button"
                             onClick={onPlay}
-                            className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded bg-primary px-1 text-[11px] font-bold text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                            className={cn(
+                                "ml-1.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-xl px-2.5 py-1 text-sm font-bold shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 touch-manipulation align-middle",
+                                isPlaying
+                                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus:ring-destructive"
+                                    : "bg-primary text-primary-foreground hover:bg-primary/90 focus:ring-primary"
+                            )}
                             title={
-                                isIndo
-                                    ? `Putar kutipan audio [${index}]`
-                                    : `Play audio quote [${index}]`
+                                isPlaying
+                                    ? isIndo
+                                        ? "Hentikan audio"
+                                        : "Stop audio"
+                                    : isIndo
+                                      ? `Putar kutipan audio [${index}]`
+                                      : `Play audio quote [${index}]`
                             }
-                            aria-label={`${quoteBadgeLabel} [${index}]`}
+                            aria-label={
+                                isPlaying
+                                    ? isIndo
+                                        ? "Hentikan audio"
+                                        : "Stop audio"
+                                    : `${quoteBadgeLabel} [${index}]`
+                            }
                         >
-                            {index}
+                            {isPlaying ? (
+                                <>
+                                    <Square className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
+                                    <span>{index}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                    <span>{index}</span>
+                                </>
+                            )}
                         </button>
                     </span>
                 );

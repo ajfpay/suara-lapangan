@@ -21,7 +21,11 @@ export function useAudioSlicePlayer(sessionId: string) {
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const objectUrlRef = useRef<string | null>(null);
-    const cachedBlobRef = useRef<Blob | null>(null);
+    const cachedBlobRef = useRef<{ sessionId: string; blob: Blob } | null>(
+        null
+    );
+    const generationRef = useRef<number>(0);
+    const pendingTurnIdRef = useRef<string | null>(null);
 
     const cleanupAudio = useCallback(() => {
         if (audioRef.current) {
@@ -36,6 +40,8 @@ export function useAudioSlicePlayer(sessionId: string) {
     }, []);
 
     const stop = useCallback(() => {
+        generationRef.current += 1;
+        pendingTurnIdRef.current = null;
         cleanupAudio();
         setState((prev) => ({
             ...prev,
@@ -44,25 +50,49 @@ export function useAudioSlicePlayer(sessionId: string) {
         }));
     }, [cleanupAudio]);
 
+    // B2: Reset cached blob and stop any in-flight playback when sessionId changes
+    useEffect(() => {
+        cachedBlobRef.current = null;
+        stop();
+    }, [sessionId, stop]);
+
     const playTurnSlice = useCallback(
         async (turnId: string, startMs: number, endMs: number) => {
-            if (state.isPlaying && state.activeTurnId === turnId) {
+            if (
+                (state.isPlaying && state.activeTurnId === turnId) ||
+                pendingTurnIdRef.current === turnId
+            ) {
                 stop();
                 return;
             }
 
+            const generation = ++generationRef.current;
+            pendingTurnIdRef.current = turnId;
             cleanupAudio();
 
             try {
-                let blob = cachedBlobRef.current;
+                let blob =
+                    cachedBlobRef.current?.sessionId === sessionId
+                        ? cachedBlobRef.current.blob
+                        : null;
                 if (!blob) {
-                    blob = await getLocalRecordingBlob(sessionId);
-                    if (blob) {
-                        cachedBlobRef.current = blob;
+                    const fetched = await getLocalRecordingBlob(sessionId);
+                    if (generation !== generationRef.current) {
+                        return;
+                    }
+                    if (fetched) {
+                        cachedBlobRef.current = { sessionId, blob: fetched };
+                        blob = fetched;
                     }
                 }
 
                 if (!blob) {
+                    if (generation !== generationRef.current) {
+                        return;
+                    }
+                    if (pendingTurnIdRef.current === turnId) {
+                        pendingTurnIdRef.current = null;
+                    }
                     setState((prev) => ({
                         ...prev,
                         isPlaying: false,
@@ -74,13 +104,32 @@ export function useAudioSlicePlayer(sessionId: string) {
                 }
 
                 const slicedBlob = await sliceWav(blob, startMs, endMs);
+                if (generation !== generationRef.current) {
+                    return;
+                }
+
+                // Revoke any previously created object URL before overwriting
+                if (objectUrlRef.current) {
+                    URL.revokeObjectURL(objectUrlRef.current);
+                    objectUrlRef.current = null;
+                }
+
                 const url = URL.createObjectURL(slicedBlob);
+                if (generation !== generationRef.current) {
+                    URL.revokeObjectURL(url);
+                    return;
+                }
                 objectUrlRef.current = url;
 
                 const audio = new Audio(url);
+                if (generation !== generationRef.current) {
+                    cleanupAudio();
+                    return;
+                }
                 audioRef.current = audio;
 
                 audio.onended = () => {
+                    if (generation !== generationRef.current) return;
                     cleanupAudio();
                     setState((prev) => ({
                         ...prev,
@@ -90,6 +139,7 @@ export function useAudioSlicePlayer(sessionId: string) {
                 };
 
                 audio.onerror = () => {
+                    if (generation !== generationRef.current) return;
                     cleanupAudio();
                     setState((prev) => ({
                         ...prev,
@@ -99,7 +149,20 @@ export function useAudioSlicePlayer(sessionId: string) {
                     }));
                 };
 
+                if (generation !== generationRef.current) {
+                    cleanupAudio();
+                    return;
+                }
+
                 await audio.play();
+                if (generation !== generationRef.current) {
+                    cleanupAudio();
+                    return;
+                }
+
+                if (pendingTurnIdRef.current === turnId) {
+                    pendingTurnIdRef.current = null;
+                }
                 setState({
                     isPlaying: true,
                     activeTurnId: turnId,
@@ -107,6 +170,12 @@ export function useAudioSlicePlayer(sessionId: string) {
                     error: null,
                 });
             } catch (err: unknown) {
+                if (generation !== generationRef.current) {
+                    return;
+                }
+                if (pendingTurnIdRef.current === turnId) {
+                    pendingTurnIdRef.current = null;
+                }
                 cleanupAudio();
                 const msg =
                     err instanceof Error ? err.message : "Error playing audio";
@@ -128,8 +197,16 @@ export function useAudioSlicePlayer(sessionId: string) {
         }));
     }, []);
 
+    const clearError = useCallback(() => {
+        setState((prev) => ({
+            ...prev,
+            error: null,
+        }));
+    }, []);
+
     useEffect(() => {
         return () => {
+            generationRef.current += 1;
             cleanupAudio();
         };
     }, [cleanupAudio]);
@@ -139,5 +216,6 @@ export function useAudioSlicePlayer(sessionId: string) {
         playTurnSlice,
         stop,
         clearUnavailableNotice,
+        clearError,
     };
 }

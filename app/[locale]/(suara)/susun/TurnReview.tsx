@@ -43,8 +43,10 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
         isPlaying,
         activeTurnId,
         audioUnavailableTurnId,
+        error: playbackError,
         playTurnSlice,
         clearUnavailableNotice,
+        clearError,
     } = useAudioSlicePlayer(sessionId ?? "");
 
     // Resolve sessionId if not provided in URL
@@ -302,6 +304,38 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                     </button>
                 </div>
             </div>
+
+            {/* Playback Error Alert */}
+            {playbackError && (
+                <div
+                    className="flex items-start justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-foreground shadow-sm"
+                    role="alert"
+                >
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-destructive" />
+                        <div className="space-y-1">
+                            <p className="font-bold text-sm text-destructive">
+                                {isIndo
+                                    ? "Gagal memutar kutipan audio"
+                                    : "Failed to play audio quote"}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {playbackError}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={clearError}
+                        className="rounded p-1 text-sm font-bold text-destructive hover:opacity-80"
+                        aria-label={
+                            isIndo ? "Tutup pesan error" : "Dismiss error"
+                        }
+                    >
+                        ✕
+                    </button>
+                </div>
+            )}
 
             {/* Turn Cards List */}
             <div className="flex flex-col gap-5">
