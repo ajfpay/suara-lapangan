@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
-// This page only renders when the app is built statically (output: 'export')
+// Only reached when the middleware is bypassed (for example output: "export").
+// The middleware otherwise rewrites "/" to the detected locale.
 export default function RootPage() {
     redirect("/en");
 }

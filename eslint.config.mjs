@@ -5,38 +5,30 @@ import { FlatCompat } from "@eslint/eslintrc";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const compat = new FlatCompat({ baseDirectory: __dirname });
+const compat = new FlatCompat({
+    baseDirectory: __dirname,
+});
 
 const eslintConfig = [
     ...compat.extends("next/core-web-vitals", "next/typescript"),
     {
         ignores: [
-            "node_modules/**",
             ".next/**",
-            "out/**",
-            "build/**",
+            "node_modules/**",
+            "playwright-report/**",
+            "test-results/**",
+            ".cache/**",
+            /*
+             * The invoice templates belong to ticket 08 and still reference the
+             * invoice app that ticket 01 removed; they are not compiled or
+             * linted until that ticket replaces them. See THIRD-PARTY.md.
+             */
+            "app/components/templates/**",
             "next-env.d.ts",
+            "next.config.js",
+            "tailwind.config.js",
+            "postcss.config.js",
         ],
-    },
-    {
-        // CommonJS config files legitimately use require()
-        files: ["*.js", "*.cjs", "next.config.js", "tailwind.config.js"],
-        rules: {
-            "@typescript-eslint/no-require-imports": "off",
-        },
-    },
-    {
-        rules: {
-            // The codebase uses <img> inside the invoice templates on purpose:
-            // they are serialised with renderToStaticMarkup and rendered by
-            // Puppeteer, where next/image would not resolve.
-            "@next/next/no-img-element": "off",
-            "@typescript-eslint/no-unused-vars": [
-                "warn",
-                { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-            ],
-            "@typescript-eslint/no-explicit-any": "warn",
-        },
     },
 ];
 

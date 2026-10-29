@@ -1,33 +1,30 @@
 import type { MetadataRoute } from "next";
 
-/**
- * Wires up the icons that were already sitting in public/assets/favicon but
- * that nothing referenced — `site.webmanifest` shipped in the repo and was
- * never linked.
- */
+import { APP_NAME } from "@/lib/variables";
+
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "Invoify — Free Invoice Generator",
-        short_name: "Invoify",
+        name: `${APP_NAME} — Rekam, Susun, Dokumen`,
+        short_name: APP_NAME,
         description:
-            "Build an invoice from thirteen templates and download it as a PDF.",
-        start_url: "/",
+            "Record a job in English or Indonesian and issue a formal Quotation / Surat Penawaran.",
+        start_url: "/en",
         display: "standalone",
-        background_color: "#ffffff",
-        theme_color: "#4F46E5",
+        background_color: "#f8f6f2",
+        theme_color: "#0f1722",
         icons: [
             {
-                src: "/assets/favicon/android-chrome-192x192.png",
+                src: "/assets/img/suara-lapangan-mark-192.png",
                 sizes: "192x192",
                 type: "image/png",
             },
             {
-                src: "/assets/favicon/android-chrome-512x512.png",
+                src: "/assets/img/suara-lapangan-mark-512.png",
                 sizes: "512x512",
                 type: "image/png",
             },
             {
-                src: "/assets/favicon/apple-touch-icon.png",
+                src: "/assets/img/suara-lapangan-apple-touch.png",
                 sizes: "180x180",
                 type: "image/png",
                 purpose: "maskable",

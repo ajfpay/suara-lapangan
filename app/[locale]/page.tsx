@@ -1,45 +1,44 @@
-// Components
-import { InvoiceMain } from "@/app/components";
-import LandingContent from "@/app/components/layout/LandingContent";
+import type { Metadata } from "next";
 
-// Contexts
-import { WizardProvider } from "@/contexts/WizardContext";
+import { StepScreen } from "@/app/components";
 
-export default async function Home(props: {
-    params: Promise<{ locale: string }>;
-}) {
-    const { locale } = await props.params;
+import { STEPS } from "@/lib/seo";
+
+import { stepPage, type LocaleParams } from "./step-page";
+
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+    return [{ locale: "en" }, { locale: "id" }];
+}
+
+export async function generateMetadata({
+    params,
+}: LocaleParams): Promise<Metadata> {
+    return stepPage.metadata(params, 0);
+}
+
+export default async function RekamPage({ params }: LocaleParams) {
+    const { locale } = await params;
+    const { app, nav, steps, messages } = await stepPage.copy(locale);
+    const rekam = messages.rekam as Record<string, string>;
 
     return (
-        <>
-            {/* `pb-28 xl:pb-10` clears the sticky MobileActionBar, which only
-                renders below xl. */}
-            {/*
-             * `shell:` strips the container so the two panes reach the window
-             * edges, as in the mockup. Below it the builder stays a normal
-             * page-width block.
-             */}
-            <main className="container py-6 pb-28 md:py-10 xl:pb-10 shell:max-w-none shell:px-0 shell:py-0 shell:pb-0">
-                {/*
-                 * No Suspense boundary: WizardProvider reads the step from
-                 * window.location rather than useSearchParams, so this page
-                 * stays statically prerendered. See contexts/WizardContext.tsx
-                 */}
-                <WizardProvider>
-                    <InvoiceMain />
-                </WizardProvider>
-            </main>
-
-            {/*
-             * Below the fold, and below the viewport-height shell — the app
-             * never scrolls past its own work, but there is now something on
-             * the page for a crawler to read.
-             *
-             * The trimmed variant: heading, intro and FAQ. The long-form
-             * sections live at /guide so the homepage stays short without the
-             * page going back to having no prose at all.
-             */}
-            <LandingContent locale={locale} />
-        </>
+        <StepScreen
+            stepOf={(app.stepOf ?? "")
+                .replace("{current}", "1")
+                .replace("{total}", String(STEPS.length))}
+            heading={steps.rekam}
+            title={rekam.title}
+            body={rekam.body}
+            actions={
+                <>
+                    {stepPage.previous(0, nav, steps)}
+                    {stepPage.next(0, nav, steps)}
+                </>
+            }
+        >
+            {stepPage.workList(rekam)}
+        </StepScreen>
     );
 }

@@ -1,103 +1,76 @@
 import { ImageResponse } from "next/og";
 
 import { getMessages } from "@/i18n/messages";
+import { DEFAULT_LOCALE, LOCALES } from "@/lib/variables";
 
-/**
- * Open Graph card, generated rather than committed.
- *
- * A static PNG would have to be redrawn by hand for every locale and would
- * drift the moment the wording changed. Generating it means the card always
- * says what the page says. The previous setup had no OG image at all — links
- * to the site unfurled as a bare URL — and `lib/seo.ts` pointed its JSON-LD
- * `image` at a hashed build artefact that 404s after any rebuild.
- */
-export const alt = "Invoify — free invoice generator";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
+export const alt = "Suara Lapangan — Rekam, Susun, Dokumen";
 
-export default async function OpengraphImage(props: {
+export function generateStaticParams() {
+    return LOCALES.map(({ code }) => ({ locale: code }));
+}
+
+/**
+ * The social card, generated rather than a hashed build asset: it cannot go
+ * stale after a rebuild, and it speaks the language of the page it belongs to.
+ */
+export default async function OpengraphImage({
+    params,
+}: {
     params: Promise<{ locale: string }>;
 }) {
-    const { locale } = await props.params;
-    const messages = await getMessages(locale);
-    const meta = (messages as Record<string, Record<string, string>>)?.meta ?? {};
-
-    const title = meta.ogTitle ?? "Free invoice generator";
-    const description =
-        meta.ogDescription ??
-        "Thirteen templates. Fill it in, download the PDF. No account.";
+    const { locale } = await params;
+    const messages = (await getMessages(
+        LOCALES.some(({ code }) => code === locale) ? locale : DEFAULT_LOCALE
+    )) as Record<string, Record<string, string>>;
+    const steps = messages.steps ?? {};
+    const meta = messages.meta ?? {};
 
     return new ImageResponse(
         (
             <div
                 style={{
-                    height: "100%",
                     width: "100%",
+                    height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    background: "#0F1017",
-                    padding: 72,
-                    // Satori has no default font stack; system-ui resolves on
-                    // the render host.
-                    fontFamily: "system-ui, sans-serif",
+                    background: "#0f1722",
+                    color: "#faf8f4",
+                    padding: "72px 80px",
                 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
                     <div
                         style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: 14,
-                            background: "#6C63FF",
+                            width: 64,
+                            height: 64,
+                            borderRadius: 16,
+                            background: "#b8330a",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "#fff",
                             fontSize: 34,
                             fontWeight: 700,
                         }}
                     >
-                        I
+                        SL
                     </div>
-                    <div style={{ color: "#8E88F7", fontSize: 34, fontWeight: 700 }}>
-                        Invoify
-                    </div>
+                    <span style={{ fontSize: 34, fontWeight: 600 }}>
+                        {messages.brand?.name ?? "Suara Lapangan"}
+                    </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div
-                        style={{
-                            color: "#ECEDF3",
-                            fontSize: 66,
-                            fontWeight: 700,
-                            lineHeight: 1.1,
-                            maxWidth: 900,
-                        }}
-                    >
-                        {title}
-                    </div>
-                    <div
-                        style={{
-                            color: "#969CB0",
-                            fontSize: 30,
-                            lineHeight: 1.35,
-                            maxWidth: 860,
-                        }}
-                    >
-                        {description}
-                    </div>
-                </div>
-
-                <div
-                    style={{
-                        display: "flex",
-                        gap: 12,
-                        color: "#6E7488",
-                        fontSize: 24,
-                    }}
-                >
-                    <span>invoify.vercel.app</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                    <span style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.05 }}>
+                        {meta.ogTitle ?? ""}
+                    </span>
+                    <span style={{ fontSize: 30, color: "#c9cdd3" }}>
+                        {[steps.rekam, steps.susun, steps.dokumen]
+                            .filter(Boolean)
+                            .join("  →  ")}
+                    </span>
                 </div>
             </div>
         ),

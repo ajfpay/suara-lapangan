@@ -1,92 +1,57 @@
-// Components
-import { BaseFooter, BaseNavbar } from "@/app/components";
-// ShadCn
-import { Toaster } from "@/components/ui/toaster";
-// Contexts
-import Providers from "@/contexts/Providers";
-// Fonts
-import {
-    alexBrush,
-    dancingScript,
-    greatVibes,
-    outfit,
-    parisienne,
-} from "@/lib/fonts";
-// SEO
-import {
-    buildJsonLd,
-    languageAlternates,
-    localePath,
-    ROOTKEYWORDS,
-} from "@/lib/seo";
-// Variables
-import {
-    BASE_URL,
-    dirForLocale,
-    GOOGLE_SC_VERIFICATION,
-    LOCALES,
-} from "@/lib/variables";
-// Vercel Analytics
-import { Analytics } from "@vercel/analytics/react";
-import type { Metadata } from "next";
-import Script from "next/script";
-// Next Intl
-import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "@/i18n/messages";
 import { notFound } from "next/navigation";
+import { createTranslator, hasLocale, NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
+import type { Metadata } from "next";
+
+import {
+    Faq,
+    SiteFooter,
+    SiteHeader,
+    StepProgress,
+} from "@/app/components";
+import "@/lib/fonts";
+import { buildJsonLd, languageAlternates, stepPath, STEPS } from "@/lib/seo";
+import { BASE_URL, dirForLocale, LOCALES } from "@/lib/variables";
+import { routing } from "@/i18n/routing";
+
+type LocaleParams = { params: Promise<{ locale: string }> };
 
 /**
  * Per-locale metadata.
  *
- * This was a single static object: one English title and description served to
- * all eighteen locales, no metadataBase, no Open Graph, no Twitter card, no
- * hreflang, and `canonical` hardcoded to the bare origin — which, since every
- * locale is path-prefixed, is a redirect rather than a page. Each locale was
- * telling search engines that the canonical version of itself was somewhere
- * else.
+ * The canonical and the hreflang set point at each locale's own step path, so
+ * no locale tells a search engine that another one is its canonical version.
  */
-export async function generateMetadata(props: {
-    params: Promise<{ locale: string }>;
-}): Promise<Metadata> {
-    const { locale } = await props.params;
-    const messages = await getMessages(locale);
-    const meta = (messages as Record<string, Record<string, string>>)?.meta ?? {};
-
-    const title = meta.title ?? "Invoify | Free Invoice Generator";
-    const description =
-        meta.description ??
-        "Create invoices effortlessly with Invoify, the free invoice generator. Try it now!";
+export async function generateMetadata({
+    params,
+}: LocaleParams): Promise<Metadata> {
+    const { locale } = await params;
+    const messages = await getMessages({ locale });
+    const meta = (messages.meta ?? {}) as Record<string, string>;
+    const title = meta.titleTemplate ?? "";
+    const description = meta.description ?? "";
 
     return {
-        // Resolves every relative URL below, including the generated OG image.
         metadataBase: new URL(BASE_URL),
         title,
         description,
-        keywords: ROOTKEYWORDS,
         robots: { index: true, follow: true },
         alternates: {
-            canonical: localePath(locale),
-            languages: languageAlternates(),
+            canonical: stepPath(locale, "/"),
+            languages: languageAlternates("/"),
         },
         openGraph: {
             type: "website",
-            siteName: "Invoify",
-            title,
-            description,
-            url: localePath(locale),
+            siteName: "Suara Lapangan",
+            title: meta.ogTitle ?? title,
+            description: meta.ogDescription ?? description,
+            url: stepPath(locale, "/"),
             locale,
         },
         twitter: {
             card: "summary_large_image",
-            title,
-            description,
-        },
-        authors: {
-            name: "Ali Abbasov",
-            url: "https://aliabb.vercel.app",
-        },
-        verification: {
-            google: GOOGLE_SC_VERIFICATION,
+            title: meta.ogTitle ?? title,
+            description: meta.ogDescription ?? description,
         },
     };
 }
@@ -94,46 +59,37 @@ export async function generateMetadata(props: {
 export const viewport = {
     width: "device-width",
     initialScale: 1,
+    themeColor: "#0f1722",
 };
 
 export function generateStaticParams() {
-    // Next.js expects an array of objects: [{ locale: 'en' },
-    // ...]
-    const locales = LOCALES.map((locale) => ({ locale: locale.code }));
-    return locales;
+    return LOCALES.map(({ code }) => ({ locale: code }));
 }
 
 export default async function LocaleLayout(props: {
     children: React.ReactNode;
     params: Promise<{ locale: string }>;
 }) {
-    const params = await props.params;
+    const { locale } = await props.params;
 
-    const { locale } = params;
-
-    const { children } = props;
-
-    let messages;
-    try {
-        // English-backed so a key missing from a translation renders readable
-        // copy instead of an error. See i18n/messages.ts
-        messages = await getMessages(locale);
-    } catch {
+    if (!hasLocale(routing.locales, locale)) {
         notFound();
     }
 
+    const messages = await getMessages({ locale });
+    const t = createTranslator({ locale, messages });
+    const stepNames = STEPS.map(
+        (step) =>
+            ((messages.steps ?? {}) as Record<string, string>)[step.messageKey]
+    );
+
     return (
-        /*
-         * `dir` was missing entirely. Arabic has been in LOCALES since before
-         * this branch and rendered right-to-left text inside a left-to-right
-         * document the whole time.
-         */
         <html
             lang={locale}
             dir={dirForLocale(locale)}
             suppressHydrationWarning
         >
-            <head suppressHydrationWarning>
+            <head>
                 <script
                     type="application/ld+json"
                     id="json-ld"
@@ -143,42 +99,30 @@ export default async function LocaleLayout(props: {
                 />
             </head>
             <body
-                className={`${outfit.className} ${dancingScript.variable} ${parisienne.variable} ${greatVibes.variable} ${alexBrush.variable} antialiased min-h-dvh bg-background text-foreground`}
+                className="antialiased"
                 suppressHydrationWarning
             >
                 <NextIntlClientProvider locale={locale} messages={messages}>
-                    <Providers>
-                        <BaseNavbar />
+                    <a
+                        href="#main"
+                        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-foreground focus:px-4 focus:py-2 focus:text-background"
+                    >
+                        {t("app.skipToContent")}
+                    </a>
 
-                        <div className="flex flex-col">{children}</div>
-
-                        <BaseFooter />
-
-                        {/* Toast component */}
-                        <Toaster />
-
-                        {/* Vercel analytics */}
-                        <Analytics />
-
-                        {/*
-                         * Buy Me a Coffee widget. Loaded via next/script with
-                         * lazyOnload so this third party does not block parsing
-                         * — it was previously a synchronous <script> in <head>.
-                         */}
-                        <Script
-                            src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js"
-                            strategy="lazyOnload"
-                            data-name="BMC-Widget"
-                            data-cfasync="false"
-                            data-id="aliabb"
-                            data-description="Support me on Buy me a coffee!"
-                            data-message="Thank you for using Invoify"
-                            data-color="#5F7FFF"
-                            data-position="Right"
-                            data-x_margin="18"
-                            data-y_margin="18"
+                    <div className="flex min-h-dvh flex-col">
+                        <SiteHeader />
+                        <StepProgress
+                            locale={locale}
+                            steps={stepNames}
+                            label={t("app.stepsLabel")}
                         />
-                    </Providers>
+                        <div className="flex-1">
+                            {props.children}
+                            <Faq />
+                            <SiteFooter />
+                        </div>
+                    </div>
                 </NextIntlClientProvider>
             </body>
         </html>

@@ -1,19 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Smoke-test configuration.
+ * Smoke configuration.
  *
- * These tests exist because round 2 shipped an infinite render loop that both
- * `tsc` and ESLint passed cleanly — the page was dead and nothing in CI knew.
- * The goal here is not coverage; it is a tripwire for "the app still runs".
- *
- * It builds and serves the production bundle rather than running `next dev`,
- * so the tests exercise what actually ships.
+ * These tests are a tripwire, not coverage: the app still renders, no console
+ * error is thrown, the three steps navigate, and both locales answer. It builds
+ * and serves the production bundle rather than `next dev`, so what is tested is
+ * what ships.
  */
 export default defineConfig({
     testDir: "./e2e",
-    // The suite is small; running it serially keeps the single dev server sane
-    // and makes failures easier to read.
+    // The suite is small; running it serially keeps one server sane and makes
+    // failures readable.
     workers: 1,
     fullyParallel: false,
     forbidOnly: !!process.env.CI,
@@ -28,17 +26,17 @@ export default defineConfig({
     projects: [
         {
             name: "desktop",
-            use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+            use: {
+                ...devices["Desktop Chrome"],
+                viewport: { width: 1440, height: 900 },
+            },
         },
         {
             /*
-             * The mobile layout is signed off and must not regress, so it is a
-             * first-class target rather than an afterthought.
-             *
-             * Chromium with an explicit 375x812 viewport rather than a named
-             * iPhone device: the iPhone presets run on WebKit, which is a second
-             * browser download for everyone and for CI, and 375 is the width the
-             * existing overflow audit is specified against.
+             * The field user holds a phone. Chromium at 375x812 rather than an
+             * iPhone preset: the presets run on WebKit, a second browser
+             * download for everyone and for CI, and 375 is the width the
+             * overflow check is specified against.
              */
             name: "mobile",
             use: {
@@ -55,7 +53,7 @@ export default defineConfig({
         command: "npm run build && npm run start",
         url: "http://127.0.0.1:3000/en",
         reuseExistingServer: !process.env.CI,
-        // A cold build plus a Chromium launch is slow on a cold cache.
+        // A cold build is slow on a cold cache.
         timeout: 5 * 60 * 1000,
         stdout: "pipe",
         stderr: "pipe",

@@ -1,0 +1,11 @@
+Mark and lockup for Suara Lapangan.
+
+Source of truth: public/assets/img/suara-lapangan-mark.svg, rendered to PNG
+through headless Chromium (the geometry is the SVG; the PNGs are exports).
+
+- suara-lapangan-mark-512.png   512x512, app icon / maskable manifest icon
+- suara-lapangan-mark-192.png   192x192, manifest icon
+- suara-lapangan-apple-touch.png 180x180, apple-touch-icon
+- favicon.ico                   32x32 and 16x16, /favicon.ico
+
+Regenerate with: node scripts/render-icons.mjs

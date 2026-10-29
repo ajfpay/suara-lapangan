@@ -1,48 +1,18 @@
-// Next Google Fonts
-import {
-    Alex_Brush,
-    Dancing_Script,
-    Great_Vibes,
-    Outfit,
-    Parisienne,
-} from "next/font/google";
-
-// Default Fonts
-export const outfit = Outfit({
-    subsets: ["latin"],
-    display: "swap",
-    adjustFontFallback: false,
-});
-
-// Signature fonts
-export const dancingScript = Dancing_Script({
-    subsets: ["latin"],
-    weight: "400",
-    variable: "--font-dancing-script",
-    preload: true,
-    display: "swap",
-});
-
-export const parisienne = Parisienne({
-    subsets: ["latin"],
-    weight: "400",
-    variable: "--font-parisienne",
-    preload: true,
-    display: "swap",
-});
-
-export const greatVibes = Great_Vibes({
-    subsets: ["latin"],
-    weight: "400",
-    variable: "--font-great-vibes",
-    preload: true,
-    display: "swap",
-});
-
-export const alexBrush = Alex_Brush({
-    subsets: ["latin"],
-    weight: "400",
-    variable: "--font-alex-brush",
-    preload: true,
-    display: "swap",
-});
+/**
+ * Fonts for the app and for anything rendered into a document or an icon.
+ *
+ * Source Serif 4 sets the headings: paperwork is set in a serif, and at 40px+
+ * a serif holds its shape in glare better than a geometric sans. IBM Plex Sans
+ * is the body and interface face, chosen for its open digits — prices and
+ * quantities are read digit by digit on the confirmation screen.
+ *
+ * Both are self-hosted from @fontsource, not fetched from Google Fonts at
+ * build time: a build has to work offline, and a font request is a third party
+ * between the user and the screen.
+ */
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-sans/700.css";
+import "@fontsource/source-serif-4/600.css";
+import "@fontsource/source-serif-4/700.css";
