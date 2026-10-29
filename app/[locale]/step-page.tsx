@@ -56,11 +56,17 @@ export const stepPage = {
                 // silently drop it.
                 languages: languageAlternates(STEPS[stepIndex].path),
             },
-            openGraph: { title: meta.ogTitle ?? title },
-            twitter: { title: meta.ogTitle ?? title },
+            openGraph: {
+                title: meta.ogTitle ?? title,
+                images: [`/${locale}/opengraph-image`],
+            },
+            twitter: {
+                card: "summary_large_image",
+                title: meta.ogTitle ?? title,
+                images: [`/${locale}/opengraph-image`],
+            },
         };
     },
-
     next(stepIndex: number, nav: Copy, steps: Copy) {
         const next = STEPS[stepIndex + 1];
         if (!next) return null;

@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
-
-import { StepScreen } from "@/app/components";
-
-import { STEPS } from "@/lib/seo";
-
+import { redirect } from "next/navigation";
 import { stepPage, type LocaleParams } from "./step-page";
 
 export const dynamicParams = false;
@@ -18,27 +14,7 @@ export async function generateMetadata({
     return stepPage.metadata(params, 0);
 }
 
-export default async function RekamPage({ params }: LocaleParams) {
+export default async function IndexRedirectPage({ params }: LocaleParams) {
     const { locale } = await params;
-    const { app, nav, steps, messages } = await stepPage.copy(locale);
-    const rekam = messages.rekam as Record<string, string>;
-
-    return (
-        <StepScreen
-            stepOf={(app.stepOf ?? "")
-                .replace("{current}", "1")
-                .replace("{total}", String(STEPS.length))}
-            heading={steps.rekam}
-            title={rekam.title}
-            body={rekam.body}
-            actions={
-                <>
-                    {stepPage.previous(0, nav, steps)}
-                    {stepPage.next(0, nav, steps)}
-                </>
-            }
-        >
-            {stepPage.workList(rekam)}
-        </StepScreen>
-    );
+    redirect(`/${locale}/rekam`);
 }

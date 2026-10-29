@@ -14,7 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
             url: `${BASE_URL}${stepPath(code, path)}`,
             lastModified,
             changeFrequency: "monthly" as const,
-            priority: path === "/" ? 1 : 0.7,
+            priority: path === "/rekam" ? 1 : 0.7,
             alternates: {
                 languages: Object.fromEntries(
                     Object.entries(languageAlternates(path)).map(
