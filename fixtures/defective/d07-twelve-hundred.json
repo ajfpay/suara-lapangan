@@ -1,0 +1,60 @@
+{
+  "id": "d07-twelve-hundred",
+  "locale": "en",
+  "session_id": "sess-def-07",
+  "project": {
+    "nama": "Backyard Fence",
+    "lokasi": "Buda, TX",
+    "klien": "Mr. Ramirez"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5200,
+      "transcript": "Fencing, twelve hundred dollars for the whole run.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5400,
+      "endMs": 7600,
+      "transcript": "Ramirez backyard, Buda.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/037",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Backyard Fence",
+      "lokasi": "Buda, TX",
+      "klien": "Mr. Ramirez"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Backyard fencing",
+        "volume": 1,
+        "satuan": "unit",
+        "harga_satuan": 12000,
+        "jumlah": 12000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 12000,
+    "terbilang": "Twelve thousand US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "twelve_hundred_en",
+    "alasan": "Spoken \"twelve hundred\" is 1,200; the document wrote 12,000. The English hundreds idiom must be normalised before the number is compared (guard rule 4).",
+    "bukti": "twelve hundred"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].jumlah",
+    "verdict": "butuh_konfirmasi"
+  }
+}

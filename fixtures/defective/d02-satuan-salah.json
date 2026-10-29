@@ -1,0 +1,60 @@
+{
+  "id": "d02-satuan-salah",
+  "locale": "id",
+  "session_id": "sess-def-02",
+  "project": {
+    "nama": "Renovasi Rumah Pak Suryo",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Suryo"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 7000,
+      "transcript": "Keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7200,
+      "endMs": 9400,
+      "transcript": "Rumah Pak Suryo, Sleman.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/032",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Renovasi Rumah Pak Suryo",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Suryo"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Pasang keramik ruang tamu",
+        "volume": 24,
+        "satuan": "sak",
+        "harga_satuan": 150000,
+        "jumlah": 3600000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 3600000,
+    "terbilang": "Tiga juta enam ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "satuan_salah",
+    "alasan": "The row is priced per square metre, but the unit was written as sak (bags of cement). The spoken unit does not match the field's unit, so guard rule 2 must hold it.",
+    "bukti": "dua puluh empat meter persegi"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].satuan",
+    "verdict": "butuh_konfirmasi"
+  }
+}

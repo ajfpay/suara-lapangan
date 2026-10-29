@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://suara-lapangan.local/contracts/daily-report.schema.json",
+  "title": "Laporan Harian / Daily Field Report (K2, schema ready only)",
+  "description": "Contract frozen at Day 1 so a later ticket can build the flow without renegotiating the shape. No end-to-end flow ships for this document in the hackathon scope, and it must not be claimed as working. Same strictness as quotation.schema.json: every object closes itself and lists all properties as required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jenis",
+    "locale",
+    "mata_uang",
+    "nomor",
+    "tanggal",
+    "proyek",
+    "cuaca",
+    "tenaga_kerja",
+    "pekerjaan_terpasang",
+    "material_terpakai",
+    "kendala",
+    "catatan",
+    "butuh_konfirmasi"
+  ],
+  "properties": {
+    "jenis": { "type": "string", "enum": ["laporan_harian"] },
+    "locale": { "type": "string", "enum": ["en", "id"] },
+    "mata_uang": { "type": "string", "enum": ["USD", "IDR"] },
+    "nomor": {
+      "type": "string",
+      "pattern": "^SL/RPT/\\d{4}-\\d{2}-\\d{2}/\\d{3}$",
+      "description": "Server-made. RPT = report."
+    },
+    "tanggal": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "proyek": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nama", "lokasi", "klien"],
+      "properties": {
+        "nama": { "type": "string", "minLength": 1 },
+        "lokasi": { "type": "string", "minLength": 1 },
+        "klien": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cuaca": { "type": "string", "minLength": 1 },
+    "tenaga_kerja": { "type": "number", "minimum": 0 },
+    "pekerjaan_terpasang": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["uraian", "volume", "satuan", "sumber_kutipan"],
+        "properties": {
+          "uraian": { "type": "string", "minLength": 1 },
+          "volume": { "type": "number", "exclusiveMinimum": 0 },
+          "satuan": {
+            "type": "string",
+            "enum": [
+              "m2",
+              "m3",
+              "meter",
+              "sq_ft",
+              "lin_ft",
+              "sak",
+              "batang",
+              "titik",
+              "bag",
+              "sheet",
+              "bar",
+              "point",
+              "hour",
+              "unit",
+              "hari",
+              "fixture"
+            ]
+          },
+          "sumber_kutipan": { "type": "string", "pattern": "^turn_[0-9]+$" }
+        }
+      }
+    },
+    "material_terpakai": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["nama", "jumlah", "satuan", "sumber_kutipan"],
+        "properties": {
+          "nama": { "type": "string", "minLength": 1 },
+          "jumlah": { "type": "number", "exclusiveMinimum": 0 },
+          "satuan": {
+            "type": "string",
+            "enum": [
+              "m2",
+              "m3",
+              "meter",
+              "sq_ft",
+              "lin_ft",
+              "sak",
+              "batang",
+              "titik",
+              "bag",
+              "sheet",
+              "bar",
+              "point",
+              "hour",
+              "unit",
+              "hari",
+              "fixture"
+            ]
+          },
+          "sumber_kutipan": { "type": "string", "pattern": "^turn_[0-9]+$" }
+        }
+      }
+    },
+    "kendala": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["uraian", "sumber_kutipan"],
+        "properties": {
+          "uraian": { "type": "string", "minLength": 1 },
+          "sumber_kutipan": {
+            "type": ["string", "null"],
+            "pattern": "^turn_[0-9]+$"
+          }
+        }
+      }
+    },
+    "catatan": { "type": "string" },
+    "butuh_konfirmasi": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "alasan", "sumber_kutipan"],
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "alasan": { "type": "string", "minLength": 1 },
+          "sumber_kutipan": {
+            "type": ["string", "null"],
+            "pattern": "^turn_[0-9]+$"
+          }
+        }
+      }
+    }
+  }
+}

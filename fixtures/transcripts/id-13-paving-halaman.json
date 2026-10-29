@@ -1,0 +1,51 @@
+{
+  "id": "id-13-paving-halaman",
+  "locale": "id",
+  "session_id": "sess-id-13",
+  "project": {
+    "nama": "Paving Halaman",
+    "lokasi": "Pakem, Sleman",
+    "klien": "Pak Gunadi"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6800,
+      "endMs": 9200,
+      "transcript": "Halaman rumah Pak Gunadi, Pakem.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/028",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Paving Halaman",
+      "lokasi": "Pakem, Sleman",
+      "klien": "Pak Gunadi"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Paving halaman",
+        "volume": 60,
+        "satuan": "m2",
+        "harga_satuan": 95000,
+        "jumlah": 5700000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 5700000,
+    "terbilang": "Lima juta tujuh ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

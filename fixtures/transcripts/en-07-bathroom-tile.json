@@ -1,0 +1,51 @@
+{
+  "id": "en-07-bathroom-tile",
+  "locale": "en",
+  "session_id": "sess-en-07",
+  "project": {
+    "nama": "Bathroom Tile",
+    "lokasi": "Cedar Park, TX",
+    "klien": "Mrs. Okoro"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "Tile for the bathroom floor, thirty-two square feet, fourteen dollars a square foot.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6600,
+      "endMs": 8800,
+      "transcript": "Okoro bathroom, Cedar Park.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/007",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Bathroom Tile",
+      "lokasi": "Cedar Park, TX",
+      "klien": "Mrs. Okoro"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Floor tile installation (bathroom)",
+        "volume": 32,
+        "satuan": "sq_ft",
+        "harga_satuan": 14,
+        "jumlah": 448,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 448,
+    "terbilang": "Four hundred forty-eight US dollars",
+    "butuh_konfirmasi": []
+  }
+}

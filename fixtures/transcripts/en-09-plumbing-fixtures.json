@@ -1,0 +1,51 @@
+{
+  "id": "en-09-plumbing-fixtures",
+  "locale": "en",
+  "session_id": "sess-en-09",
+  "project": {
+    "nama": "Bathroom Refit",
+    "lokasi": "Kyle, TX",
+    "klien": "Mr. Whitfield"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6200,
+      "transcript": "Three plumbing fixtures for the bathroom refit, two hundred twenty dollars a fixture.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6400,
+      "endMs": 8200,
+      "transcript": "Whitfield's place in Kyle.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/009",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Bathroom Refit",
+      "lokasi": "Kyle, TX",
+      "klien": "Mr. Whitfield"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Plumbing fixture supply and fit (bathroom)",
+        "volume": 3,
+        "satuan": "fixture",
+        "harga_satuan": 220,
+        "jumlah": 660,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 660,
+    "terbilang": "Six hundred sixty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

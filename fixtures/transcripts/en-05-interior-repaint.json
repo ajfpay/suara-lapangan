@@ -1,0 +1,51 @@
+{
+  "id": "en-05-interior-repaint",
+  "locale": "en",
+  "session_id": "sess-en-05",
+  "project": {
+    "nama": "Interior Repaint",
+    "lokasi": "Pflugerville, TX",
+    "klien": "Ms. Doyle"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Interior painting, one hundred eighty square meters at eight dollars a square meter.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6800,
+      "endMs": 9000,
+      "transcript": "Doyle residence, Pflugerville.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/005",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Interior Repaint",
+      "lokasi": "Pflugerville, TX",
+      "klien": "Ms. Doyle"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Interior wall painting",
+        "volume": 180,
+        "satuan": "m2",
+        "harga_satuan": 8,
+        "jumlah": 1440,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1440,
+    "terbilang": "One thousand four hundred forty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

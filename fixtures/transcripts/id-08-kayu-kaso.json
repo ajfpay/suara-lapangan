@@ -1,0 +1,51 @@
+{
+  "id": "id-08-kayu-kaso",
+  "locale": "id",
+  "session_id": "sess-id-08",
+  "project": {
+    "nama": "Rangka Atap",
+    "lokasi": "Kalasan, Sleman",
+    "klien": "Bu Wati"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6000,
+      "transcript": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6200,
+      "endMs": 8800,
+      "transcript": "Rangka atap rumah Bu Wati, Kalasan.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-10-31/023",
+    "tanggal": "2026-10-31",
+    "proyek": {
+      "nama": "Rangka Atap",
+      "lokasi": "Kalasan, Sleman",
+      "klien": "Bu Wati"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Kayu kaso untuk rangka atap",
+        "volume": 25,
+        "satuan": "batang",
+        "harga_satuan": 48000,
+        "jumlah": 1200000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 1200000,
+    "terbilang": "Satu juta dua ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

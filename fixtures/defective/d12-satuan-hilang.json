@@ -1,0 +1,60 @@
+{
+  "id": "d12-satuan-hilang",
+  "locale": "en",
+  "session_id": "sess-def-12",
+  "project": {
+    "nama": "Living Room Remodel",
+    "lokasi": "Austin, TX",
+    "klien": "Mr. Carter"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 4800,
+      "transcript": "Twenty-four for the drywall, twenty-five each.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5000,
+      "endMs": 7200,
+      "transcript": "Carter living room, Austin.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-11-02/042",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Living Room Remodel",
+      "lokasi": "Austin, TX",
+      "klien": "Mr. Carter"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Drywall (living room)",
+        "volume": 24,
+        "satuan": "sq_ft",
+        "harga_satuan": 25,
+        "jumlah": 600,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 600,
+    "terbilang": "Six hundred US dollars",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "satuan_hilang",
+    "alasan": "No unit was ever spoken, yet the row assumes square feet. Guard rule 2 must hold the unit for confirmation rather than assume the most likely one.",
+    "bukti": "Twenty-four for the drywall, twenty-five each."
+  },
+  "expectation": {
+    "field": "pekerjaan[0].satuan",
+    "verdict": "butuh_konfirmasi"
+  }
+}

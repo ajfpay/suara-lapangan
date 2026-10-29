@@ -1,0 +1,51 @@
+{
+  "id": "en-03-recessed-lights",
+  "locale": "en",
+  "session_id": "sess-en-03",
+  "project": {
+    "nama": "Kitchen Lighting",
+    "lokasi": "Dallas, TX",
+    "klien": "Mr. Nguyen"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 4600,
+      "transcript": "Five recessed light points in the kitchen, eighty dollars each.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 4800,
+      "endMs": 7000,
+      "transcript": "Mr. Nguyen's kitchen, Dallas, Texas.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/003",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Kitchen Lighting",
+      "lokasi": "Dallas, TX",
+      "klien": "Mr. Nguyen"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Recessed light points (kitchen)",
+        "volume": 5,
+        "satuan": "point",
+        "harga_satuan": 80,
+        "jumlah": 400,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 400,
+    "terbilang": "Four hundred US dollars",
+    "butuh_konfirmasi": []
+  }
+}

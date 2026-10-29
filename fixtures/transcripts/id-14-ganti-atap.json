@@ -1,0 +1,51 @@
+{
+  "id": "id-14-ganti-atap",
+  "locale": "id",
+  "session_id": "sess-id-14",
+  "project": {
+    "nama": "Ganti Atap Gudang",
+    "lokasi": "Berbah, Sleman",
+    "klien": "Pak Hendra"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6800,
+      "transcript": "Ganti atap gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 7000,
+      "endMs": 9400,
+      "transcript": "Gudang Pak Hendra, Berbah.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/029",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Ganti Atap Gudang",
+      "lokasi": "Berbah, Sleman",
+      "klien": "Pak Hendra"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Ganti atap gudang",
+        "volume": 45,
+        "satuan": "m2",
+        "harga_satuan": 120000,
+        "jumlah": 5400000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 5400000,
+    "terbilang": "Lima juta empat ratus ribu rupiah",
+    "butuh_konfirmasi": []
+  }
+}

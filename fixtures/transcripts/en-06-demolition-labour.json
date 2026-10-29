@@ -1,0 +1,51 @@
+{
+  "id": "en-06-demolition-labour",
+  "locale": "en",
+  "session_id": "sess-en-06",
+  "project": {
+    "nama": "Kitchen Demolition",
+    "lokasi": "Georgetown, TX",
+    "klien": "Mr. Silva"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Demolition labour, sixteen hours at forty-five dollars an hour.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 5600,
+      "endMs": 8000,
+      "transcript": "Silva kitchen, Georgetown, Texas.",
+      "final": true
+    }
+  ],
+  "expected_document": {
+    "jenis": "surat_penawaran",
+    "locale": "en",
+    "mata_uang": "USD",
+    "nomor": "SL/QTN/2026-10-29/006",
+    "tanggal": "2026-10-29",
+    "proyek": {
+      "nama": "Kitchen Demolition",
+      "lokasi": "Georgetown, TX",
+      "klien": "Mr. Silva"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Demolition labour (kitchen)",
+        "volume": 16,
+        "satuan": "hour",
+        "harga_satuan": 45,
+        "jumlah": 720,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 720,
+    "terbilang": "Seven hundred twenty US dollars",
+    "butuh_konfirmasi": []
+  }
+}

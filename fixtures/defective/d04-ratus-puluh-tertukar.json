@@ -1,0 +1,60 @@
+{
+  "id": "d04-ratus-puluh-tertukar",
+  "locale": "id",
+  "session_id": "sess-def-04",
+  "project": {
+    "nama": "Struktur Tambahan",
+    "lokasi": "Sleman, Yogyakarta",
+    "klien": "Pak Yusuf"
+  },
+  "turns": [
+    {
+      "turn_id": "turn_1",
+      "startMs": 0,
+      "endMs": 6000,
+      "transcript": "Semen delapan puluh ribu per sak, ambil empat puluh sak.",
+      "final": true
+    },
+    {
+      "turn_id": "turn_2",
+      "startMs": 6200,
+      "endMs": 8400,
+      "transcript": "Proyek Pak Yusuf, Sleman.",
+      "final": true
+    }
+  ],
+  "document": {
+    "jenis": "surat_penawaran",
+    "locale": "id",
+    "mata_uang": "IDR",
+    "nomor": "SL/QTN/2026-11-02/034",
+    "tanggal": "2026-11-02",
+    "proyek": {
+      "nama": "Struktur Tambahan",
+      "lokasi": "Sleman, Yogyakarta",
+      "klien": "Pak Yusuf"
+    },
+    "pekerjaan": [
+      {
+        "uraian": "Semen untuk struktur tambahan",
+        "volume": 40,
+        "satuan": "sak",
+        "harga_satuan": 800000,
+        "jumlah": 32000000,
+        "sumber_kutipan": "turn_1"
+      }
+    ],
+    "total_nominal": 32000000,
+    "terbilang": "Tiga puluh dua juta rupiah",
+    "butuh_konfirmasi": []
+  },
+  "cacat": {
+    "code": "ratus_puluh_tertukar",
+    "alasan": "Delapan puluh ribu (80,000) was written as 800,000: the puluh/ratus reading is off by ten times. Guard rule 4 must normalise Indonesian tens words before comparing.",
+    "bukti": "delapan puluh ribu"
+  },
+  "expectation": {
+    "field": "pekerjaan[0].harga_satuan",
+    "verdict": "butuh_konfirmasi"
+  }
+}
