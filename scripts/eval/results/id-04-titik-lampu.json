@@ -4,109 +4,110 @@
   "sessionId": "sess-id-04",
   "turnCount": 2,
   "reference": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu per titik. Rumah Bu Kartika di Depok, Sleman.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu tiap titik. Rumah Bu Kartika Depok, Sleman.",
   "overall": {
-    "wer": 1,
-    "distance": 18,
+    "wer": 0.1111111111111111,
+    "distance": 2,
     "referenceWords": 18,
-    "hypothesisWords": 16,
-    "substitutions": 16,
+    "hypothesisWords": 17,
+    "substitutions": 1,
     "insertions": 0,
-    "deletions": 2,
+    "deletions": 1,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "titik"
-      },
-      {
-        "op": "delete",
-        "ref": "lampu"
-      },
-      {
-        "op": "substitute",
-        "ref": "dua",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
-        "ref": "belas",
-        "hyp": "campur"
-      },
-      {
-        "op": "substitute",
+        "op": "equal",
         "ref": "titik",
-        "hyp": "kata"
+        "hyp": "titik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
+        "ref": "lampu",
+        "hyp": "lampu"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "belas",
+        "hyp": "belas"
+      },
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
         "ref": "seratus",
-        "hyp": "lokal"
+        "hyp": "seratus"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "tujuh",
-        "hyp": "rusak"
+        "hyp": "tujuh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "berat"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "tidak"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "jelas"
+        "hyp": "ribu"
       },
       {
         "op": "substitute",
         "ref": "per",
-        "hyp": "aksen"
+        "hyp": "tiap"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "titik",
-        "hyp": "campur"
+        "hyp": "titik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "kata"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "bu",
-        "hyp": "lokal"
+        "hyp": "bu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "kartika",
-        "hyp": "rusak"
+        "hyp": "kartika"
       },
       {
-        "op": "substitute",
-        "ref": "di",
-        "hyp": "berat"
+        "op": "delete",
+        "ref": "di"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "depok",
-        "hyp": "tidak"
+        "hyp": "depok"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sleman",
-        "hyp": "jelas"
+        "hyp": "sleman"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 11,
+    "wer": 0.09090909090909091,
+    "distance": 1,
     "referenceTokens": [
       "titik",
       "dua",
@@ -120,11 +121,22 @@
       "per",
       "titik"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "titik",
+      "dua",
+      "belas",
+      "titik",
+      "seratus",
+      "tujuh",
+      "puluh",
+      "lima",
+      "ribu",
+      "titik"
+    ],
     "referenceCount": 11,
-    "hypothesisCount": 0,
+    "hypothesisCount": 10,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 11
+    "deletions": 1
   }
 }

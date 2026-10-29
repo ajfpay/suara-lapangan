@@ -4,109 +4,119 @@
   "sessionId": "sess-id-13",
   "turnCount": 2,
   "reference": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi, Pakem.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Paving halaman depan enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi di Pakem.",
   "overall": {
-    "wer": 1,
-    "distance": 18,
+    "wer": 0.1111111111111111,
+    "distance": 2,
     "referenceWords": 18,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 2,
+    "hypothesisWords": 20,
+    "substitutions": 0,
+    "insertions": 2,
+    "deletions": 0,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "paving"
+        "op": "equal",
+        "ref": "paving",
+        "hyp": "paving"
       },
       {
-        "op": "delete",
-        "ref": "halaman"
-      },
-      {
-        "op": "substitute",
-        "ref": "enam",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
-        "ref": "puluh",
-        "hyp": "campur"
-      },
-      {
-        "op": "substitute",
-        "ref": "meter",
-        "hyp": "kata"
-      },
-      {
-        "op": "substitute",
-        "ref": "persegi",
-        "hyp": "lokal"
-      },
-      {
-        "op": "substitute",
-        "ref": "sembilan",
-        "hyp": "rusak"
-      },
-      {
-        "op": "substitute",
-        "ref": "puluh",
-        "hyp": "berat"
-      },
-      {
-        "op": "substitute",
-        "ref": "lima",
-        "hyp": "tidak"
-      },
-      {
-        "op": "substitute",
-        "ref": "ribu",
-        "hyp": "jelas"
-      },
-      {
-        "op": "substitute",
-        "ref": "per",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
-        "ref": "meter",
-        "hyp": "campur"
-      },
-      {
-        "op": "substitute",
-        "ref": "persegi",
-        "hyp": "kata"
-      },
-      {
-        "op": "substitute",
+        "op": "equal",
         "ref": "halaman",
-        "hyp": "lokal"
+        "hyp": "halaman"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "depan"
+      },
+      {
+        "op": "equal",
+        "ref": "enam",
+        "hyp": "enam"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "sembilan",
+        "hyp": "sembilan"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "halaman",
+        "hyp": "halaman"
+      },
+      {
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "gunadi",
-        "hyp": "tidak"
+        "hyp": "gunadi"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "pakem",
-        "hyp": "jelas"
+        "hyp": "pakem"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 11,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "enam",
       "puluh",
@@ -120,11 +130,23 @@
       "meter",
       "persegi"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "enam",
+      "puluh",
+      "meter",
+      "persegi",
+      "sembilan",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
     "referenceCount": 11,
-    "hypothesisCount": 0,
+    "hypothesisCount": 11,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 11
+    "deletions": 0
   }
 }

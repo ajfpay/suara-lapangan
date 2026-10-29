@@ -2,15 +2,21 @@ export interface Gate1ThresholdMetrics {
     enWer: number;
     idWer: number;
     moneyVolumeWer?: number;
+    isSynthetic?: boolean;
 }
 
-export type Gate1Status = "GO" | "STOP_24_JAM" | "NEEDS_REVIEW";
+export type Gate1Status =
+    | "GO"
+    | "STOP_24_JAM"
+    | "NEEDS_REVIEW"
+    | "SYNTHETIC_SMOKE_PASS";
 
 export interface Gate1Decision {
     status: Gate1Status;
     stop24Jam: boolean;
     escalateTo: "pemilik" | null;
     passed: boolean;
+    isSynthetic?: boolean;
     reasons: string[];
     thresholds: {
         enTarget: number;
@@ -70,9 +76,33 @@ export function evaluateGate1Thresholds(
             : true;
 
     if (enPassed && idPassed && mvPassed) {
+        if (metrics.isSynthetic) {
+            reasons.push(
+                `Pipeline smoke test PASSED: Both EN (WER ${(metrics.enWer * 100).toFixed(2)}% <= 10%) ` +
+                    `and ID (WER ${(metrics.idWer * 100).toFixed(2)}% <= 15%) meet numerical thresholds under synthetic mock perturbations.`
+            );
+            if (typeof metrics.moneyVolumeWer === "number") {
+                reasons.push(
+                    `Money/volume WER (${(metrics.moneyVolumeWer * 100).toFixed(2)}%) meets <= 10% threshold.`
+                );
+            }
+            reasons.push(
+                `Gate 1 ASR Accuracy NOT CERTIFIED: Evaluated hypotheses are synthetic mocks derived from reference transcripts (circular oracle). WER measures authored perturbation, NOT Meta ASR accuracy. Gate 1 GO on ASR accuracy cannot be granted without real ASR hypotheses.`
+            );
+            return {
+                status: "SYNTHETIC_SMOKE_PASS",
+                stop24Jam: false,
+                escalateTo: null,
+                passed: false,
+                isSynthetic: true,
+                reasons,
+                thresholds,
+            };
+        }
+
         reasons.push(
             `Gate 1 GO: Both EN (WER ${(metrics.enWer * 100).toFixed(2)}% <= 10%) ` +
-                `and ID (WER ${(metrics.idWer * 100).toFixed(2)}% <= 15%) meet Gate 1 quality thresholds.`
+                `and ID (WER ${(metrics.idWer * 100).toFixed(2)}% <= 15%) meet Gate 1 quality thresholds on real ASR hypotheses.`
         );
         if (typeof metrics.moneyVolumeWer === "number") {
             reasons.push(
@@ -84,6 +114,7 @@ export function evaluateGate1Thresholds(
             stop24Jam: false,
             escalateTo: null,
             passed: true,
+            isSynthetic: false,
             reasons,
             thresholds,
         };

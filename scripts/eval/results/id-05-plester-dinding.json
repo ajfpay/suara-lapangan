@@ -4,113 +4,120 @@
   "sessionId": "sess-id-05",
   "turnCount": 2,
   "reference": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono, Mlati.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Plester tembok belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono di Mlati.",
   "overall": {
-    "wer": 1,
-    "distance": 19,
+    "wer": 0.10526315789473684,
+    "distance": 2,
     "referenceWords": 19,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 3,
+    "hypothesisWords": 20,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "plester"
-      },
-      {
-        "op": "delete",
-        "ref": "dinding"
-      },
-      {
-        "op": "delete",
-        "ref": "belakang"
+        "op": "equal",
+        "ref": "plester",
+        "hyp": "plester"
       },
       {
         "op": "substitute",
+        "ref": "dinding",
+        "hyp": "tembok"
+      },
+      {
+        "op": "equal",
+        "ref": "belakang",
+        "hyp": "belakang"
+      },
+      {
+        "op": "equal",
         "ref": "delapan",
-        "hyp": "aksen"
+        "hyp": "delapan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "campur"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "kata"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "meter",
-        "hyp": "lokal"
+        "hyp": "meter"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "persegi",
-        "hyp": "rusak"
+        "hyp": "persegi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "empat",
-        "hyp": "berat"
+        "hyp": "empat"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "tidak"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "jelas"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "aksen"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "per",
-        "hyp": "campur"
+        "hyp": "per"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "meter",
-        "hyp": "kata"
+        "hyp": "meter"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "persegi",
-        "hyp": "lokal"
+        "hyp": "persegi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "hartono",
-        "hyp": "tidak"
+        "hyp": "hartono"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "mlati",
-        "hyp": "jelas"
+        "hyp": "mlati"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 12,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "delapan",
       "puluh",
@@ -125,11 +132,24 @@
       "meter",
       "persegi"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "delapan",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "empat",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
     "referenceCount": 12,
-    "hypothesisCount": 0,
+    "hypothesisCount": 12,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 12
+    "deletions": 0
   }
 }

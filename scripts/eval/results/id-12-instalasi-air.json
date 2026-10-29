@@ -4,100 +4,100 @@
   "sessionId": "sess-id-12",
   "turnCount": 2,
   "reference": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik. Kamar mandi Bu Ningsih, Sleman.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Instalasi air delapan titik, dua ratus sepuluh ribu tiap titik. Kamar mandi Bu Ningsih di Sleman.",
   "overall": {
-    "wer": 1.0666666666666667,
-    "distance": 16,
+    "wer": 0.13333333333333333,
+    "distance": 2,
     "referenceWords": 15,
     "hypothesisWords": 16,
-    "substitutions": 15,
+    "substitutions": 1,
     "insertions": 1,
     "deletions": 0,
     "alignment": [
       {
-        "op": "insert",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
+        "op": "equal",
         "ref": "instalasi",
-        "hyp": "campur"
+        "hyp": "instalasi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "air",
-        "hyp": "kata"
+        "hyp": "air"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "delapan",
-        "hyp": "lokal"
+        "hyp": "delapan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "titik",
-        "hyp": "rusak"
+        "hyp": "titik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dua",
-        "hyp": "berat"
+        "hyp": "dua"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ratus",
-        "hyp": "tidak"
+        "hyp": "ratus"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sepuluh",
-        "hyp": "jelas"
+        "hyp": "sepuluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "aksen"
+        "hyp": "ribu"
       },
       {
         "op": "substitute",
         "ref": "per",
-        "hyp": "campur"
+        "hyp": "tiap"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "titik",
-        "hyp": "kata"
+        "hyp": "titik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "kamar",
-        "hyp": "lokal"
+        "hyp": "kamar"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "mandi",
-        "hyp": "rusak"
+        "hyp": "mandi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "bu",
-        "hyp": "berat"
+        "hyp": "bu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ningsih",
-        "hyp": "tidak"
+        "hyp": "ningsih"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "sleman",
-        "hyp": "jelas"
+        "hyp": "sleman"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 8,
+    "wer": 0.125,
+    "distance": 1,
     "referenceTokens": [
       "delapan",
       "titik",
@@ -108,11 +108,19 @@
       "per",
       "titik"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "delapan",
+      "titik",
+      "dua",
+      "ratus",
+      "sepuluh",
+      "ribu",
+      "titik"
+    ],
     "referenceCount": 8,
-    "hypothesisCount": 0,
+    "hypothesisCount": 7,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 8
+    "deletions": 1
   }
 }

@@ -4,105 +4,109 @@
   "sessionId": "sess-id-07",
   "turnCount": 2,
   "reference": "Tenaga harian enam hari, dua ratus lima puluh ribu per hari. Pemasangan rangka rumah Pak Dedi, Sleman.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Tenaga harian enam hari, dua ratus lima puluh ribu tiap hari. Pemasangan rangka Pak Dedi di Sleman.",
   "overall": {
-    "wer": 1,
-    "distance": 17,
+    "wer": 0.17647058823529413,
+    "distance": 3,
     "referenceWords": 17,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
+    "hypothesisWords": 17,
+    "substitutions": 1,
+    "insertions": 1,
     "deletions": 1,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "tenaga"
+        "op": "equal",
+        "ref": "tenaga",
+        "hyp": "tenaga"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "harian",
-        "hyp": "aksen"
+        "hyp": "harian"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "enam",
-        "hyp": "campur"
+        "hyp": "enam"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "hari",
-        "hyp": "kata"
+        "hyp": "hari"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dua",
-        "hyp": "lokal"
+        "hyp": "dua"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ratus",
-        "hyp": "rusak"
+        "hyp": "ratus"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "berat"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "tidak"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "jelas"
+        "hyp": "ribu"
       },
       {
         "op": "substitute",
         "ref": "per",
-        "hyp": "aksen"
+        "hyp": "tiap"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "hari",
-        "hyp": "campur"
+        "hyp": "hari"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pemasangan",
-        "hyp": "kata"
+        "hyp": "pemasangan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rangka",
-        "hyp": "lokal"
+        "hyp": "rangka"
       },
       {
-        "op": "substitute",
-        "ref": "rumah",
-        "hyp": "rusak"
+        "op": "delete",
+        "ref": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dedi",
-        "hyp": "tidak"
+        "hyp": "dedi"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "sleman",
-        "hyp": "jelas"
+        "hyp": "sleman"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 9,
+    "wer": 0.1111111111111111,
+    "distance": 1,
     "referenceTokens": [
       "enam",
       "hari",
@@ -114,11 +118,20 @@
       "per",
       "hari"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "enam",
+      "hari",
+      "dua",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "hari"
+    ],
     "referenceCount": 9,
-    "hypothesisCount": 0,
+    "hypothesisCount": 8,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 9
+    "deletions": 1
   }
 }

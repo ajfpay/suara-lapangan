@@ -4,113 +4,124 @@
   "sessionId": "sess-id-09",
   "turnCount": 2,
   "reference": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi, Sleman.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Pengecatan untuk tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi di Sleman.",
   "overall": {
-    "wer": 1,
-    "distance": 19,
+    "wer": 0.10526315789473684,
+    "distance": 2,
     "referenceWords": 19,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 3,
+    "hypothesisWords": 21,
+    "substitutions": 0,
+    "insertions": 2,
+    "deletions": 0,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "pengecatan"
+        "op": "equal",
+        "ref": "pengecatan",
+        "hyp": "pengecatan"
       },
       {
-        "op": "delete",
-        "ref": "tiga"
+        "op": "insert",
+        "hyp": "untuk"
       },
       {
-        "op": "delete",
-        "ref": "kamar"
-      },
-      {
-        "op": "substitute",
-        "ref": "seratus",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
-        "ref": "dua",
-        "hyp": "campur"
-      },
-      {
-        "op": "substitute",
-        "ref": "puluh",
-        "hyp": "kata"
-      },
-      {
-        "op": "substitute",
-        "ref": "meter",
-        "hyp": "lokal"
-      },
-      {
-        "op": "substitute",
-        "ref": "persegi",
-        "hyp": "rusak"
-      },
-      {
-        "op": "substitute",
+        "op": "equal",
         "ref": "tiga",
-        "hyp": "berat"
+        "hyp": "tiga"
       },
       {
-        "op": "substitute",
+        "op": "equal",
+        "ref": "kamar",
+        "hyp": "kamar"
+      },
+      {
+        "op": "equal",
+        "ref": "seratus",
+        "hyp": "seratus"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "tidak"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
-        "ref": "delapan",
-        "hyp": "jelas"
-      },
-      {
-        "op": "substitute",
-        "ref": "ribu",
-        "hyp": "aksen"
-      },
-      {
-        "op": "substitute",
-        "ref": "per",
-        "hyp": "campur"
-      },
-      {
-        "op": "substitute",
+        "op": "equal",
         "ref": "meter",
-        "hyp": "kata"
+        "hyp": "meter"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "persegi",
-        "hyp": "lokal"
+        "hyp": "persegi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
+        "ref": "tiga",
+        "hyp": "tiga"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "andi",
-        "hyp": "tidak"
+        "hyp": "andi"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "sleman",
-        "hyp": "jelas"
+        "hyp": "sleman"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 13,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "tiga",
       "seratus",
@@ -126,11 +137,25 @@
       "meter",
       "persegi"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "tiga",
+      "seratus",
+      "dua",
+      "puluh",
+      "meter",
+      "persegi",
+      "tiga",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
     "referenceCount": 13,
-    "hypothesisCount": 0,
+    "hypothesisCount": 13,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 13
+    "deletions": 0
   }
 }

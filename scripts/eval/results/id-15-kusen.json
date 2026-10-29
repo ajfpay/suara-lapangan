@@ -4,105 +4,109 @@
   "sessionId": "sess-id-15",
   "turnCount": 2,
   "reference": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari, Sleman.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Kusen pintu jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari di Sleman.",
   "overall": {
-    "wer": 1,
-    "distance": 17,
+    "wer": 0.11764705882352941,
+    "distance": 2,
     "referenceWords": 17,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
+    "hypothesisWords": 17,
+    "substitutions": 0,
+    "insertions": 1,
     "deletions": 1,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "kusen"
+        "op": "equal",
+        "ref": "kusen",
+        "hyp": "kusen"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pintu",
-        "hyp": "aksen"
+        "hyp": "pintu"
       },
       {
-        "op": "substitute",
-        "ref": "dan",
-        "hyp": "campur"
+        "op": "delete",
+        "ref": "dan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "jendela",
-        "hyp": "kata"
+        "hyp": "jendela"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "enam",
-        "hyp": "lokal"
+        "hyp": "enam"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "unit",
-        "hyp": "rusak"
+        "hyp": "unit"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "empat",
-        "hyp": "berat"
+        "hyp": "empat"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ratus",
-        "hyp": "tidak"
+        "hyp": "ratus"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "jelas"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "aksen"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "campur"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "per",
-        "hyp": "kata"
+        "hyp": "per"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "unit",
-        "hyp": "lokal"
+        "hyp": "unit"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "bu",
-        "hyp": "berat"
+        "hyp": "bu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lestari",
-        "hyp": "tidak"
+        "hyp": "lestari"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "sleman",
-        "hyp": "jelas"
+        "hyp": "sleman"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 9,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "enam",
       "unit",
@@ -114,11 +118,21 @@
       "per",
       "unit"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "enam",
+      "unit",
+      "empat",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "unit"
+    ],
     "referenceCount": 9,
-    "hypothesisCount": 0,
+    "hypothesisCount": 9,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 9
+    "deletions": 0
   }
 }

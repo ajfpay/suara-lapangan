@@ -4,105 +4,110 @@
   "sessionId": "sess-id-02",
   "turnCount": 2,
   "reference": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna, Bantul.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna di Bantul.",
   "overall": {
-    "wer": 1,
-    "distance": 17,
+    "wer": 0.058823529411764705,
+    "distance": 1,
     "referenceWords": 17,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 1,
+    "hypothesisWords": 18,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "semen"
+        "op": "equal",
+        "ref": "semen",
+        "hyp": "semen"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "empat",
-        "hyp": "aksen"
+        "hyp": "empat"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "campur"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sak",
-        "hyp": "kata"
+        "hyp": "sak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "enam",
-        "hyp": "lokal"
+        "hyp": "enam"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "rusak"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dua",
-        "hyp": "berat"
+        "hyp": "dua"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "tidak"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "per",
-        "hyp": "jelas"
+        "hyp": "per"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sak",
-        "hyp": "aksen"
+        "hyp": "sak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "plester",
-        "hyp": "campur"
+        "hyp": "plester"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lantai",
-        "hyp": "kata"
+        "hyp": "lantai"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dua",
-        "hyp": "lokal"
+        "hyp": "dua"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "bu",
-        "hyp": "berat"
+        "hyp": "bu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ratna",
-        "hyp": "tidak"
+        "hyp": "ratna"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "bantul",
-        "hyp": "jelas"
+        "hyp": "bantul"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 10,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "empat",
       "puluh",
@@ -115,11 +120,22 @@
       "sak",
       "dua"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "empat",
+      "puluh",
+      "sak",
+      "enam",
+      "puluh",
+      "dua",
+      "ribu",
+      "per",
+      "sak",
+      "dua"
+    ],
     "referenceCount": 10,
-    "hypothesisCount": 0,
+    "hypothesisCount": 10,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 10
+    "deletions": 0
   }
 }

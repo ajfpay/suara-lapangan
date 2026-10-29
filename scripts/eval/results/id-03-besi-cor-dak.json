@@ -4,113 +4,120 @@
   "sessionId": "sess-id-03",
   "turnCount": 2,
   "reference": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo, Klaten.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Besi sepuluh mili, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo di Klaten.",
   "overall": {
-    "wer": 1,
-    "distance": 19,
+    "wer": 0.10526315789473684,
+    "distance": 2,
     "referenceWords": 19,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 3,
+    "hypothesisWords": 20,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "besi"
+        "op": "equal",
+        "ref": "besi",
+        "hyp": "besi"
       },
       {
-        "op": "delete",
-        "ref": "sepuluh"
-      },
-      {
-        "op": "delete",
-        "ref": "milimeter"
+        "op": "equal",
+        "ref": "sepuluh",
+        "hyp": "sepuluh"
       },
       {
         "op": "substitute",
+        "ref": "milimeter",
+        "hyp": "mili"
+      },
+      {
+        "op": "equal",
         "ref": "tiga",
-        "hyp": "aksen"
+        "hyp": "tiga"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "campur"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "kata"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "batang",
-        "hyp": "lokal"
+        "hyp": "batang"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "tujuh",
-        "hyp": "rusak"
+        "hyp": "tujuh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "berat"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "delapan",
-        "hyp": "tidak"
+        "hyp": "delapan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "jelas"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "per",
-        "hyp": "aksen"
+        "hyp": "per"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "batang",
-        "hyp": "campur"
+        "hyp": "batang"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "cor",
-        "hyp": "kata"
+        "hyp": "cor"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dak",
-        "hyp": "lokal"
+        "hyp": "dak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "teras",
-        "hyp": "rusak"
+        "hyp": "teras"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "waluyo",
-        "hyp": "tidak"
+        "hyp": "waluyo"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "klaten",
-        "hyp": "jelas"
+        "hyp": "klaten"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 11,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "sepuluh",
       "tiga",
@@ -124,11 +131,23 @@
       "per",
       "batang"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "sepuluh",
+      "tiga",
+      "puluh",
+      "lima",
+      "batang",
+      "tujuh",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
     "referenceCount": 11,
-    "hypothesisCount": 0,
+    "hypothesisCount": 11,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 11
+    "deletions": 0
   }
 }

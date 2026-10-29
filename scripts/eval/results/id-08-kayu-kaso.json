@@ -4,109 +4,110 @@
   "sessionId": "sess-id-08",
   "turnCount": 2,
   "reference": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang. Rangka atap rumah Bu Wati, Kalasan.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu sebatang. Rangka atap rumah Bu Wati, Kalasan.",
   "overall": {
-    "wer": 1,
-    "distance": 18,
+    "wer": 0.1111111111111111,
+    "distance": 2,
     "referenceWords": 18,
-    "hypothesisWords": 16,
-    "substitutions": 16,
+    "hypothesisWords": 17,
+    "substitutions": 1,
     "insertions": 0,
-    "deletions": 2,
+    "deletions": 1,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "kayu"
+        "op": "equal",
+        "ref": "kayu",
+        "hyp": "kayu"
       },
       {
-        "op": "delete",
-        "ref": "kaso"
+        "op": "equal",
+        "ref": "kaso",
+        "hyp": "kaso"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "dua",
-        "hyp": "aksen"
+        "hyp": "dua"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "campur"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "lima",
-        "hyp": "kata"
+        "hyp": "lima"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "batang",
-        "hyp": "lokal"
+        "hyp": "batang"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "empat",
-        "hyp": "rusak"
+        "hyp": "empat"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "berat"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "delapan",
-        "hyp": "tidak"
+        "hyp": "delapan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "jelas"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
-        "ref": "per",
-        "hyp": "aksen"
+        "op": "delete",
+        "ref": "per"
       },
       {
         "op": "substitute",
         "ref": "batang",
-        "hyp": "campur"
+        "hyp": "sebatang"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rangka",
-        "hyp": "kata"
+        "hyp": "rangka"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "atap",
-        "hyp": "lokal"
+        "hyp": "atap"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "bu",
-        "hyp": "berat"
+        "hyp": "bu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "wati",
-        "hyp": "tidak"
+        "hyp": "wati"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "kalasan",
-        "hyp": "jelas"
+        "hyp": "kalasan"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 10,
+    "wer": 0.2,
+    "distance": 2,
     "referenceTokens": [
       "dua",
       "puluh",
@@ -119,11 +120,21 @@
       "per",
       "batang"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "dua",
+      "puluh",
+      "lima",
+      "batang",
+      "empat",
+      "puluh",
+      "delapan",
+      "ribu",
+      "sebatang"
+    ],
     "referenceCount": 10,
-    "hypothesisCount": 0,
-    "substitutions": 0,
+    "hypothesisCount": 9,
+    "substitutions": 1,
     "insertions": 0,
-    "deletions": 10
+    "deletions": 1
   }
 }

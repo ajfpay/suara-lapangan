@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    readdirSync,
+    writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 import type { Locale } from "@/lib/server/asr/locale";
@@ -8,6 +14,7 @@ import { transcribeSession } from "@/lib/server/asr/transcribe";
 import { countDefectiveFixtures, type DefectSummary } from "./defects";
 import {
     evaluateGate1Thresholds,
+    GATE_1_THRESHOLDS,
     type Gate1Decision,
     type Gate1ThresholdMetrics,
 } from "./thresholds";
@@ -46,6 +53,8 @@ export interface LanguageSummary {
         substitutions: number;
         insertions: number;
         deletions: number;
+        threshold: number;
+        passed: boolean;
     };
     threshold: number;
     passed: boolean;
@@ -66,6 +75,10 @@ export interface WorstSample {
 
 export interface EvalSummary {
     timestamp: string;
+    isSynthetic: boolean;
+    evaluationMode: "synthetic_smoke" | "real_asr";
+    hypothesisSource: string;
+    syntheticNotice?: string;
     totalRecordings: number;
     en: LanguageSummary;
     id: LanguageSummary;
@@ -79,6 +92,8 @@ export interface EvalSummary {
             totalHypothesisTokens: number;
             totalDistance: number;
             wer: number;
+            threshold: number;
+            passed: boolean;
         };
     };
     gate1: Gate1Decision;
@@ -94,6 +109,16 @@ export interface EvalOptions {
     outputDir?: string;
     audioPath?: string;
     simulateHighIdWer?: boolean;
+    /**
+     * Directory containing real ASR hypotheses JSON files.
+     * If provided, evaluation loads hypotheses from here instead of synthetic K5 mocks.
+     */
+    realHypothesesDir?: string;
+    /**
+     * Explicit flag indicating whether hypotheses are from real ASR.
+     * Defaults to true if realHypothesesDir is provided, false otherwise (synthetic smoke test).
+     */
+    isRealAsr?: boolean;
 }
 
 /**
@@ -103,10 +128,14 @@ export interface EvalOptions {
  */
 export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
     const rootDir = process.cwd();
-    const fixturesDir = options.fixturesDir || join(rootDir, "fixtures", "transcripts");
-    const defectiveDir = options.defectiveDir || join(rootDir, "fixtures", "defective");
-    const k5Dir = options.k5Dir || join(rootDir, "scripts", "eval", "fixtures", "k5");
-    const outputDir = options.outputDir || join(rootDir, "scripts", "eval", "results");
+    const fixturesDir =
+        options.fixturesDir || join(rootDir, "fixtures", "transcripts");
+    const defectiveDir =
+        options.defectiveDir || join(rootDir, "fixtures", "defective");
+    const k5Dir =
+        options.k5Dir || join(rootDir, "scripts", "eval", "fixtures", "k5");
+    const outputDir =
+        options.outputDir || join(rootDir, "scripts", "eval", "results");
     const audioPath =
         options.audioPath ||
         join(rootDir, "lib", "server", "asr", "__fixtures__", "sample-16k.wav");
@@ -127,36 +156,70 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
 
     const originalFetch = globalThis.fetch;
 
-    // Cache K5 responses by sessionId
+    const isRealAsr = options.isRealAsr ?? Boolean(options.realHypothesesDir);
+    const isSynthetic = !isRealAsr;
+
+    // Cache K5 / hypothesis responses by sessionId
     const k5BySession = new Map<string, unknown>();
     for (const file of files) {
         const fixturePath = join(fixturesDir, file);
         const fixtureData = JSON.parse(readFileSync(fixturePath, "utf8"));
-        const k5Path = join(k5Dir, file);
 
         let k5Payload: unknown;
-        try {
-            k5Payload = JSON.parse(readFileSync(k5Path, "utf8"));
-        } catch {
-            // Fallback to committed K5 fixture if per-fixture file not found
-            const defaultK5Path = join(
-                rootDir,
-                "lib",
-                "server",
-                "asr",
-                "__fixtures__",
-                "meta-transcribe.json"
-            );
-            k5Payload = JSON.parse(readFileSync(defaultK5Path, "utf8"));
+
+        if (
+            options.realHypothesesDir &&
+            existsSync(join(options.realHypothesesDir, file))
+        ) {
+            const realPath = join(options.realHypothesesDir, file);
+            const realData = JSON.parse(readFileSync(realPath, "utf8"));
+            if (Array.isArray(realData.turns)) {
+                k5Payload = {
+                    sessionId: fixtureData.session_id,
+                    transcript:
+                        realData.transcript ||
+                        realData.turns
+                            .map((t: { transcript: string }) => t.transcript)
+                            .join(" "),
+                    audioDurationMs: realData.audioDurationMs || 60000,
+                    turns: realData.turns,
+                };
+            } else if (
+                typeof realData.transcript === "string" ||
+                typeof realData.hypothesis === "string"
+            ) {
+                const text = realData.hypothesis || realData.transcript;
+                k5Payload = {
+                    sessionId: fixtureData.session_id,
+                    transcript: text,
+                    audioDurationMs: 60000,
+                    turns: [{ startMs: 0, endMs: 60000, transcript: text }],
+                };
+            } else {
+                k5Payload = realData;
+            }
+        } else {
+            const k5Path = join(k5Dir, file);
+            try {
+                k5Payload = JSON.parse(readFileSync(k5Path, "utf8"));
+            } catch {
+                // Fallback to committed K5 fixture if per-fixture file not found
+                const defaultK5Path = join(
+                    rootDir,
+                    "lib",
+                    "server",
+                    "asr",
+                    "__fixtures__",
+                    "meta-transcribe.json"
+                );
+                k5Payload = JSON.parse(readFileSync(defaultK5Path, "utf8"));
+            }
         }
 
         k5BySession.set(fixtureData.session_id, k5Payload);
     }
-
     // Network edge mock intercepting calls to Meta
-    globalThis.fetch = (async (
-        input: RequestInfo | URL
-    ): Promise<Response> => {
+    globalThis.fetch = (async (input: RequestInfo | URL): Promise<Response> => {
         const urlString = String(input);
         const url = new URL(urlString, "https://api.meta.ai");
         const rawSessionId = url.searchParams.get("sessionId");
@@ -169,18 +232,25 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
                 sessionId: string;
                 transcript: string;
                 audioDurationMs: number;
-                turns: Array<{ startMs: number; endMs: number; transcript: string }>;
+                turns: Array<{
+                    startMs: number;
+                    endMs: number;
+                    transcript: string;
+                }>;
             };
 
             // If simulating severe Indonesian accent breakdown (>25% ID WER)
             if (options.simulateHighIdWer && sessionId.includes("-id-")) {
                 const degradedTurns = body.turns.map((t) => ({
                     ...t,
-                    transcript: "aksen campur kata lokal rusak berat tidak jelas",
+                    transcript:
+                        "aksen campur kata lokal rusak berat tidak jelas",
                 }));
                 const degradedBody = {
                     ...body,
-                    transcript: degradedTurns.map((t) => t.transcript).join(" "),
+                    transcript: degradedTurns
+                        .map((t) => t.transcript)
+                        .join(" "),
                     turns: degradedTurns,
                 };
                 return new Response(JSON.stringify(degradedBody), {
@@ -370,9 +440,11 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
             substitutions: enMvSubs,
             insertions: enMvIns,
             deletions: enMvDels,
+            threshold: GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
+            passed: enMvWer <= GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
         },
-        threshold: 0.1,
-        passed: enWer <= 0.1,
+        threshold: GATE_1_THRESHOLDS.EN_TARGET,
+        passed: enWer <= GATE_1_THRESHOLDS.EN_TARGET,
     };
 
     const idSummary: LanguageSummary = {
@@ -392,9 +464,11 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
             substitutions: idMvSubs,
             insertions: idMvIns,
             deletions: idMvDels,
+            threshold: GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
+            passed: idMvWer <= GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
         },
-        threshold: 0.15,
-        passed: idWer <= 0.15,
+        threshold: GATE_1_THRESHOLDS.ID_TARGET,
+        passed: idWer <= GATE_1_THRESHOLDS.ID_TARGET,
     };
 
     // Worst samples ordered by overall WER descending
@@ -423,11 +497,20 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
         enWer,
         idWer,
         moneyVolumeWer: combinedMvWer,
+        isSynthetic,
     };
     const gate1Decision = evaluateGate1Thresholds(thresholdMetrics);
 
     const summary: EvalSummary = {
         timestamp: new Date().toISOString(),
+        isSynthetic,
+        evaluationMode: isSynthetic ? "synthetic_smoke" : "real_asr",
+        hypothesisSource: isSynthetic
+            ? "scripts/eval/fixtures/k5 (synthetic mocks)"
+            : options.realHypothesesDir || "real ASR hypotheses",
+        syntheticNotice: isSynthetic
+            ? "Hipotesis transkripsi adalah mock sintetis (K5) yang diturunkan dari transkrip acuan (circular oracle). Angka WER berfungsi sebagai uji asap pipeline, bukan tolok ukur akurasi model ASR."
+            : undefined,
         totalRecordings: recordingResults.length,
         en: enSummary,
         id: idSummary,
@@ -441,6 +524,8 @@ export async function runEval(options: EvalOptions = {}): Promise<EvalSummary> {
                 totalHypothesisTokens: combinedMvHyp,
                 totalDistance: combinedMvDistance,
                 wer: combinedMvWer,
+                threshold: GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
+                passed: combinedMvWer <= GATE_1_THRESHOLDS.MONEY_VOLUME_TARGET,
             },
         },
         gate1: gate1Decision,
@@ -473,10 +558,11 @@ function generateMarkdownReport(summary: EvalSummary): string {
     const statusBadge =
         summary.gate1.status === "GO"
             ? "**GO (PASS)**"
-            : summary.gate1.status === "STOP_24_JAM"
-              ? "**STOP 24 JAM (ESKALASI PEMILIK)**"
-              : "**NEEDS REVIEW**";
-
+            : summary.gate1.status === "SYNTHETIC_SMOKE_PASS"
+              ? "**SYNTHETIC SMOKE TEST PASS (PIPELINE OK — BUKAN GO AKURASI ASR)**"
+              : summary.gate1.status === "STOP_24_JAM"
+                ? "**STOP 24 JAM (ESKALASI PEMILIK)**"
+                : "**NEEDS REVIEW**";
     const worstRows = summary.worstSamples
         .slice(0, 10)
         .map(
@@ -489,24 +575,32 @@ function generateMarkdownReport(summary: EvalSummary): string {
         .map(([code, count]) => `| \`${code}\` | ${count} |`)
         .join("\n");
 
+    const syntheticNoticeBanner = summary.isSynthetic
+        ? `> **PERINGATAN PENTING (B1 — CIRCULAR ORACLE NOTICE):**
+> Hipotesis transkripsi saat ini berasal dari mock K5 sintetis (\`scripts/eval/fixtures/k5/\`) yang diturunkan dari transkrip acuan (\`fixtures/transcripts/\`).
+> Angka WER di bawah ini adalah **uji asap pipeline (pipeline smoke test)** untuk memverifikasi alur \`transcribeSession\` dan kalkulasi WER, **BUKAN pengukuran akurasi model ASR Meta yang sebenarnya**.
+> Gate 1 **TIDAK memberikan status GO untuk akurasi ASR** berdasarkan data sintetis. Untuk mengukur akurasi riil, sediakan hipotesis ASR nyata melalui opsi \`realHypothesesDir\` atau \`isRealAsr\`.\n\n---\n\n`
+        : "";
+
     return `# Laporan Evaluasi WER & Gate 1 (Suara Lapangan MVP)
 
-- **Tanggal Evaluasi:** ${summary.timestamp}
+${syntheticNoticeBanner}- **Tanggal Evaluasi:** ${summary.timestamp}
 - **Status Gate 1:** ${statusBadge}
+- **Mode Evaluasi:** \`${summary.evaluationMode}\` (${summary.hypothesisSource})
 - **Jumlah Rekaman Diuji:** ${summary.totalRecordings} (${summary.en.count} EN + ${summary.id.count} ID)
-- **Defective Cases Diverifikasi:** ${summary.defects.total}
+- **Defective Cases Dicatat/Didaftar:** ${summary.defects.total}
 
 ---
 
-## 1. Ringkasan Metrik Akurasi
+## 1. Ringkasan Metrik Akurasi ${summary.isSynthetic ? "(Uji Asap Sintetis)" : "(Akurasi ASR Riil)"}
 
 | Bahasa / Metrik | Realisasi WER | Ambang Batas Target | Status |
 | --- | --- | --- | --- |
 | **Native English (EN)** | **${enPct}%** (${summary.en.totalDistance}/${summary.en.totalReferenceWords} kata) | $\\le$ 10.00% | ${summary.en.passed ? "PASS" : "FAIL"} |
 | **Indonesia Beraksen (ID)** | **${idPct}%** (${summary.id.totalDistance}/${summary.id.totalReferenceWords} kata) | $\\le$ 15.00% | ${summary.id.passed ? "PASS" : "FAIL"} |
-| **Token Uang/Volume (EN)** | **${enMvPct}%** (${summary.en.moneyVolume.totalDistance}/${summary.en.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | PASS |
-| **Token Uang/Volume (ID)** | **${idMvPct}%** (${summary.id.moneyVolume.totalDistance}/${summary.id.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | PASS |
-| **Token Uang/Volume (Total)** | **${combMvPct}%** (${summary.combined.moneyVolume.totalDistance}/${summary.combined.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | PASS |
+| **Token Uang/Volume (EN)** | **${enMvPct}%** (${summary.en.moneyVolume.totalDistance}/${summary.en.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | ${summary.en.moneyVolume.passed ? "PASS" : "FAIL"} |
+| **Token Uang/Volume (ID)** | **${idMvPct}%** (${summary.id.moneyVolume.totalDistance}/${summary.id.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | ${summary.id.moneyVolume.passed ? "PASS" : "FAIL"} |
+| **Token Uang/Volume (Total)** | **${combMvPct}%** (${summary.combined.moneyVolume.totalDistance}/${summary.combined.moneyVolume.totalReferenceTokens} token) | $\\le$ 10.00% | ${summary.combined.moneyVolume.passed ? "PASS" : "FAIL"} |
 | **Total Gabungan** | **${combPct}%** (${summary.combined.totalDistance}/${summary.combined.totalReferenceWords} kata) | — | — |
 
 ---
@@ -514,6 +608,7 @@ function generateMarkdownReport(summary: EvalSummary): string {
 ## 2. Keputusan Gate 1 (Go / No-Go)
 
 - **Status:** \`${summary.gate1.status}\`
+- **Tipe Evaluasi:** \`${summary.isSynthetic ? "SYNTHETIC_SMOKE_TEST (Akurasi ASR Belum Diuji)" : "REAL_ASR_ACCURACY"}\`
 - **STOP 24 Jam Triggered:** \`${summary.gate1.stop24Jam}\`
 - **Eskalasi ke:** \`${summary.gate1.escalateTo ?? "None"}\`
 - **Alasan Keputusan:**
@@ -537,9 +632,9 @@ ${worstRows}
 
 ---
 
-## 4. Verifikasi Kasus Cacat (Defective Fixtures)
+## 4. Inventarisasi Kasus Cacat (Defective Fixtures)
 
-Total kasus cacat yang diuji guard: **${summary.defects.total}** berkas.
+Total kasus cacat yang dicatat/didaftar: **${summary.defects.total}** berkas (inventarisasi metadata berkas cacat, bukan pengujian guard otomatis).
 
 | Defect Code | Jumlah Kasus |
 | --- | --- |

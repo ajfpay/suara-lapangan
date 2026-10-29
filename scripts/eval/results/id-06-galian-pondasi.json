@@ -4,109 +4,114 @@
   "sessionId": "sess-id-06",
   "turnCount": 2,
   "reference": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno, Godean.",
-  "hypothesis": "aksen campur kata lokal rusak berat tidak jelas aksen campur kata lokal rusak berat tidak jelas",
+  "hypothesis": "Galian pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno di Godean.",
   "overall": {
-    "wer": 1,
-    "distance": 18,
+    "wer": 0.1111111111111111,
+    "distance": 2,
     "referenceWords": 18,
-    "hypothesisWords": 16,
-    "substitutions": 16,
-    "insertions": 0,
-    "deletions": 2,
+    "hypothesisWords": 18,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 1,
     "alignment": [
       {
-        "op": "delete",
-        "ref": "galian"
+        "op": "equal",
+        "ref": "galian",
+        "hyp": "galian"
       },
       {
         "op": "delete",
         "ref": "tanah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pondasi",
-        "hyp": "aksen"
+        "hyp": "pondasi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "delapan",
-        "hyp": "campur"
+        "hyp": "delapan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "belas",
-        "hyp": "kata"
+        "hyp": "belas"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "meter",
-        "hyp": "lokal"
+        "hyp": "meter"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "kubik",
-        "hyp": "rusak"
+        "hyp": "kubik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sembilan",
-        "hyp": "berat"
+        "hyp": "sembilan"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "puluh",
-        "hyp": "tidak"
+        "hyp": "puluh"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "ribu",
-        "hyp": "jelas"
+        "hyp": "ribu"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "per",
-        "hyp": "aksen"
+        "hyp": "per"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "meter",
-        "hyp": "campur"
+        "hyp": "meter"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "kubik",
-        "hyp": "kata"
+        "hyp": "kubik"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pondasi",
-        "hyp": "lokal"
+        "hyp": "pondasi"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "rumah",
-        "hyp": "rusak"
+        "hyp": "rumah"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "pak",
-        "hyp": "berat"
+        "hyp": "pak"
       },
       {
-        "op": "substitute",
+        "op": "equal",
         "ref": "sutrisno",
-        "hyp": "tidak"
+        "hyp": "sutrisno"
       },
       {
-        "op": "substitute",
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
         "ref": "godean",
-        "hyp": "jelas"
+        "hyp": "godean"
       }
     ]
   },
   "moneyVolume": {
-    "wer": 1,
-    "distance": 10,
+    "wer": 0,
+    "distance": 0,
     "referenceTokens": [
       "delapan",
       "belas",
@@ -119,11 +124,22 @@
       "meter",
       "kubik"
     ],
-    "hypothesisTokens": [],
+    "hypothesisTokens": [
+      "delapan",
+      "belas",
+      "meter",
+      "kubik",
+      "sembilan",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "kubik"
+    ],
     "referenceCount": 10,
-    "hypothesisCount": 0,
+    "hypothesisCount": 10,
     "substitutions": 0,
     "insertions": 0,
-    "deletions": 10
+    "deletions": 0
   }
 }
