@@ -38,4 +38,5 @@ Diperbarui 29 Okt 2026.
   thread `T-01a185a8-7872-7705-92b7-dcff4746e323`, worker `test-automation-engineer`) dan tiket 03
   (endpoint ASR; `app/api/asr/**` + `lib/server/**` + `db/**`, thread
   `T-01a185a8-87f6-74e1-ad19-a76acda0dfc7`, worker `senior-developer`).
-- Belum ada remote dan belum ada push; **merge hanya oleh manusia**.
+- Remote: `origin` = `git@github.com:ajfpay/suara-lapangan.git` (privat). Push hanya untuk cabang
+  kerja; **merge ke `main` tetap keputusan manusia**.
