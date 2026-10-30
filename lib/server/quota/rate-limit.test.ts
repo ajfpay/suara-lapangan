@@ -9,6 +9,7 @@ import {
     withRateLimit,
 } from "./rate-limit";
 import {
+    formatDay,
     recordUsage,
     resetMemoryUsageStore,
     setUsageStore,
@@ -222,7 +223,7 @@ describe("withRateLimit middleware wrapper", () => {
     it("rejects request with 429 when checkDailyQuota is enabled and cap is reached", async () => {
         // Exceed quota
         await recordUsage({
-            date: "2026-10-29",
+            date: formatDay(),
             estCost: 6.0,
         });
 
