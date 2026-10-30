@@ -24,7 +24,10 @@ Every schema is written for `text.format: { type: "json_schema", strict: true }`
 ### Fields the server owns
 
 `nomor`, `pekerjaan[].jumlah`, `total_nominal`, `terbilang` are computed by the
-server (spec D3 and guard rule 5). Model output for these is ignored, never
+server (spec D3 and guard rule 5). `mata_uang` follows the locale and the guard
+recomputes it, so the schema carries no `anyOf` tying the two: a strict
+`json_schema` request refuses a top-level `anyOf`. Model output for these is
+ignored, never
 trusted: the document number is `SL/QTN/<date>/<nnn>` and is never spoken, and
 `jumlah` must equal `volume × harga_satuan` exactly.
 

@@ -4,6 +4,10 @@ import { applyGuard } from "@/lib/server/guard/rules";
 import { callMuseSpark, SparkError } from "@/lib/server/guard/spark";
 import { documentFromTurns } from "@/lib/server/guard/documentFromTurns";
 import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import {
+    sparkPathMarker,
+    toResponseDocument,
+} from "@/lib/server/guard/sparkPath";
 import type { Locale, Proyek } from "@/lib/server/guard/types";
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -12,6 +16,7 @@ type PostDocumentBody = {
     sessionId?: unknown;
     locale?: unknown;
     project?: unknown;
+    turns?: unknown;
 };
 
 export async function POST(request: Request): Promise<Response> {
@@ -77,24 +82,33 @@ export async function POST(request: Request): Promise<Response> {
     // Idempotent reuse check: if document for same session exists, return it without calling the model
     // Catch store init and lookup failures, map to JSON status
     let session;
-    try {
-        const store = getTurnsStore();
-        session = await store.findSession(sessionId);
-    } catch {
-        return NextResponse.json(
-            {
-                error: "store_failure",
-                message: "Failed to access session database",
-            },
-            { status: 500 }
-        );
-    }
+    if (Array.isArray(body.turns) && body.turns.length > 0) {
+        session = {
+            sessionId,
+            locale: (locale ?? "id") as Locale,
+            audioSha256: "inline",
+            turns: body.turns as import("@/lib/server/asr/turns").Turn[],
+        };
+    } else {
+        try {
+            const store = getTurnsStore();
+            session = await store.findSession(sessionId);
+        } catch {
+            return NextResponse.json(
+                {
+                    error: "store_failure",
+                    message: "Failed to access session database",
+                },
+                { status: 500 }
+            );
+        }
 
-    if (!session) {
-        return NextResponse.json(
-            { error: "session_not_found", message: `Session '${sessionId}' not found` },
-            { status: 404 }
-        );
+        if (!session) {
+            return NextResponse.json(
+                { error: "session_not_found", message: `Session '${sessionId}' not found` },
+                { status: 404 }
+            );
+        }
     }
 
     const resolvedLocale: Locale = locale ?? session.locale;
@@ -120,12 +134,13 @@ export async function POST(request: Request): Promise<Response> {
         if (matchesLocale && matchesProject) {
             return NextResponse.json(
                 {
-                    document: existingDoc,
+                    document: toResponseDocument(existingDoc),
                     butuh_konfirmasi: existingDoc.butuh_konfirmasi ?? [],
                     status:
                         (existingDoc.butuh_konfirmasi?.length ?? 0) > 0
                             ? "perlu_konfirmasi"
                             : "siap",
+                    ...sparkPathMarker(existingDoc._spark_path === true),
                 },
                 { status: 200 }
             );
@@ -160,14 +175,14 @@ export async function POST(request: Request): Promise<Response> {
         });
     } catch (err) {
         if (err instanceof SparkError) {
-            if (err.code === "upstream_unreachable") {
+            if (err.code === "upstream_unreachable" || err.code === "schema_rejected") {
                 const result = documentFromTurns(
                     session.turns,
                     resolvedLocale,
                     project,
                     { sessionId }
                 );
-                // Skip permanent caching on transient upstream unreachable so subsequent requests can retry
+                // Skip permanent caching on transient upstream error so subsequent requests can retry
                 return NextResponse.json(
                     {
                         document: result.document,
@@ -196,12 +211,16 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     // Save document
+    if (candidate._spark_path) {
+        result.document._spark_path = true;
+    }
     docStore.set(sessionId, result.document);
     return NextResponse.json(
         {
-            document: result.document,
+            document: toResponseDocument(result.document),
             butuh_konfirmasi: result.butuh_konfirmasi,
             status: result.status,
+            ...sparkPathMarker(candidate._spark_path === true),
         },
         { status: 200 }
     );

@@ -22,7 +22,7 @@ export interface WavInfo {
  */
 export function parseWav(buffer: ArrayBuffer | Uint8Array): WavInfo {
     const rawBuffer =
-        buffer instanceof Uint8Array
+        ArrayBuffer.isView(buffer)
             ? buffer.buffer.slice(
                   buffer.byteOffset,
                   buffer.byteOffset + buffer.byteLength
@@ -130,7 +130,7 @@ export function sliceWavBuffer(
 ): ArrayBuffer {
     const info = parseWav(buffer);
     const rawBuffer =
-        buffer instanceof Uint8Array
+        ArrayBuffer.isView(buffer)
             ? buffer.buffer.slice(
                   buffer.byteOffset,
                   buffer.byteOffset + buffer.byteLength

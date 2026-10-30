@@ -1,6 +1,6 @@
 // Contract self-check for K2 (document schemas) and K4 (fixtures).
 //
-// Run it with:   node --test contracts/
+// Run it with:   npm run test:contracts
 //
 // It answers one question: can someone else re-run these contracts and
 // fixtures without being told anything out loud? Every assertion below is
@@ -402,19 +402,23 @@ test("quotation schema accepts en/USD and id/IDR documents", () => {
     }
 });
 
-test("quotation schema rejects mismatched locale and currency", () => {
+test("quotation schema leaves the locale and currency pairing to the guard", () => {
     const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
     const valid = loadAll(validDir)[0].data.expected_document;
-    const enWithIdr = { ...valid, locale: "en", mata_uang: "IDR" };
-    assert.ok(
-        valueProblems(schema, enWithIdr, "enWithIdr", []).length > 0,
-        "schema must reject en + IDR"
-    );
-    const idWithUsd = { ...valid, locale: "id", mata_uang: "USD" };
-    assert.ok(
-        valueProblems(schema, idWithUsd, "idWithUsd", []).length > 0,
-        "schema must reject id + USD"
-    );
+    // A strict json_schema refuses a top-level anyOf, so applyGuard recomputes
+    // mata_uang from the locale and the schema must accept the mismatch.
+    for (const [locale, mata_uang] of [
+        ["en", "IDR"],
+        ["id", "USD"],
+    ]) {
+        const problems = valueProblems(
+            schema,
+            { ...valid, locale, mata_uang },
+            `${locale}+${mata_uang}`,
+            []
+        );
+        assert.deepEqual(problems, [], `${locale} + ${mata_uang}`);
+    }
 });
 
 test("quotation schema rejects impossible calendar dates and turn_0 citations", () => {
