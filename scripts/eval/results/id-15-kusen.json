@@ -1,0 +1,138 @@
+{
+  "id": "id-15-kusen",
+  "locale": "id",
+  "sessionId": "sess-id-15",
+  "turnCount": 2,
+  "reference": "Kusen pintu dan jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari, Sleman.",
+  "hypothesis": "Kusen pintu jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari di Sleman.",
+  "overall": {
+    "wer": 0.11764705882352941,
+    "distance": 2,
+    "referenceWords": 17,
+    "hypothesisWords": 17,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "kusen",
+        "hyp": "kusen"
+      },
+      {
+        "op": "equal",
+        "ref": "pintu",
+        "hyp": "pintu"
+      },
+      {
+        "op": "delete",
+        "ref": "dan"
+      },
+      {
+        "op": "equal",
+        "ref": "jendela",
+        "hyp": "jendela"
+      },
+      {
+        "op": "equal",
+        "ref": "enam",
+        "hyp": "enam"
+      },
+      {
+        "op": "equal",
+        "ref": "unit",
+        "hyp": "unit"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "ratus",
+        "hyp": "ratus"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "unit",
+        "hyp": "unit"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "lestari",
+        "hyp": "lestari"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "enam",
+      "unit",
+      "empat",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "unit"
+    ],
+    "hypothesisTokens": [
+      "enam",
+      "unit",
+      "empat",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "unit"
+    ],
+    "referenceCount": 9,
+    "hypothesisCount": 9,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

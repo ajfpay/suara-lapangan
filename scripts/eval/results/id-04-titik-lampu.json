@@ -1,0 +1,142 @@
+{
+  "id": "id-04-titik-lampu",
+  "locale": "id",
+  "sessionId": "sess-id-04",
+  "turnCount": 2,
+  "reference": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu per titik. Rumah Bu Kartika di Depok, Sleman.",
+  "hypothesis": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu tiap titik. Rumah Bu Kartika Depok, Sleman.",
+  "overall": {
+    "wer": 0.1111111111111111,
+    "distance": 2,
+    "referenceWords": 18,
+    "hypothesisWords": 17,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
+        "ref": "lampu",
+        "hyp": "lampu"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "belas",
+        "hyp": "belas"
+      },
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
+        "ref": "seratus",
+        "hyp": "seratus"
+      },
+      {
+        "op": "equal",
+        "ref": "tujuh",
+        "hyp": "tujuh"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "tiap"
+      },
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "kartika",
+        "hyp": "kartika"
+      },
+      {
+        "op": "delete",
+        "ref": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "depok",
+        "hyp": "depok"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.09090909090909091,
+    "distance": 1,
+    "referenceTokens": [
+      "titik",
+      "dua",
+      "belas",
+      "titik",
+      "seratus",
+      "tujuh",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "titik"
+    ],
+    "hypothesisTokens": [
+      "titik",
+      "dua",
+      "belas",
+      "titik",
+      "seratus",
+      "tujuh",
+      "puluh",
+      "lima",
+      "ribu",
+      "titik"
+    ],
+    "referenceCount": 11,
+    "hypothesisCount": 10,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 1
+  }
+}

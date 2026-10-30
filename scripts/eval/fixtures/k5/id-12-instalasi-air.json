@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-12",
+  "transcript": "Instalasi air delapan titik, dua ratus sepuluh ribu tiap titik. Kamar mandi Bu Ningsih di Sleman.",
+  "audioDurationMs": 8200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Instalasi air delapan titik, dua ratus sepuluh ribu tiap titik."
+    },
+    {
+      "startMs": 5600,
+      "endMs": 8200,
+      "transcript": "Kamar mandi Bu Ningsih di Sleman."
+    }
+  ]
+}

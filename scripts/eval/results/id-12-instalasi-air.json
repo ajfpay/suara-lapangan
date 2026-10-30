@@ -1,0 +1,126 @@
+{
+  "id": "id-12-instalasi-air",
+  "locale": "id",
+  "sessionId": "sess-id-12",
+  "turnCount": 2,
+  "reference": "Instalasi air delapan titik, dua ratus sepuluh ribu per titik. Kamar mandi Bu Ningsih, Sleman.",
+  "hypothesis": "Instalasi air delapan titik, dua ratus sepuluh ribu tiap titik. Kamar mandi Bu Ningsih di Sleman.",
+  "overall": {
+    "wer": 0.13333333333333333,
+    "distance": 2,
+    "referenceWords": 15,
+    "hypothesisWords": 16,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "instalasi",
+        "hyp": "instalasi"
+      },
+      {
+        "op": "equal",
+        "ref": "air",
+        "hyp": "air"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "ratus",
+        "hyp": "ratus"
+      },
+      {
+        "op": "equal",
+        "ref": "sepuluh",
+        "hyp": "sepuluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "tiap"
+      },
+      {
+        "op": "equal",
+        "ref": "titik",
+        "hyp": "titik"
+      },
+      {
+        "op": "equal",
+        "ref": "kamar",
+        "hyp": "kamar"
+      },
+      {
+        "op": "equal",
+        "ref": "mandi",
+        "hyp": "mandi"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "ningsih",
+        "hyp": "ningsih"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.125,
+    "distance": 1,
+    "referenceTokens": [
+      "delapan",
+      "titik",
+      "dua",
+      "ratus",
+      "sepuluh",
+      "ribu",
+      "per",
+      "titik"
+    ],
+    "hypothesisTokens": [
+      "delapan",
+      "titik",
+      "dua",
+      "ratus",
+      "sepuluh",
+      "ribu",
+      "titik"
+    ],
+    "referenceCount": 8,
+    "hypothesisCount": 7,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 1
+  }
+}

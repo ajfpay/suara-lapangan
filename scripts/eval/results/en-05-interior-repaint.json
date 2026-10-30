@@ -1,0 +1,130 @@
+{
+  "id": "en-05-interior-repaint",
+  "locale": "en",
+  "sessionId": "sess-en-05",
+  "turnCount": 2,
+  "reference": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+  "hypothesis": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 16,
+    "hypothesisWords": 16,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "interior",
+        "hyp": "interior"
+      },
+      {
+        "op": "equal",
+        "ref": "painting",
+        "hyp": "painting"
+      },
+      {
+        "op": "equal",
+        "ref": "one",
+        "hyp": "one"
+      },
+      {
+        "op": "equal",
+        "ref": "hundred",
+        "hyp": "hundred"
+      },
+      {
+        "op": "equal",
+        "ref": "eighty",
+        "hyp": "eighty"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "meters",
+        "hyp": "meters"
+      },
+      {
+        "op": "equal",
+        "ref": "at",
+        "hyp": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "eight",
+        "hyp": "eight"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "doyle",
+        "hyp": "doyle"
+      },
+      {
+        "op": "equal",
+        "ref": "residence",
+        "hyp": "residence"
+      },
+      {
+        "op": "equal",
+        "ref": "pflugerville",
+        "hyp": "pflugerville"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "one",
+      "hundred",
+      "eighty",
+      "square",
+      "meters",
+      "eight",
+      "dollars",
+      "square",
+      "meter"
+    ],
+    "hypothesisTokens": [
+      "one",
+      "hundred",
+      "eighty",
+      "square",
+      "meters",
+      "eight",
+      "dollars",
+      "square",
+      "meter"
+    ],
+    "referenceCount": 9,
+    "hypothesisCount": 9,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "id": "id-10-bongkar-dinding",
+  "locale": "id",
+  "sessionId": "sess-id-10",
+  "turnCount": 2,
+  "reference": "Bongkar dinding dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari, Ngaglik.",
+  "hypothesis": "Bongkar tembok dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari di Ngaglik.",
+  "overall": {
+    "wer": 0.1111111111111111,
+    "distance": 2,
+    "referenceWords": 18,
+    "hypothesisWords": 19,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "bongkar",
+        "hyp": "bongkar"
+      },
+      {
+        "op": "substitute",
+        "ref": "dinding",
+        "hyp": "tembok"
+      },
+      {
+        "op": "equal",
+        "ref": "dapur",
+        "hyp": "dapur"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "belas",
+        "hyp": "belas"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "dapur",
+        "hyp": "dapur"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "sari",
+        "hyp": "sari"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "ngaglik",
+        "hyp": "ngaglik"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "lima",
+      "belas",
+      "meter",
+      "persegi",
+      "lima",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "lima",
+      "belas",
+      "meter",
+      "persegi",
+      "lima",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 11,
+    "hypothesisCount": 11,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

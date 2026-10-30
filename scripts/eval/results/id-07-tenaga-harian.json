@@ -1,0 +1,137 @@
+{
+  "id": "id-07-tenaga-harian",
+  "locale": "id",
+  "sessionId": "sess-id-07",
+  "turnCount": 2,
+  "reference": "Tenaga harian enam hari, dua ratus lima puluh ribu per hari. Pemasangan rangka rumah Pak Dedi, Sleman.",
+  "hypothesis": "Tenaga harian enam hari, dua ratus lima puluh ribu tiap hari. Pemasangan rangka Pak Dedi di Sleman.",
+  "overall": {
+    "wer": 0.17647058823529413,
+    "distance": 3,
+    "referenceWords": 17,
+    "hypothesisWords": 17,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "tenaga",
+        "hyp": "tenaga"
+      },
+      {
+        "op": "equal",
+        "ref": "harian",
+        "hyp": "harian"
+      },
+      {
+        "op": "equal",
+        "ref": "enam",
+        "hyp": "enam"
+      },
+      {
+        "op": "equal",
+        "ref": "hari",
+        "hyp": "hari"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "ratus",
+        "hyp": "ratus"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "substitute",
+        "ref": "per",
+        "hyp": "tiap"
+      },
+      {
+        "op": "equal",
+        "ref": "hari",
+        "hyp": "hari"
+      },
+      {
+        "op": "equal",
+        "ref": "pemasangan",
+        "hyp": "pemasangan"
+      },
+      {
+        "op": "equal",
+        "ref": "rangka",
+        "hyp": "rangka"
+      },
+      {
+        "op": "delete",
+        "ref": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "dedi",
+        "hyp": "dedi"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.1111111111111111,
+    "distance": 1,
+    "referenceTokens": [
+      "enam",
+      "hari",
+      "dua",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "hari"
+    ],
+    "hypothesisTokens": [
+      "enam",
+      "hari",
+      "dua",
+      "ratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "hari"
+    ],
+    "referenceCount": 9,
+    "hypothesisCount": 8,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 1
+  }
+}

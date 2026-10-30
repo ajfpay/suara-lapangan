@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-15",
+  "transcript": "One hundred forty square feet of sod for the front yard, three dollars per square foot. Nakamura front yard, Liberty Hill, Texas.",
+  "audioDurationMs": 9200,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "One hundred forty square feet of sod for the front yard, three dollars per square foot."
+    },
+    {
+      "startMs": 6600,
+      "endMs": 9200,
+      "transcript": "Nakamura front yard, Liberty Hill, Texas."
+    }
+  ]
+}

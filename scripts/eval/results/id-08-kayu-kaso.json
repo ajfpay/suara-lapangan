@@ -1,0 +1,140 @@
+{
+  "id": "id-08-kayu-kaso",
+  "locale": "id",
+  "sessionId": "sess-id-08",
+  "turnCount": 2,
+  "reference": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu per batang. Rangka atap rumah Bu Wati, Kalasan.",
+  "hypothesis": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu sebatang. Rangka atap rumah Bu Wati, Kalasan.",
+  "overall": {
+    "wer": 0.1111111111111111,
+    "distance": 2,
+    "referenceWords": 18,
+    "hypothesisWords": 17,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "kayu",
+        "hyp": "kayu"
+      },
+      {
+        "op": "equal",
+        "ref": "kaso",
+        "hyp": "kaso"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "batang",
+        "hyp": "batang"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "delete",
+        "ref": "per"
+      },
+      {
+        "op": "substitute",
+        "ref": "batang",
+        "hyp": "sebatang"
+      },
+      {
+        "op": "equal",
+        "ref": "rangka",
+        "hyp": "rangka"
+      },
+      {
+        "op": "equal",
+        "ref": "atap",
+        "hyp": "atap"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "wati",
+        "hyp": "wati"
+      },
+      {
+        "op": "equal",
+        "ref": "kalasan",
+        "hyp": "kalasan"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0.2,
+    "distance": 2,
+    "referenceTokens": [
+      "dua",
+      "puluh",
+      "lima",
+      "batang",
+      "empat",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "hypothesisTokens": [
+      "dua",
+      "puluh",
+      "lima",
+      "batang",
+      "empat",
+      "puluh",
+      "delapan",
+      "ribu",
+      "sebatang"
+    ],
+    "referenceCount": 10,
+    "hypothesisCount": 9,
+    "substitutions": 1,
+    "insertions": 0,
+    "deletions": 1
+  }
+}

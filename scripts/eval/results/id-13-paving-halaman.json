@@ -1,0 +1,152 @@
+{
+  "id": "id-13-paving-halaman",
+  "locale": "id",
+  "sessionId": "sess-id-13",
+  "turnCount": 2,
+  "reference": "Paving halaman enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi, Pakem.",
+  "hypothesis": "Paving halaman depan enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi di Pakem.",
+  "overall": {
+    "wer": 0.1111111111111111,
+    "distance": 2,
+    "referenceWords": 18,
+    "hypothesisWords": 20,
+    "substitutions": 0,
+    "insertions": 2,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "paving",
+        "hyp": "paving"
+      },
+      {
+        "op": "equal",
+        "ref": "halaman",
+        "hyp": "halaman"
+      },
+      {
+        "op": "insert",
+        "hyp": "depan"
+      },
+      {
+        "op": "equal",
+        "ref": "enam",
+        "hyp": "enam"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "sembilan",
+        "hyp": "sembilan"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "halaman",
+        "hyp": "halaman"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "gunadi",
+        "hyp": "gunadi"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "pakem",
+        "hyp": "pakem"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "enam",
+      "puluh",
+      "meter",
+      "persegi",
+      "sembilan",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "enam",
+      "puluh",
+      "meter",
+      "persegi",
+      "sembilan",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 11,
+    "hypothesisCount": 11,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "sessionId": "sess-en-12",
+  "transcript": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot. And four bags of joint compound, thirty dollars a bag. This is for Ms. Lindqvist, office partition in Austin.",
+  "audioDurationMs": 12000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6400,
+      "transcript": "Twenty square feet of drywall for the office partition at twenty-five dollars a square foot."
+    },
+    {
+      "startMs": 6600,
+      "endMs": 9200,
+      "transcript": "And four bags of joint compound, thirty dollars a bag."
+    },
+    {
+      "startMs": 9400,
+      "endMs": 12000,
+      "transcript": "This is for Ms. Lindqvist, office partition in Austin."
+    }
+  ]
+}

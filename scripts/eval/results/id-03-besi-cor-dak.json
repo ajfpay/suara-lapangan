@@ -1,0 +1,153 @@
+{
+  "id": "id-03-besi-cor-dak",
+  "locale": "id",
+  "sessionId": "sess-id-03",
+  "turnCount": 2,
+  "reference": "Besi sepuluh milimeter, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo, Klaten.",
+  "hypothesis": "Besi sepuluh mili, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo di Klaten.",
+  "overall": {
+    "wer": 0.10526315789473684,
+    "distance": 2,
+    "referenceWords": 19,
+    "hypothesisWords": 20,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "besi",
+        "hyp": "besi"
+      },
+      {
+        "op": "equal",
+        "ref": "sepuluh",
+        "hyp": "sepuluh"
+      },
+      {
+        "op": "substitute",
+        "ref": "milimeter",
+        "hyp": "mili"
+      },
+      {
+        "op": "equal",
+        "ref": "tiga",
+        "hyp": "tiga"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "batang",
+        "hyp": "batang"
+      },
+      {
+        "op": "equal",
+        "ref": "tujuh",
+        "hyp": "tujuh"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "batang",
+        "hyp": "batang"
+      },
+      {
+        "op": "equal",
+        "ref": "cor",
+        "hyp": "cor"
+      },
+      {
+        "op": "equal",
+        "ref": "dak",
+        "hyp": "dak"
+      },
+      {
+        "op": "equal",
+        "ref": "teras",
+        "hyp": "teras"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "waluyo",
+        "hyp": "waluyo"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "klaten",
+        "hyp": "klaten"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "sepuluh",
+      "tiga",
+      "puluh",
+      "lima",
+      "batang",
+      "tujuh",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "hypothesisTokens": [
+      "sepuluh",
+      "tiga",
+      "puluh",
+      "lima",
+      "batang",
+      "tujuh",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "batang"
+    ],
+    "referenceCount": 11,
+    "hypothesisCount": 11,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

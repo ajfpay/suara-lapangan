@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-01",
+  "transcript": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi. Ini rumah Pak Suryo Sleman, Yogyakarta.",
+  "audioDurationMs": 10000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 7200,
+      "transcript": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi."
+    },
+    {
+      "startMs": 7400,
+      "endMs": 10000,
+      "transcript": "Ini rumah Pak Suryo Sleman, Yogyakarta."
+    }
+  ]
+}

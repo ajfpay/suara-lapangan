@@ -1,0 +1,145 @@
+{
+  "id": "id-06-galian-pondasi",
+  "locale": "id",
+  "sessionId": "sess-id-06",
+  "turnCount": 2,
+  "reference": "Galian tanah pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno, Godean.",
+  "hypothesis": "Galian pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno di Godean.",
+  "overall": {
+    "wer": 0.1111111111111111,
+    "distance": 2,
+    "referenceWords": 18,
+    "hypothesisWords": 18,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "galian",
+        "hyp": "galian"
+      },
+      {
+        "op": "delete",
+        "ref": "tanah"
+      },
+      {
+        "op": "equal",
+        "ref": "pondasi",
+        "hyp": "pondasi"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "belas",
+        "hyp": "belas"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "kubik",
+        "hyp": "kubik"
+      },
+      {
+        "op": "equal",
+        "ref": "sembilan",
+        "hyp": "sembilan"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "kubik",
+        "hyp": "kubik"
+      },
+      {
+        "op": "equal",
+        "ref": "pondasi",
+        "hyp": "pondasi"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "sutrisno",
+        "hyp": "sutrisno"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "godean",
+        "hyp": "godean"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "delapan",
+      "belas",
+      "meter",
+      "kubik",
+      "sembilan",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "kubik"
+    ],
+    "hypothesisTokens": [
+      "delapan",
+      "belas",
+      "meter",
+      "kubik",
+      "sembilan",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "kubik"
+    ],
+    "referenceCount": 10,
+    "hypothesisCount": 10,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "id": "id-01-pasang-keramik",
+  "locale": "id",
+  "sessionId": "sess-id-01",
+  "turnCount": 2,
+  "reference": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi. Ini rumah Pak Suryo di Sleman, Yogyakarta.",
+  "hypothesis": "Pasang keramik ruang tamu, dua puluh empat meter persegi, seratus lima puluh ribu per meter persegi. Ini rumah Pak Suryo Sleman, Yogyakarta.",
+  "overall": {
+    "wer": 0.043478260869565216,
+    "distance": 1,
+    "referenceWords": 23,
+    "hypothesisWords": 22,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 1,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "pasang",
+        "hyp": "pasang"
+      },
+      {
+        "op": "equal",
+        "ref": "keramik",
+        "hyp": "keramik"
+      },
+      {
+        "op": "equal",
+        "ref": "ruang",
+        "hyp": "ruang"
+      },
+      {
+        "op": "equal",
+        "ref": "tamu",
+        "hyp": "tamu"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "seratus",
+        "hyp": "seratus"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "ini",
+        "hyp": "ini"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "suryo",
+        "hyp": "suryo"
+      },
+      {
+        "op": "delete",
+        "ref": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      },
+      {
+        "op": "equal",
+        "ref": "yogyakarta",
+        "hyp": "yogyakarta"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "dua",
+      "puluh",
+      "empat",
+      "meter",
+      "persegi",
+      "seratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "dua",
+      "puluh",
+      "empat",
+      "meter",
+      "persegi",
+      "seratus",
+      "lima",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 12,
+    "hypothesisCount": 12,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

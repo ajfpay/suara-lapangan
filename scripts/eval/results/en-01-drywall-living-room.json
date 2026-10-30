@@ -1,0 +1,175 @@
+{
+  "id": "en-01-drywall-living-room",
+  "locale": "en",
+  "sessionId": "sess-en-01",
+  "turnCount": 2,
+  "reference": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+  "hypothesis": "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot. This is for Mr. Carter's place in Austin, Texas.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 25,
+    "hypothesisWords": 25,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "drywall",
+        "hyp": "drywall"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "living",
+        "hyp": "living"
+      },
+      {
+        "op": "equal",
+        "ref": "room",
+        "hyp": "room"
+      },
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "four",
+        "hyp": "four"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "feet",
+        "hyp": "feet"
+      },
+      {
+        "op": "equal",
+        "ref": "at",
+        "hyp": "at"
+      },
+      {
+        "op": "equal",
+        "ref": "twenty",
+        "hyp": "twenty"
+      },
+      {
+        "op": "equal",
+        "ref": "five",
+        "hyp": "five"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "square",
+        "hyp": "square"
+      },
+      {
+        "op": "equal",
+        "ref": "foot",
+        "hyp": "foot"
+      },
+      {
+        "op": "equal",
+        "ref": "this",
+        "hyp": "this"
+      },
+      {
+        "op": "equal",
+        "ref": "is",
+        "hyp": "is"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "mr",
+        "hyp": "mr"
+      },
+      {
+        "op": "equal",
+        "ref": "carters",
+        "hyp": "carters"
+      },
+      {
+        "op": "equal",
+        "ref": "place",
+        "hyp": "place"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "austin",
+        "hyp": "austin"
+      },
+      {
+        "op": "equal",
+        "ref": "texas",
+        "hyp": "texas"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "twenty",
+      "four",
+      "square",
+      "feet",
+      "twenty",
+      "five",
+      "dollars",
+      "square",
+      "foot"
+    ],
+    "hypothesisTokens": [
+      "twenty",
+      "four",
+      "square",
+      "feet",
+      "twenty",
+      "five",
+      "dollars",
+      "square",
+      "foot"
+    ],
+    "referenceCount": 9,
+    "hypothesisCount": 9,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

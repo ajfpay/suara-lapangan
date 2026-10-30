@@ -1,0 +1,161 @@
+{
+  "id": "id-09-pengecatan",
+  "locale": "id",
+  "sessionId": "sess-id-09",
+  "turnCount": 2,
+  "reference": "Pengecatan tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi, Sleman.",
+  "hypothesis": "Pengecatan untuk tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi di Sleman.",
+  "overall": {
+    "wer": 0.10526315789473684,
+    "distance": 2,
+    "referenceWords": 19,
+    "hypothesisWords": 21,
+    "substitutions": 0,
+    "insertions": 2,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "pengecatan",
+        "hyp": "pengecatan"
+      },
+      {
+        "op": "insert",
+        "hyp": "untuk"
+      },
+      {
+        "op": "equal",
+        "ref": "tiga",
+        "hyp": "tiga"
+      },
+      {
+        "op": "equal",
+        "ref": "kamar",
+        "hyp": "kamar"
+      },
+      {
+        "op": "equal",
+        "ref": "seratus",
+        "hyp": "seratus"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "tiga",
+        "hyp": "tiga"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "andi",
+        "hyp": "andi"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "sleman",
+        "hyp": "sleman"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "tiga",
+      "seratus",
+      "dua",
+      "puluh",
+      "meter",
+      "persegi",
+      "tiga",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "tiga",
+      "seratus",
+      "dua",
+      "puluh",
+      "meter",
+      "persegi",
+      "tiga",
+      "puluh",
+      "delapan",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 13,
+    "hypothesisCount": 13,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

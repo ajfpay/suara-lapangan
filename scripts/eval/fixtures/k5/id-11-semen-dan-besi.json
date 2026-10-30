@@ -1,0 +1,22 @@
+{
+  "sessionId": "sess-id-11",
+  "transcript": "Semen dua puluh sak, enam puluh dua ribu per sak. Besi delapan mili sepuluh batang, tujuh puluh delapan ribu per batang. Struktur tambahan Pak Yusuf di Sleman.",
+  "audioDurationMs": 10800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5000,
+      "transcript": "Semen dua puluh sak, enam puluh dua ribu per sak."
+    },
+    {
+      "startMs": 5200,
+      "endMs": 8200,
+      "transcript": "Besi delapan mili sepuluh batang, tujuh puluh delapan ribu per batang."
+    },
+    {
+      "startMs": 8400,
+      "endMs": 10800,
+      "transcript": "Struktur tambahan Pak Yusuf di Sleman."
+    }
+  ]
+}

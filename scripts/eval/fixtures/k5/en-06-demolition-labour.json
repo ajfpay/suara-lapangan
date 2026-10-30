@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-06",
+  "transcript": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen in Georgetown, Texas.",
+  "audioDurationMs": 8000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5400,
+      "transcript": "Demolition labour, sixteen hours at forty-five dollars an hour."
+    },
+    {
+      "startMs": 5600,
+      "endMs": 8000,
+      "transcript": "Silva kitchen in Georgetown, Texas."
+    }
+  ]
+}

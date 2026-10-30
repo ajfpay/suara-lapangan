@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-04",
+  "transcript": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu tiap titik. Rumah Bu Kartika Depok, Sleman.",
+  "audioDurationMs": 8600,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 5800,
+      "transcript": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu tiap titik."
+    },
+    {
+      "startMs": 6000,
+      "endMs": 8600,
+      "transcript": "Rumah Bu Kartika Depok, Sleman."
+    }
+  ]
+}

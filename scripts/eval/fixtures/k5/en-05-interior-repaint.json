@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-05",
+  "transcript": "Interior painting, one hundred eighty square meters at eight dollars a square meter. Doyle residence, Pflugerville.",
+  "audioDurationMs": 9000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6600,
+      "transcript": "Interior painting, one hundred eighty square meters at eight dollars a square meter."
+    },
+    {
+      "startMs": 6800,
+      "endMs": 9000,
+      "transcript": "Doyle residence, Pflugerville."
+    }
+  ]
+}

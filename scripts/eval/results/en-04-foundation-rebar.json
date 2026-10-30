@@ -1,0 +1,156 @@
+{
+  "id": "en-04-foundation-rebar",
+  "locale": "en",
+  "sessionId": "sess-en-04",
+  "turnCount": 2,
+  "reference": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+  "hypothesis": "Forty bars of rebar for the foundation, twelve dollars and fifty cents a bar. That is Bell's foundation job in San Marcos.",
+  "overall": {
+    "wer": 0,
+    "distance": 0,
+    "referenceWords": 22,
+    "hypothesisWords": 22,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "forty",
+        "hyp": "forty"
+      },
+      {
+        "op": "equal",
+        "ref": "bars",
+        "hyp": "bars"
+      },
+      {
+        "op": "equal",
+        "ref": "of",
+        "hyp": "of"
+      },
+      {
+        "op": "equal",
+        "ref": "rebar",
+        "hyp": "rebar"
+      },
+      {
+        "op": "equal",
+        "ref": "for",
+        "hyp": "for"
+      },
+      {
+        "op": "equal",
+        "ref": "the",
+        "hyp": "the"
+      },
+      {
+        "op": "equal",
+        "ref": "foundation",
+        "hyp": "foundation"
+      },
+      {
+        "op": "equal",
+        "ref": "twelve",
+        "hyp": "twelve"
+      },
+      {
+        "op": "equal",
+        "ref": "dollars",
+        "hyp": "dollars"
+      },
+      {
+        "op": "equal",
+        "ref": "and",
+        "hyp": "and"
+      },
+      {
+        "op": "equal",
+        "ref": "fifty",
+        "hyp": "fifty"
+      },
+      {
+        "op": "equal",
+        "ref": "cents",
+        "hyp": "cents"
+      },
+      {
+        "op": "equal",
+        "ref": "a",
+        "hyp": "a"
+      },
+      {
+        "op": "equal",
+        "ref": "bar",
+        "hyp": "bar"
+      },
+      {
+        "op": "equal",
+        "ref": "that",
+        "hyp": "that"
+      },
+      {
+        "op": "equal",
+        "ref": "is",
+        "hyp": "is"
+      },
+      {
+        "op": "equal",
+        "ref": "bells",
+        "hyp": "bells"
+      },
+      {
+        "op": "equal",
+        "ref": "foundation",
+        "hyp": "foundation"
+      },
+      {
+        "op": "equal",
+        "ref": "job",
+        "hyp": "job"
+      },
+      {
+        "op": "equal",
+        "ref": "in",
+        "hyp": "in"
+      },
+      {
+        "op": "equal",
+        "ref": "san",
+        "hyp": "san"
+      },
+      {
+        "op": "equal",
+        "ref": "marcos",
+        "hyp": "marcos"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "forty",
+      "bars",
+      "twelve",
+      "dollars",
+      "fifty",
+      "cents",
+      "bar"
+    ],
+    "hypothesisTokens": [
+      "forty",
+      "bars",
+      "twelve",
+      "dollars",
+      "fifty",
+      "cents",
+      "bar"
+    ],
+    "referenceCount": 7,
+    "hypothesisCount": 7,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

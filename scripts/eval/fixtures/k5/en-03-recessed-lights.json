@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-en-03",
+  "transcript": "Five recessed light points in the kitchen, eighty dollars per point. Mr. Nguyen's kitchen, Dallas, Texas.",
+  "audioDurationMs": 7000,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 4600,
+      "transcript": "Five recessed light points in the kitchen, eighty dollars per point."
+    },
+    {
+      "startMs": 4800,
+      "endMs": 7000,
+      "transcript": "Mr. Nguyen's kitchen, Dallas, Texas."
+    }
+  ]
+}

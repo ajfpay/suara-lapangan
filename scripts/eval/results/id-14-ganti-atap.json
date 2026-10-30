@@ -1,0 +1,159 @@
+{
+  "id": "id-14-ganti-atap",
+  "locale": "id",
+  "sessionId": "sess-id-14",
+  "turnCount": 2,
+  "reference": "Ganti atap gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra, Berbah.",
+  "hypothesis": "Ganti atap untuk gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra di Berbah.",
+  "overall": {
+    "wer": 0.10526315789473684,
+    "distance": 2,
+    "referenceWords": 19,
+    "hypothesisWords": 21,
+    "substitutions": 0,
+    "insertions": 2,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "ganti",
+        "hyp": "ganti"
+      },
+      {
+        "op": "equal",
+        "ref": "atap",
+        "hyp": "atap"
+      },
+      {
+        "op": "insert",
+        "hyp": "untuk"
+      },
+      {
+        "op": "equal",
+        "ref": "gudang",
+        "hyp": "gudang"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "seratus",
+        "hyp": "seratus"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "gudang",
+        "hyp": "gudang"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "hendra",
+        "hyp": "hendra"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "berbah",
+        "hyp": "berbah"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "empat",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "seratus",
+      "dua",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "empat",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "seratus",
+      "dua",
+      "puluh",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 12,
+    "hypothesisCount": 12,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

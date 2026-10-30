@@ -1,0 +1,141 @@
+{
+  "id": "id-02-semen-plester",
+  "locale": "id",
+  "sessionId": "sess-id-02",
+  "turnCount": 2,
+  "reference": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna, Bantul.",
+  "hypothesis": "Semen empat puluh sak, enam puluh dua ribu per sak. Plester lantai dua, rumah Bu Ratna di Bantul.",
+  "overall": {
+    "wer": 0.058823529411764705,
+    "distance": 1,
+    "referenceWords": 17,
+    "hypothesisWords": 18,
+    "substitutions": 0,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "semen",
+        "hyp": "semen"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "sak",
+        "hyp": "sak"
+      },
+      {
+        "op": "equal",
+        "ref": "enam",
+        "hyp": "enam"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "sak",
+        "hyp": "sak"
+      },
+      {
+        "op": "equal",
+        "ref": "plester",
+        "hyp": "plester"
+      },
+      {
+        "op": "equal",
+        "ref": "lantai",
+        "hyp": "lantai"
+      },
+      {
+        "op": "equal",
+        "ref": "dua",
+        "hyp": "dua"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "bu",
+        "hyp": "bu"
+      },
+      {
+        "op": "equal",
+        "ref": "ratna",
+        "hyp": "ratna"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "bantul",
+        "hyp": "bantul"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "empat",
+      "puluh",
+      "sak",
+      "enam",
+      "puluh",
+      "dua",
+      "ribu",
+      "per",
+      "sak",
+      "dua"
+    ],
+    "hypothesisTokens": [
+      "empat",
+      "puluh",
+      "sak",
+      "enam",
+      "puluh",
+      "dua",
+      "ribu",
+      "per",
+      "sak",
+      "dua"
+    ],
+    "referenceCount": 10,
+    "hypothesisCount": 10,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}

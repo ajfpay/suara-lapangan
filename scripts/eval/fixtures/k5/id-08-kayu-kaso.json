@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-08",
+  "transcript": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu sebatang. Rangka atap rumah Bu Wati, Kalasan.",
+  "audioDurationMs": 8800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 6000,
+      "transcript": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu sebatang."
+    },
+    {
+      "startMs": 6200,
+      "endMs": 8800,
+      "transcript": "Rangka atap rumah Bu Wati, Kalasan."
+    }
+  ]
+}

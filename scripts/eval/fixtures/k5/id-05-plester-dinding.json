@@ -1,0 +1,17 @@
+{
+  "sessionId": "sess-id-05",
+  "transcript": "Plester tembok belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono di Mlati.",
+  "audioDurationMs": 9800,
+  "turns": [
+    {
+      "startMs": 0,
+      "endMs": 7400,
+      "transcript": "Plester tembok belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi."
+    },
+    {
+      "startMs": 7600,
+      "endMs": 9800,
+      "transcript": "Rumah Pak Hartono di Mlati."
+    }
+  ]
+}

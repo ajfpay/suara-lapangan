@@ -1,0 +1,155 @@
+{
+  "id": "id-05-plester-dinding",
+  "locale": "id",
+  "sessionId": "sess-id-05",
+  "turnCount": 2,
+  "reference": "Plester dinding belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono, Mlati.",
+  "hypothesis": "Plester tembok belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono di Mlati.",
+  "overall": {
+    "wer": 0.10526315789473684,
+    "distance": 2,
+    "referenceWords": 19,
+    "hypothesisWords": 20,
+    "substitutions": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "alignment": [
+      {
+        "op": "equal",
+        "ref": "plester",
+        "hyp": "plester"
+      },
+      {
+        "op": "substitute",
+        "ref": "dinding",
+        "hyp": "tembok"
+      },
+      {
+        "op": "equal",
+        "ref": "belakang",
+        "hyp": "belakang"
+      },
+      {
+        "op": "equal",
+        "ref": "delapan",
+        "hyp": "delapan"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "empat",
+        "hyp": "empat"
+      },
+      {
+        "op": "equal",
+        "ref": "puluh",
+        "hyp": "puluh"
+      },
+      {
+        "op": "equal",
+        "ref": "lima",
+        "hyp": "lima"
+      },
+      {
+        "op": "equal",
+        "ref": "ribu",
+        "hyp": "ribu"
+      },
+      {
+        "op": "equal",
+        "ref": "per",
+        "hyp": "per"
+      },
+      {
+        "op": "equal",
+        "ref": "meter",
+        "hyp": "meter"
+      },
+      {
+        "op": "equal",
+        "ref": "persegi",
+        "hyp": "persegi"
+      },
+      {
+        "op": "equal",
+        "ref": "rumah",
+        "hyp": "rumah"
+      },
+      {
+        "op": "equal",
+        "ref": "pak",
+        "hyp": "pak"
+      },
+      {
+        "op": "equal",
+        "ref": "hartono",
+        "hyp": "hartono"
+      },
+      {
+        "op": "insert",
+        "hyp": "di"
+      },
+      {
+        "op": "equal",
+        "ref": "mlati",
+        "hyp": "mlati"
+      }
+    ]
+  },
+  "moneyVolume": {
+    "wer": 0,
+    "distance": 0,
+    "referenceTokens": [
+      "delapan",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "empat",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "hypothesisTokens": [
+      "delapan",
+      "puluh",
+      "lima",
+      "meter",
+      "persegi",
+      "empat",
+      "puluh",
+      "lima",
+      "ribu",
+      "per",
+      "meter",
+      "persegi"
+    ],
+    "referenceCount": 12,
+    "hypothesisCount": 12,
+    "substitutions": 0,
+    "insertions": 0,
+    "deletions": 0
+  }
+}
