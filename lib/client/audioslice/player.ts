@@ -148,7 +148,10 @@ export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id
                         ...prev,
                         isPlaying: false,
                         activeTurnId: null,
-                        error: "Gagal memutar audio slice",
+                        error:
+                            locale === "en"
+                                ? "Failed to play the audio slice"
+                                : "Gagal memutar audio slice",
                     }));
                 };
 
@@ -160,13 +163,6 @@ export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id
                 try {
                     await audio.play();
                 } catch (playErr: unknown) {
-                    if (generation !== generationRef.current) {
-                        return;
-                    }
-                    if (pendingTurnIdRef.current === turnId) {
-                        pendingTurnIdRef.current = null;
-                    }
-                    cleanupAudio();
                     const isNotAllowed =
                         (playErr instanceof DOMException &&
                             playErr.name === "NotAllowedError") ||
@@ -175,29 +171,30 @@ export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id
                                 playErr.message?.includes("NotAllowedError") ||
                                 playErr.message?.includes("user")));
 
-                    if (isNotAllowed) {
-                        const autoplayMsg =
-                            locale === "en"
-                                ? "Autoplay blocked: user interaction required"
-                                : "Autoplay diblokir: interaksi pengguna diperlukan";
-                        setState((prev) => ({
-                            ...prev,
-                            isPlaying: false,
-                            activeTurnId: null,
-                            audioUnavailableTurnId: null,
-                            autoplayBlockedTurnId: turnId,
-                            error: autoplayMsg,
-                        }));
-                    } else {
-                        setState((prev) => ({
-                            ...prev,
-                            isPlaying: false,
-                            activeTurnId: null,
-                            audioUnavailableTurnId: turnId,
-                            autoplayBlockedTurnId: null,
-                            error: null,
-                        }));
+                    // Only an autoplay block reads as a policy message; every
+                    // other rejection is a real failure the outer catch reports.
+                    if (!isNotAllowed) {
+                        throw playErr;
                     }
+                    if (generation !== generationRef.current) {
+                        return;
+                    }
+                    if (pendingTurnIdRef.current === turnId) {
+                        pendingTurnIdRef.current = null;
+                    }
+                    cleanupAudio();
+                    const autoplayMsg =
+                        locale === "en"
+                            ? "Autoplay blocked: user interaction required"
+                            : "Autoplay diblokir: interaksi pengguna diperlukan";
+                    setState((prev) => ({
+                        ...prev,
+                        isPlaying: false,
+                        activeTurnId: null,
+                        audioUnavailableTurnId: null,
+                        autoplayBlockedTurnId: turnId,
+                        error: autoplayMsg,
+                    }));
                     return;
                 }
                 if (generation !== generationRef.current) {

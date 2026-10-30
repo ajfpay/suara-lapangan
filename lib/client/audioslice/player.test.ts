@@ -181,4 +181,41 @@ describe("lib/client/audioslice/player", () => {
         expect(result.current.isPlaying).toBe(false);
         expect(result.current.activeTurnId).toBeNull();
     });
+
+    it("audio onerror reports the failure in the active locale", async () => {
+        const { result } = renderHook(() =>
+            useAudioSlicePlayer("session-error-en", "en")
+        );
+
+        await act(async () => {
+            await result.current.playTurnSlice("turn_1", 0, 1000);
+        });
+        expect(result.current.isPlaying).toBe(true);
+
+        act(() => {
+            currentAudioEl?.onerror?.();
+        });
+
+        expect(result.current.isPlaying).toBe(false);
+        expect(result.current.activeTurnId).toBeNull();
+        expect(result.current.error).toBe("Failed to play the audio slice");
+    });
+
+    it("a non-autoplay play() rejection surfaces the error, not the device notice", async () => {
+        playMock.mockRejectedValue(new Error("decode failed"));
+
+        const { result } = renderHook(() =>
+            useAudioSlicePlayer("session-play-5", "en")
+        );
+
+        await act(async () => {
+            await result.current.playTurnSlice("turn_3", 0, 1000);
+        });
+
+        expect(result.current.isPlaying).toBe(false);
+        expect(result.current.activeTurnId).toBeNull();
+        expect(result.current.audioUnavailableTurnId).toBeNull();
+        expect(result.current.autoplayBlockedTurnId ?? null).toBeNull();
+        expect(result.current.error).toBe("decode failed");
+    });
 });
