@@ -22,8 +22,8 @@ yarn-error.log*
 *.tsbuildinfo
 
 # local env files
-.env
-.env*.local
+.env*
+!.env.example
 .vercel
 
 # Puppeteer downloads its Chromium into the project unless told otherwise.
