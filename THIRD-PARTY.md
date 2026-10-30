@@ -24,12 +24,13 @@ here, or listed but no longer installed. Regenerate the table with
 | `clsx@2.1.1` | MIT |
 | `lucide-react@0.279.0` | ISC |
 | `next@15.3.8` | MIT |
-| `next-intl@4.3.9` | MIT |
+| `next-intl@4.14.9` | MIT |
 | `pg@8.23.1` | MIT |
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
 | `tailwind-merge@1.14.0` | MIT |
-| `@playwright/test@1.62.1` | Apache-2.0 |
+| `@playwright/test@1.64.1` | Apache-2.0 |
+| `@testing-library/react@16.3.3` | MIT |
 | `@types/node@20.19.43` | MIT |
 | `@types/pg@8.23.1` | MIT |
 | `@types/react@18.3.31` | MIT |
@@ -37,9 +38,10 @@ here, or listed but no longer installed. Regenerate the table with
 | `autoprefixer@10.4.15` | MIT |
 | `eslint@9.18.0` | MIT |
 | `eslint-config-next@15.3.8` | MIT |
+| `jsdom@30.1.3` | MIT |
 | `postcss@8.4.31` | MIT |
 | `prettier@3.4.2` | MIT |
-| `puppeteer-core@24.19.0` | Apache-2.0 |
+| `puppeteer-core@24.43.1` | Apache-2.0 |
 | `tailwindcss@3.3.5` | MIT |
 | `tailwindcss-animate@1.0.7` | MIT |
 | `typescript@5.2.2` | Apache-2.0 |
