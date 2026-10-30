@@ -250,4 +250,132 @@ describe("POST /api/documents route handler", () => {
         expect(data.document.total_nominal).toBe(600);
         expect(data.document.terbilang).toBe("Six hundred US dollars");
     });
+
+    it("carries _spark_path on the model path outside production", async () => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+        process.env.MODEL_API_KEY = "test-key";
+        const mockSession: StoredSession = {
+            sessionId: "sess-spark-dev",
+            locale: "en",
+            audioSha256: "sha-dev",
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 5000,
+                    transcript: "Twenty-four square feet of drywall at twenty-five dollars a square foot.",
+                    final: true,
+                },
+            ],
+        };
+        const mockStore: TurnsStore = {
+            findSession: vi.fn().mockResolvedValue(mockSession),
+            saveTranscription: vi.fn(),
+        };
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+
+        const mockCandidate: CandidateDocument = {
+            jenis: "surat_penawaran",
+            locale: "en",
+            mata_uang: "USD",
+            nomor: "SL/QTN/2026-10-29/001",
+            tanggal: "2026-10-29",
+            proyek: { nama: "Living Room Remodel", lokasi: "Austin, TX", klien: "Mr. Carter" },
+            pekerjaan: [
+                {
+                    uraian: "Drywall installation",
+                    volume: 24,
+                    satuan: "sq_ft",
+                    harga_satuan: 25,
+                    jumlah: 600,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 600,
+            terbilang: "Six hundred US dollars",
+            butuh_konfirmasi: [],
+            _spark_path: true,
+        };
+        vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(mockCandidate);
+
+        try {
+            const req = new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId: "sess-spark-dev", locale: "en" }),
+            });
+            const res = await POST(req);
+            expect(res.status).toBe(200);
+            const data = await res.json();
+            expect(data._spark_path).toBe(true);
+            expect(data.document._spark_path).toBe(true);
+        } finally {
+            if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
+        }
+    });
+
+    it("omits _spark_path entirely in production", async () => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+        process.env.MODEL_API_KEY = "test-key";
+        const mockSession: StoredSession = {
+            sessionId: "sess-spark-prod",
+            locale: "en",
+            audioSha256: "sha-prod",
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 5000,
+                    transcript: "Twenty-four square feet of drywall at twenty-five dollars a square foot.",
+                    final: true,
+                },
+            ],
+        };
+        const mockStore: TurnsStore = {
+            findSession: vi.fn().mockResolvedValue(mockSession),
+            saveTranscription: vi.fn(),
+        };
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+
+        const mockCandidate: CandidateDocument = {
+            jenis: "surat_penawaran",
+            locale: "en",
+            mata_uang: "USD",
+            nomor: "SL/QTN/2026-10-29/001",
+            tanggal: "2026-10-29",
+            proyek: { nama: "Living Room Remodel", lokasi: "Austin, TX", klien: "Mr. Carter" },
+            pekerjaan: [
+                {
+                    uraian: "Drywall installation",
+                    volume: 24,
+                    satuan: "sq_ft",
+                    harga_satuan: 25,
+                    jumlah: 600,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 600,
+            terbilang: "Six hundred US dollars",
+            butuh_konfirmasi: [],
+            _spark_path: true,
+        };
+        vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(mockCandidate);
+
+        try {
+            const req = new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId: "sess-spark-prod", locale: "en" }),
+            });
+            const res = await POST(req);
+            expect(res.status).toBe(200);
+            const data = await res.json();
+            expect("_spark_path" in data).toBe(false);
+            expect("_spark_path" in data.document).toBe(false);
+        } finally {
+            if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
+        }
+    });
 });

@@ -15,6 +15,28 @@ type PostDocumentBody = {
     turns?: unknown;
 };
 
+/**
+ * Debug marker distinguishing the live Spark model path from the rule
+ * fallback. Non-production only: the response must not carry the field at
+ * all (not `false`, not `undefined` as an own key) when running in
+ * production. Kept for dev/test so e2e can prove the real Spark path.
+ */
+function sparkPathMarker(fromModel: boolean): { _spark_path?: true } {
+    if (fromModel && process.env.NODE_ENV !== "production") {
+        return { _spark_path: true };
+    }
+    return {};
+}
+
+function toResponseDocument<T extends { _spark_path?: boolean }>(doc: T): T {
+    if (process.env.NODE_ENV === "production" && "_spark_path" in doc) {
+        const { ...rest } = doc;
+        delete (rest as { _spark_path?: boolean })._spark_path;
+        return rest as T;
+    }
+    return doc;
+}
+
 export async function POST(request: Request): Promise<Response> {
     let body: PostDocumentBody;
     try {
@@ -130,13 +152,13 @@ export async function POST(request: Request): Promise<Response> {
         if (matchesLocale && matchesProject) {
             return NextResponse.json(
                 {
-                    document: existingDoc,
+                    document: toResponseDocument(existingDoc),
                     butuh_konfirmasi: existingDoc.butuh_konfirmasi ?? [],
                     status:
                         (existingDoc.butuh_konfirmasi?.length ?? 0) > 0
                             ? "perlu_konfirmasi"
                             : "siap",
-                    ...(existingDoc._spark_path ? { _spark_path: true } : {}),
+                    ...sparkPathMarker(existingDoc._spark_path === true),
                 },
                 { status: 200 }
             );
@@ -213,10 +235,10 @@ export async function POST(request: Request): Promise<Response> {
     docStore.set(sessionId, result.document);
     return NextResponse.json(
         {
-            document: result.document,
+            document: toResponseDocument(result.document),
             butuh_konfirmasi: result.butuh_konfirmasi,
             status: result.status,
-            ...(candidate._spark_path ? { _spark_path: true } : {}),
+            ...sparkPathMarker(candidate._spark_path === true),
         },
         { status: 200 }
     );
