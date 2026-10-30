@@ -7,6 +7,8 @@ import {
 import { logAsrFailure } from "@/lib/server/asr/log";
 import { MAX_AUDIO_BYTES } from "@/lib/server/asr/meta";
 import { transcribeSession } from "@/lib/server/asr/transcribe";
+import { withRateLimit } from "@/lib/server/quota/rate-limit";
+import { QuotaExceededError } from "@/lib/server/quota/usage-meter";
 
 /**
  * Client-generated, so it must not be able to escape a query parameter or a log
@@ -71,7 +73,7 @@ async function parseUpload(request: Request): Promise<Upload> {
  * the code and sentence come from one table, the upstream's own words stay in
  * the log.
  */
-export async function POST(request: Request): Promise<Response> {
+async function handlePost(request: Request): Promise<Response> {
     let sessionId = "";
     let locale: Locale = DEFAULT_ASR_LOCALE;
 
@@ -84,6 +86,28 @@ export async function POST(request: Request): Promise<Response> {
 
         return Response.json({ sessionId, turns }, { status: 200 });
     } catch (error) {
+        if (error instanceof QuotaExceededError) {
+            logAsrFailure(
+                new AsrError("rate_limited", { detail: error.message }),
+                { sessionId }
+            );
+
+            return Response.json(
+                {
+                    error: {
+                        code: "quota_exceeded",
+                        message: error.message,
+                    },
+                },
+                {
+                    status: 429,
+                    headers: {
+                        "X-Quota-Hard-Stop": "true",
+                    },
+                }
+            );
+        }
+
         const failure =
             error instanceof AsrError
                 ? error
@@ -102,3 +126,7 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 }
+
+export const POST = withRateLimit(handlePost, {
+    route: "/api/asr/transcribe",
+});
