@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/app/components/templates/quotation-pdf/render";
 import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import { createHash } from "node:crypto";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -10,7 +11,7 @@ type RouteContext = {
 const pdfCache = new Map<string, { hash: string; pdf: Buffer }>();
 
 function hashDoc(doc: unknown): string {
-    return JSON.stringify(doc);
+    return createHash("sha256").update(JSON.stringify(doc)).digest("hex");
 }
 
 function shell(html: string): string {
