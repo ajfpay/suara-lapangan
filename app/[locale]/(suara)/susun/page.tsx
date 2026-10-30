@@ -1,10 +1,11 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { StepScreen } from "@/app/components";
-
 import { STEPS } from "@/lib/seo";
 
-import { stepPage, type LocaleParams } from "../step-page";
+import { stepPage, type LocaleParams } from "../../step-page";
+import { TurnReview } from "./TurnReview";
 
 export const dynamicParams = false;
 
@@ -18,7 +19,7 @@ export async function generateMetadata({
     return stepPage.metadata(params, 1);
 }
 
-export default async function SusunPage({ params }: LocaleParams) {
+export default async function SusunStepPage({ params }: LocaleParams) {
     const { locale } = await params;
     const { app, nav, steps, messages } = await stepPage.copy(locale);
     const key = "susun";
@@ -39,7 +40,26 @@ export default async function SusunPage({ params }: LocaleParams) {
                 </>
             }
         >
-            {stepPage.workList(step)}
+            <Suspense
+                fallback={
+                    <div className="mt-8 flex items-center justify-center p-12 text-center text-lg font-bold text-muted-foreground">
+                        {locale === "id"
+                            ? "Memuat giliran..."
+                            : "Loading turns..."}
+                    </div>
+                }
+            >
+                <TurnReview
+                    locale={locale}
+                    copy={{
+                        title: step.title,
+                        body: step.body,
+                        workItemsTitle: step.workItemsTitle,
+                        workItemsEmpty: step.workItemsEmpty,
+                        workItemsEmptyBody: step.workItemsEmptyBody,
+                    }}
+                />
+            </Suspense>
         </StepScreen>
     );
 }
