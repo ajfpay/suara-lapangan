@@ -106,6 +106,41 @@ test.describe("Ticket 02: Rekam native, WAV 16 kHz, antrean offline", () => {
         await expect(page.getByTestId("record-duration")).toBeVisible();
         await expect(recordButton).toHaveAttribute("aria-label", "Done");
 
+        // The recording state is painted with the `destructive` token. A
+        // token missing from the Tailwind theme emits no CSS for the utility,
+        // so assert the painted colours rather than the class names.
+        const painted = await recordButton.evaluate((el) => {
+            const badge = document.querySelector(
+                '[data-testid="record-duration"]'
+            ) as HTMLElement;
+            return {
+                background: getComputedStyle(el).backgroundColor,
+                foreground: getComputedStyle(el).color,
+                badgeText: getComputedStyle(badge).color,
+            };
+        });
+        const channels = (color: string) =>
+            color.match(/\d+/g)!.map(Number);
+        const [badgeRed, badgeGreen, badgeBlue] = channels(painted.badgeText);
+        expect(
+            badgeRed,
+            `record-duration text colour was ${painted.badgeText}`
+        ).toBeGreaterThan(badgeGreen + 40);
+        expect(
+            badgeRed,
+            `record-duration text colour was ${painted.badgeText}`
+        ).toBeGreaterThan(badgeBlue + 40);
+        expect(
+            painted.background,
+            "record button painted no background"
+        ).not.toBe("rgba(0, 0, 0, 0)");
+        for (const channel of channels(painted.foreground)) {
+            expect(
+                channel,
+                `record button text colour was ${painted.foreground}`
+            ).toBeGreaterThan(200);
+        }
+
         // Deliberate press to stop recording
         await page.mouse.down();
         await page.waitForTimeout(350);
