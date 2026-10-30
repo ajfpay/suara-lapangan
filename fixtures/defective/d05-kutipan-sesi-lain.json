@@ -50,7 +50,7 @@
   },
   "cacat": {
     "code": "kutipan_sesi_lain",
-    "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has only turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
+    "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has turn_4 while sess-def-05 only has turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
     "bukti": "turn_4"
   },
   "expectation": {

@@ -50,7 +50,7 @@
   },
   "cacat": {
     "code": "harga_lolos_sebagai_volume",
-    "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
+    "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet; additionally, harga_satuan (25) is unsourced in the transcript. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
     "bukti": "eight hundred dollars"
   },
   "expectation": {
