@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 
 import { KonfirmasiCard, type KonfirmasiItem } from "./KonfirmasiCard";
+import {
+    buildShareSummary,
+    buildWhatsAppShareUrl,
+    isShareBlocked,
+} from "./share";
 
 interface Props {
     locale: string;
@@ -19,6 +24,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
         null
     );
     const [loading, setLoading] = useState(false);
+    const [total, setTotal] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         if (!sessionId) return;
@@ -32,6 +38,9 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
             const doc = j.document;
             if (!doc) return;
             setDocId(doc.nomor ?? sessionId);
+            setTotal(
+                typeof doc.total_nominal === "number" ? doc.total_nominal : null
+            );
             setItems(j.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? []);
             setStatus(j.status ?? null);
         } finally {
@@ -47,6 +56,15 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     if (!docId && items.length === 0) return null;
 
     const blocked = status === "perlu_konfirmasi" || items.length > 0;
+    const shareBlocked = isShareBlocked(status, items.length);
+    const shareUrl = buildWhatsAppShareUrl(
+        buildShareSummary({
+            nomor: docId ?? sessionId ?? "",
+            total,
+            pendingCount: items.length,
+            locale,
+        })
+    );
 
     return (
         <section
@@ -106,6 +124,30 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 >
                     {isIndo ? "Kirim" : "Send"}
                 </button>
+                <a
+                    href={shareBlocked ? undefined : shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-disabled={shareBlocked}
+                    onClick={(e) => {
+                        if (shareBlocked) e.preventDefault();
+                    }}
+                    title={
+                        shareBlocked
+                            ? isIndo
+                                ? "Selesaikan semua konfirmasi dulu"
+                                : "Resolve all confirmations first"
+                            : undefined
+                    }
+                    className={`inline-flex min-h-[48px] items-center rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground ${
+                        shareBlocked
+                            ? "pointer-events-none opacity-50"
+                            : ""
+                    }`}
+                    data-testid="btn-share-wa"
+                >
+                    {isIndo ? "Bagikan via WhatsApp" : "Share via WhatsApp"}
+                </a>
             </div>
             {blocked && (
                 <p
