@@ -13,6 +13,7 @@ import {
 import { useAudioSlicePlayer } from "@/lib/client/audioslice/player";
 import { getLatestLocalRecordingSessionId } from "@/lib/client/audioslice/storage";
 import { TurnCard, type TurnData } from "./TurnCard";
+import { KonfirmasiPanel } from "./KonfirmasiPanel";
 
 interface TurnReviewProps {
     locale: string;
@@ -397,6 +398,15 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                     </div>
                 </div>
             )}
+
+            <KonfirmasiPanel
+                locale={locale}
+                sessionId={sessionId}
+                onPlayEvidence={(turnId) => {
+                    const t = turns.find((x) => x.turn_id === turnId);
+                    if (t) playTurnSlice(t.turn_id, t.startMs, t.endMs);
+                }}
+            />
         </section>
     );
 }
