@@ -22,6 +22,8 @@ interface TurnReviewProps {
         workItemsTitle?: string;
         workItemsEmpty?: string;
         workItemsEmptyBody?: string;
+        manualSessionIdLabel?: string;
+        manualSessionIdPlaceholder?: string;
     };
 }
 
@@ -47,7 +49,7 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
         playTurnSlice,
         clearUnavailableNotice,
         clearError,
-    } = useAudioSlicePlayer(sessionId ?? "");
+    } = useAudioSlicePlayer(sessionId ?? "", isIndo ? "id" : "en");
 
     // Resolve sessionId if not provided in URL
     useEffect(() => {
@@ -206,9 +208,10 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                     {/* Manual session lookup helper for testing/recovery */}
                     <div className="mx-auto mt-10 max-w-md border-t border-border/60 pt-6">
                         <p className="text-sm font-semibold text-muted-foreground">
-                            {isIndo
-                                ? "Atau masukkan Session ID manual:"
-                                : "Or enter Session ID manually:"}
+                            {copy.manualSessionIdLabel ??
+                                (isIndo
+                                    ? "Atau masukkan ID sesi secara manual:"
+                                    : "Or enter Session ID manually:")}
                         </p>
                         <form
                             onSubmit={handleManualSubmit}
@@ -220,7 +223,10 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                                 onChange={(e) =>
                                     setManualSessionInput(e.target.value)
                                 }
-                                placeholder="e.g. sess-123"
+                                placeholder={
+                                    copy.manualSessionIdPlaceholder ??
+                                    (isIndo ? "contoh: sess-123" : "e.g. sess-123")
+                                }
                                 className="flex-1 rounded-xl border border-input bg-background px-4 py-2.5 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             />
                             <button
@@ -251,7 +257,7 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                         <p className="text-base text-muted-foreground">{error}</p>
                         {sessionId && (
                             <p className="font-mono text-sm text-foreground">
-                                Session ID: {sessionId}
+                                {isIndo ? "ID sesi:" : "Session ID:"} {sessionId}
                             </p>
                         )}
                         <div className="pt-2">

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { amountInWords, terbilang } from "@/lib/server/guard/words";
 import type {
     CanonicalUnit,
@@ -208,7 +209,7 @@ export async function PATCH(
 
     return NextResponse.json(
         {
-            document,
+            document: toResponseDocument(document),
             butuh_konfirmasi: document.butuh_konfirmasi,
             status,
         },

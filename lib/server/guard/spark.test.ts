@@ -71,6 +71,7 @@ describe("callMuseSpark", () => {
         });
 
         expect(res.jenis).toBe("surat_penawaran");
+        expect(res._spark_path).toBe(true);
         expect((res.pekerjaan as Array<{ volume: number }>)[0].volume).toBe(20);
     });
 
@@ -103,6 +104,7 @@ describe("callMuseSpark", () => {
         });
 
         expect(res.jenis).toBe("surat_penawaran");
+        expect(res._spark_path).toBe(true);
     });
 
     it("throws invalid_response on missing output text", async () => {
@@ -133,6 +135,38 @@ describe("callMuseSpark", () => {
         ).rejects.toMatchObject({
             name: "SparkError",
             code: "invalid_response",
+            status: 502,
+        });
+    });
+
+    it("throws schema_rejected on HTTP 400 so the route can fall back", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            text: async () => "invalid schema: anyOf is not supported",
+        });
+
+        await expect(
+            callMuseSpark({ turns: mockTurns, locale: "en" })
+        ).rejects.toMatchObject({
+            name: "SparkError",
+            code: "schema_rejected",
+            status: 400,
+        });
+    });
+
+    it("throws upstream_failure on other non-ok statuses", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: async () => "internal error",
+        });
+
+        await expect(
+            callMuseSpark({ turns: mockTurns, locale: "en" })
+        ).rejects.toMatchObject({
+            name: "SparkError",
+            code: "upstream_failure",
             status: 502,
         });
     });

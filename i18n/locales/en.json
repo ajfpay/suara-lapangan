@@ -51,7 +51,9 @@
         "primary": "Assemble the list",
         "workItemsTitle": "Work items",
         "workItemsEmpty": "No work items yet",
-        "workItemsEmptyBody": "There is no recording to assemble. Step 1 adds one."
+        "workItemsEmptyBody": "There is no recording to assemble. Step 1 adds one.",
+        "manualSessionIdLabel": "Or enter Session ID manually:",
+        "manualSessionIdPlaceholder": "e.g. sess-123"
     },
     "dokumen": {
         "heading": "Dokumen",

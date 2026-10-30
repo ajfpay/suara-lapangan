@@ -53,6 +53,7 @@ export type QuotationDocument = {
     total_nominal: number;
     terbilang: string;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
+    _spark_path?: boolean;
 };
 
 export type DocumentStatus = "siap" | "perlu_konfirmasi";
@@ -83,4 +84,5 @@ export type CandidateDocument = {
     total_nominal?: unknown;
     terbilang?: unknown;
     butuh_konfirmasi?: unknown;
+    _spark_path?: boolean;
 };
