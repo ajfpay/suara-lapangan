@@ -251,6 +251,52 @@ describe("POST /api/documents route handler", () => {
         expect(data.document.terbilang).toBe("Six hundred US dollars");
     });
 
+    it("falls back to rule generation when the model rejects the schema", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const mockSession: StoredSession = {
+            sessionId: "sess-schema-rejected",
+            locale: "id",
+            audioSha256: "sha-schema",
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 5000,
+                    transcript: "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.",
+                    final: true,
+                },
+            ],
+        };
+        const mockStore: TurnsStore = {
+            findSession: vi.fn().mockResolvedValue(mockSession),
+            saveTranscription: vi.fn(),
+        };
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+        vi.spyOn(sparkModule, "callMuseSpark").mockRejectedValue(
+            new sparkModule.SparkError(
+                "schema_rejected",
+                400,
+                "Model API rejected the request schema (HTTP 400)"
+            )
+        );
+
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionId: "sess-schema-rejected",
+                locale: "id",
+            }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.status).toBe("siap");
+        expect(data.document.pekerjaan.length).toBe(1);
+        expect(data.document.pekerjaan[0].volume).toBe(100);
+        expect(data.document.pekerjaan[0].harga_satuan).toBe(30000);
+    });
+
     it("carries _spark_path on the model path outside production", async () => {
         const originalNodeEnv = process.env.NODE_ENV;
         (process.env as Record<string, string | undefined>).NODE_ENV = "test";

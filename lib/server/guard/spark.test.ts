@@ -138,4 +138,36 @@ describe("callMuseSpark", () => {
             status: 502,
         });
     });
+
+    it("throws schema_rejected on HTTP 400 so the route can fall back", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            text: async () => "invalid schema: anyOf is not supported",
+        });
+
+        await expect(
+            callMuseSpark({ turns: mockTurns, locale: "en" })
+        ).rejects.toMatchObject({
+            name: "SparkError",
+            code: "schema_rejected",
+            status: 400,
+        });
+    });
+
+    it("throws upstream_failure on other non-ok statuses", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: async () => "internal error",
+        });
+
+        await expect(
+            callMuseSpark({ turns: mockTurns, locale: "en" })
+        ).rejects.toMatchObject({
+            name: "SparkError",
+            code: "upstream_failure",
+            status: 502,
+        });
+    });
 });
