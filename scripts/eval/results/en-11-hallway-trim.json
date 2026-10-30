@@ -3,16 +3,16 @@
   "locale": "en",
   "sessionId": "sess-en-11",
   "turnCount": 2,
-  "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
+  "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin. Everything looks good on our end. Confirming the Feldman hallway scope.",
   "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin.",
   "overall": {
-    "wer": 0.06666666666666667,
-    "distance": 1,
-    "referenceWords": 15,
+    "wer": 0.46153846153846156,
+    "distance": 12,
+    "referenceWords": 26,
     "hypothesisWords": 15,
     "substitutions": 1,
     "insertions": 0,
-    "deletions": 0,
+    "deletions": 11,
     "alignment": [
       {
         "op": "equal",
@@ -88,6 +88,50 @@
         "op": "equal",
         "ref": "austin",
         "hyp": "austin"
+      },
+      {
+        "op": "delete",
+        "ref": "everything"
+      },
+      {
+        "op": "delete",
+        "ref": "looks"
+      },
+      {
+        "op": "delete",
+        "ref": "good"
+      },
+      {
+        "op": "delete",
+        "ref": "on"
+      },
+      {
+        "op": "delete",
+        "ref": "our"
+      },
+      {
+        "op": "delete",
+        "ref": "end"
+      },
+      {
+        "op": "delete",
+        "ref": "confirming"
+      },
+      {
+        "op": "delete",
+        "ref": "the"
+      },
+      {
+        "op": "delete",
+        "ref": "feldman"
+      },
+      {
+        "op": "delete",
+        "ref": "hallway"
+      },
+      {
+        "op": "delete",
+        "ref": "scope"
       }
     ]
   },

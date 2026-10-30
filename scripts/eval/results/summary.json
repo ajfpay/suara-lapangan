@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-10-29T12:40:07.850Z",
+  "timestamp": "2026-10-30T00:28:20.553Z",
   "isSynthetic": true,
   "evaluationMode": "synthetic_smoke",
   "hypothesisSource": "scripts/eval/fixtures/k5 (synthetic mocks)",
@@ -7,13 +7,13 @@
   "totalRecordings": 30,
   "en": {
     "count": 15,
-    "totalReferenceWords": 296,
+    "totalReferenceWords": 307,
     "totalHypothesisWords": 298,
-    "totalDistance": 11,
-    "wer": 0.037162162162162164,
+    "totalDistance": 22,
+    "wer": 0.07166123778501629,
     "substitutions": 7,
     "insertions": 3,
-    "deletions": 1,
+    "deletions": 12,
     "moneyVolume": {
       "totalReferenceTokens": 117,
       "totalHypothesisTokens": 123,
@@ -52,10 +52,10 @@
     "passed": true
   },
   "combined": {
-    "totalReferenceWords": 578,
+    "totalReferenceWords": 589,
     "totalHypothesisWords": 588,
-    "totalDistance": 41,
-    "wer": 0.07093425605536333,
+    "totalDistance": 52,
+    "wer": 0.08828522920203735,
     "moneyVolume": {
       "totalReferenceTokens": 284,
       "totalHypothesisTokens": 286,
@@ -72,7 +72,7 @@
     "passed": false,
     "isSynthetic": true,
     "reasons": [
-      "Pipeline smoke test PASSED: Both EN (WER 3.72% <= 10%) and ID (WER 10.64% <= 15%) meet numerical thresholds under synthetic mock perturbations.",
+      "Pipeline smoke test PASSED: Both EN (WER 7.17% <= 10%) and ID (WER 10.64% <= 15%) meet numerical thresholds under synthetic mock perturbations.",
       "Money/volume WER (4.23%) meets <= 10% threshold.",
       "Gate 1 ASR Accuracy NOT CERTIFIED: Evaluated hypotheses are synthetic mocks derived from reference transcripts (circular oracle). WER measures authored perturbation, NOT Meta ASR accuracy. Gate 1 GO on ASR accuracy cannot be granted without real ASR hypotheses."
     ],
@@ -86,6 +86,18 @@
   "worstSamples": [
     {
       "rank": 1,
+      "id": "en-11-hallway-trim",
+      "locale": "en",
+      "wer": 0.46153846153846156,
+      "distance": 12,
+      "referenceWords": 26,
+      "hypothesisWords": 15,
+      "moneyVolumeWer": 0.125,
+      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin. Everything looks good on our end. Confirming the Feldman hallway scope.",
+      "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin."
+    },
+    {
+      "rank": 2,
       "id": "id-07-tenaga-harian",
       "locale": "id",
       "wer": 0.17647058823529413,
@@ -97,7 +109,7 @@
       "hypothesis": "Tenaga harian enam hari, dua ratus lima puluh ribu tiap hari. Pemasangan rangka Pak Dedi di Sleman."
     },
     {
-      "rank": 2,
+      "rank": 3,
       "id": "en-03-recessed-lights",
       "locale": "en",
       "wer": 0.13333333333333333,
@@ -109,7 +121,7 @@
       "hypothesis": "Five recessed light points in the kitchen, eighty dollars per point. Mr. Nguyen's kitchen, Dallas, Texas."
     },
     {
-      "rank": 3,
+      "rank": 4,
       "id": "id-12-instalasi-air",
       "locale": "id",
       "wer": 0.13333333333333333,
@@ -121,7 +133,7 @@
       "hypothesis": "Instalasi air delapan titik, dua ratus sepuluh ribu tiap titik. Kamar mandi Bu Ningsih di Sleman."
     },
     {
-      "rank": 4,
+      "rank": 5,
       "id": "id-15-kusen",
       "locale": "id",
       "wer": 0.11764705882352941,
@@ -133,7 +145,7 @@
       "hypothesis": "Kusen pintu jendela enam unit, empat ratus lima puluh ribu per unit. Rumah Bu Lestari di Sleman."
     },
     {
-      "rank": 5,
+      "rank": 6,
       "id": "id-04-titik-lampu",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -145,7 +157,7 @@
       "hypothesis": "Titik lampu dua belas titik, seratus tujuh puluh lima ribu tiap titik. Rumah Bu Kartika Depok, Sleman."
     },
     {
-      "rank": 6,
+      "rank": 7,
       "id": "id-06-galian-pondasi",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -157,7 +169,7 @@
       "hypothesis": "Galian pondasi, delapan belas meter kubik, sembilan puluh ribu per meter kubik. Pondasi rumah Pak Sutrisno di Godean."
     },
     {
-      "rank": 7,
+      "rank": 8,
       "id": "id-08-kayu-kaso",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -169,7 +181,7 @@
       "hypothesis": "Kayu kaso dua puluh lima batang, empat puluh delapan ribu sebatang. Rangka atap rumah Bu Wati, Kalasan."
     },
     {
-      "rank": 8,
+      "rank": 9,
       "id": "id-10-bongkar-dinding",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -181,7 +193,7 @@
       "hypothesis": "Bongkar tembok dapur, lima belas meter persegi, lima puluh lima ribu per meter persegi. Dapur Bu Sari di Ngaglik."
     },
     {
-      "rank": 9,
+      "rank": 10,
       "id": "id-11-semen-dan-besi",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -193,7 +205,7 @@
       "hypothesis": "Semen dua puluh sak, enam puluh dua ribu per sak. Besi delapan mili sepuluh batang, tujuh puluh delapan ribu per batang. Struktur tambahan Pak Yusuf di Sleman."
     },
     {
-      "rank": 10,
+      "rank": 11,
       "id": "id-13-paving-halaman",
       "locale": "id",
       "wer": 0.1111111111111111,
@@ -205,7 +217,7 @@
       "hypothesis": "Paving halaman depan enam puluh meter persegi, sembilan puluh lima ribu per meter persegi. Halaman rumah Pak Gunadi di Pakem."
     },
     {
-      "rank": 11,
+      "rank": 12,
       "id": "id-03-besi-cor-dak",
       "locale": "id",
       "wer": 0.10526315789473684,
@@ -217,7 +229,7 @@
       "hypothesis": "Besi sepuluh mili, tiga puluh lima batang, tujuh puluh delapan ribu per batang. Cor dak teras Pak Waluyo di Klaten."
     },
     {
-      "rank": 12,
+      "rank": 13,
       "id": "id-05-plester-dinding",
       "locale": "id",
       "wer": 0.10526315789473684,
@@ -229,7 +241,7 @@
       "hypothesis": "Plester tembok belakang, delapan puluh lima meter persegi, empat puluh lima ribu per meter persegi. Rumah Pak Hartono di Mlati."
     },
     {
-      "rank": 13,
+      "rank": 14,
       "id": "id-09-pengecatan",
       "locale": "id",
       "wer": 0.10526315789473684,
@@ -241,7 +253,7 @@
       "hypothesis": "Pengecatan untuk tiga kamar, seratus dua puluh meter persegi, tiga puluh delapan ribu per meter persegi. Rumah Pak Andi di Sleman."
     },
     {
-      "rank": 14,
+      "rank": 15,
       "id": "id-14-ganti-atap",
       "locale": "id",
       "wer": 0.10526315789473684,
@@ -253,7 +265,7 @@
       "hypothesis": "Ganti atap untuk gudang, empat puluh lima meter persegi, seratus dua puluh ribu per meter persegi. Gudang Pak Hendra di Berbah."
     },
     {
-      "rank": 15,
+      "rank": 16,
       "id": "en-08-backyard-fence",
       "locale": "en",
       "wer": 0.08333333333333333,
@@ -265,7 +277,7 @@
       "hypothesis": "Eighteen fence posts at thirty-five dollars each. Ramirez backyard fence, Buda, Texas."
     },
     {
-      "rank": 16,
+      "rank": 17,
       "id": "en-14-shop-fit-out",
       "locale": "en",
       "wer": 0.08333333333333333,
@@ -277,7 +289,7 @@
       "hypothesis": "Eight light points in the shop, sixty-five dollars per point. Two electrical panels, three hundred dollars each. Boateng shop fit-out, Elgin."
     },
     {
-      "rank": 17,
+      "rank": 18,
       "id": "en-06-demolition-labour",
       "locale": "en",
       "wer": 0.07142857142857142,
@@ -287,18 +299,6 @@
       "moneyVolumeWer": 0,
       "reference": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen, Georgetown, Texas.",
       "hypothesis": "Demolition labour, sixteen hours at forty-five dollars an hour. Silva kitchen in Georgetown, Texas."
-    },
-    {
-      "rank": 18,
-      "id": "en-11-hallway-trim",
-      "locale": "en",
-      "wer": 0.06666666666666667,
-      "distance": 1,
-      "referenceWords": 15,
-      "hypothesisWords": 15,
-      "moneyVolumeWer": 0.125,
-      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
-      "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin."
     },
     {
       "rank": 19,
@@ -473,7 +473,7 @@
         "id": "d01-harga-lolos-sebagai-volume",
         "locale": "en",
         "defectCode": "harga_lolos_sebagai_volume",
-        "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
+        "alasan": "The spoken price (eight hundred dollars) was written into volume, while the spoken volume is twenty-four square feet; additionally, harga_satuan (25) is unsourced in the transcript. Guard rule 3 must hold the field when a price keyword sits within six words of the number.",
         "bukti": "eight hundred dollars",
         "field": "pekerjaan[0].volume",
         "verdict": "butuh_konfirmasi"
@@ -509,7 +509,7 @@
         "id": "d05-kutipan-sesi-lain",
         "locale": "en",
         "defectCode": "kutipan_sesi_lain",
-        "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has only turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
+        "alasan": "The row cites turn_4, which belongs to a different session's transcript (sess-en-11 has turn_4 while sess-def-05 only has turn_1 and turn_2). Guard rule 1 must reject a citation that is not in this session.",
         "bukti": "turn_4",
         "field": "pekerjaan[0].sumber_kutipan",
         "verdict": "butuh_konfirmasi"
@@ -529,7 +529,7 @@
         "defectCode": "twelve_hundred_en",
         "alasan": "Spoken \"twelve hundred\" is 1,200; the document wrote 12,000. The English hundreds idiom must be normalised before the number is compared (guard rule 4).",
         "bukti": "twelve hundred",
-        "field": "pekerjaan[0].jumlah",
+        "field": "pekerjaan[0].harga_satuan",
         "verdict": "butuh_konfirmasi"
       },
       {
@@ -1981,16 +1981,16 @@
       "locale": "en",
       "sessionId": "sess-en-11",
       "turnCount": 2,
-      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin.",
+      "reference": "Ninety-five linear feet of baseboard trim, six dollars a linear foot. Feldman hallway, Austin. Everything looks good on our end. Confirming the Feldman hallway scope.",
       "hypothesis": "Ninety-five linear feet of baseboard trim, six dollars per linear foot. Feldman hallway, Austin.",
       "overall": {
-        "wer": 0.06666666666666667,
-        "distance": 1,
-        "referenceWords": 15,
+        "wer": 0.46153846153846156,
+        "distance": 12,
+        "referenceWords": 26,
         "hypothesisWords": 15,
         "substitutions": 1,
         "insertions": 0,
-        "deletions": 0,
+        "deletions": 11,
         "alignment": [
           {
             "op": "equal",
@@ -2066,6 +2066,50 @@
             "op": "equal",
             "ref": "austin",
             "hyp": "austin"
+          },
+          {
+            "op": "delete",
+            "ref": "everything"
+          },
+          {
+            "op": "delete",
+            "ref": "looks"
+          },
+          {
+            "op": "delete",
+            "ref": "good"
+          },
+          {
+            "op": "delete",
+            "ref": "on"
+          },
+          {
+            "op": "delete",
+            "ref": "our"
+          },
+          {
+            "op": "delete",
+            "ref": "end"
+          },
+          {
+            "op": "delete",
+            "ref": "confirming"
+          },
+          {
+            "op": "delete",
+            "ref": "the"
+          },
+          {
+            "op": "delete",
+            "ref": "feldman"
+          },
+          {
+            "op": "delete",
+            "ref": "hallway"
+          },
+          {
+            "op": "delete",
+            "ref": "scope"
           }
         ]
       },

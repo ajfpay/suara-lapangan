@@ -7,7 +7,7 @@
 
 ---
 
-- **Tanggal Evaluasi:** 2026-10-29T12:40:07.850Z
+- **Tanggal Evaluasi:** 2026-10-30T00:28:20.553Z
 - **Status Gate 1:** **SYNTHETIC SMOKE TEST PASS (PIPELINE OK — BUKAN GO AKURASI ASR)**
 - **Mode Evaluasi:** `synthetic_smoke` (scripts/eval/fixtures/k5 (synthetic mocks))
 - **Jumlah Rekaman Diuji:** 30 (15 EN + 15 ID)
@@ -19,12 +19,12 @@
 
 | Bahasa / Metrik | Realisasi WER | Ambang Batas Target | Status |
 | --- | --- | --- | --- |
-| **Native English (EN)** | **3.72%** (11/296 kata) | $\le$ 10.00% | PASS |
+| **Native English (EN)** | **7.17%** (22/307 kata) | $\le$ 10.00% | PASS |
 | **Indonesia Beraksen (ID)** | **10.64%** (30/282 kata) | $\le$ 15.00% | PASS |
 | **Token Uang/Volume (EN)** | **5.98%** (7/117 token) | $\le$ 10.00% | PASS |
 | **Token Uang/Volume (ID)** | **2.99%** (5/167 token) | $\le$ 10.00% | PASS |
 | **Token Uang/Volume (Total)** | **4.23%** (12/284 token) | $\le$ 10.00% | PASS |
-| **Total Gabungan** | **7.09%** (41/578 kata) | — | — |
+| **Total Gabungan** | **8.83%** (52/589 kata) | — | — |
 
 ---
 
@@ -35,7 +35,7 @@
 - **STOP 24 Jam Triggered:** `false`
 - **Eskalasi ke:** `None`
 - **Alasan Keputusan:**
-  - Pipeline smoke test PASSED: Both EN (WER 3.72% <= 10%) and ID (WER 10.64% <= 15%) meet numerical thresholds under synthetic mock perturbations.
+  - Pipeline smoke test PASSED: Both EN (WER 7.17% <= 10%) and ID (WER 10.64% <= 15%) meet numerical thresholds under synthetic mock perturbations.
   - Money/volume WER (4.23%) meets <= 10% threshold.
   - Gate 1 ASR Accuracy NOT CERTIFIED: Evaluated hypotheses are synthetic mocks derived from reference transcripts (circular oracle). WER measures authored perturbation, NOT Meta ASR accuracy. Gate 1 GO on ASR accuracy cannot be granted without real ASR hypotheses.
 
@@ -53,16 +53,16 @@ Berikut 10 sampel dengan WER tertinggi:
 
 | Rank | Recording ID | Locale | WER | Distance / Words | Money/Volume WER |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `id-07-tenaga-harian` | ID | 17.65% | 3/17 | 11.11% |
-| 2 | `en-03-recessed-lights` | EN | 13.33% | 2/15 | 40.00% |
-| 3 | `id-12-instalasi-air` | ID | 13.33% | 2/15 | 12.50% |
-| 4 | `id-15-kusen` | ID | 11.76% | 2/17 | 0.00% |
-| 5 | `id-04-titik-lampu` | ID | 11.11% | 2/18 | 9.09% |
-| 6 | `id-06-galian-pondasi` | ID | 11.11% | 2/18 | 0.00% |
-| 7 | `id-08-kayu-kaso` | ID | 11.11% | 2/18 | 20.00% |
-| 8 | `id-10-bongkar-dinding` | ID | 11.11% | 2/18 | 0.00% |
-| 9 | `id-11-semen-dan-besi` | ID | 11.11% | 3/27 | 0.00% |
-| 10 | `id-13-paving-halaman` | ID | 11.11% | 2/18 | 0.00% |
+| 1 | `en-11-hallway-trim` | EN | 46.15% | 12/26 | 12.50% |
+| 2 | `id-07-tenaga-harian` | ID | 17.65% | 3/17 | 11.11% |
+| 3 | `en-03-recessed-lights` | EN | 13.33% | 2/15 | 40.00% |
+| 4 | `id-12-instalasi-air` | ID | 13.33% | 2/15 | 12.50% |
+| 5 | `id-15-kusen` | ID | 11.76% | 2/17 | 0.00% |
+| 6 | `id-04-titik-lampu` | ID | 11.11% | 2/18 | 9.09% |
+| 7 | `id-06-galian-pondasi` | ID | 11.11% | 2/18 | 0.00% |
+| 8 | `id-08-kayu-kaso` | ID | 11.11% | 2/18 | 20.00% |
+| 9 | `id-10-bongkar-dinding` | ID | 11.11% | 2/18 | 0.00% |
+| 10 | `id-11-semen-dan-besi` | ID | 11.11% | 3/27 | 0.00% |
 
 ---
 
