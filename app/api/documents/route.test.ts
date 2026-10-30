@@ -170,6 +170,9 @@ describe("POST /api/documents route handler", () => {
         expect(data.document.pekerjaan[0].volume).toBe(100);
         expect(data.document.pekerjaan[0].harga_satuan).toBe(30000);
         expect(data.document.proyek.nama).toBe("Proyek Sleman");
+        // Both paths answer 200, so this marker is what tells a model document
+        // from the degraded rule fallback.
+        expect("_spark_path" in data.document).toBe(false);
 
         // Idempotent reuse: second call for same session returns cached document
         const reqReplay = new Request("http://localhost/api/documents", {
@@ -251,7 +254,7 @@ describe("POST /api/documents route handler", () => {
         expect(data.document.terbilang).toBe("Six hundred US dollars");
     });
 
-    it("carries _spark_path on the model path outside production", async () => {
+    it("carries _spark_path on the model path", async () => {
         const originalNodeEnv = process.env.NODE_ENV;
         (process.env as Record<string, string | undefined>).NODE_ENV = "test";
         process.env.MODEL_API_KEY = "test-key";
@@ -308,14 +311,13 @@ describe("POST /api/documents route handler", () => {
             const res = await POST(req);
             expect(res.status).toBe(200);
             const data = await res.json();
-            expect(data._spark_path).toBe(true);
             expect(data.document._spark_path).toBe(true);
         } finally {
             if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
         }
     });
 
-    it("omits _spark_path entirely in production", async () => {
+    it("carries _spark_path in production too, and PATCH reports the same origin", async () => {
         const originalNodeEnv = process.env.NODE_ENV;
         (process.env as Record<string, string | undefined>).NODE_ENV = "production";
         process.env.MODEL_API_KEY = "test-key";
@@ -372,8 +374,24 @@ describe("POST /api/documents route handler", () => {
             const res = await POST(req);
             expect(res.status).toBe(200);
             const data = await res.json();
-            expect("_spark_path" in data).toBe(false);
-            expect("_spark_path" in data.document).toBe(false);
+            expect(data.document._spark_path).toBe(true);
+
+            // PATCH returns the stored document, so it must report the same origin.
+            const { PATCH } = await import("./[id]/route");
+            const patchRes = await PATCH(
+                new Request("http://localhost/api/documents/sess-spark-prod", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].volume",
+                        nilai: 30,
+                    }),
+                }),
+                { params: Promise.resolve({ id: "sess-spark-prod" }) }
+            );
+            expect(patchRes.status).toBe(200);
+            const patched = await patchRes.json();
+            expect(patched.document._spark_path).toBe(true);
         } finally {
             if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
         }

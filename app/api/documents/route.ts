@@ -12,30 +12,7 @@ type PostDocumentBody = {
     sessionId?: unknown;
     locale?: unknown;
     project?: unknown;
-    turns?: unknown;
 };
-
-/**
- * Debug marker distinguishing the live Spark model path from the rule
- * fallback. Non-production only: the response must not carry the field at
- * all (not `false`, not `undefined` as an own key) when running in
- * production. Kept for dev/test so e2e can prove the real Spark path.
- */
-function sparkPathMarker(fromModel: boolean): { _spark_path?: true } {
-    if (fromModel && process.env.NODE_ENV !== "production") {
-        return { _spark_path: true };
-    }
-    return {};
-}
-
-function toResponseDocument<T extends { _spark_path?: boolean }>(doc: T): T {
-    if (process.env.NODE_ENV === "production" && "_spark_path" in doc) {
-        const { ...rest } = doc;
-        delete (rest as { _spark_path?: boolean })._spark_path;
-        return rest as T;
-    }
-    return doc;
-}
 
 export async function POST(request: Request): Promise<Response> {
     let body: PostDocumentBody;
@@ -100,33 +77,24 @@ export async function POST(request: Request): Promise<Response> {
     // Idempotent reuse check: if document for same session exists, return it without calling the model
     // Catch store init and lookup failures, map to JSON status
     let session;
-    if (Array.isArray(body.turns) && body.turns.length > 0) {
-        session = {
-            sessionId,
-            locale: (locale ?? "id") as Locale,
-            audioSha256: "inline",
-            turns: body.turns as import("@/lib/server/asr/turns").Turn[],
-        };
-    } else {
-        try {
-            const store = getTurnsStore();
-            session = await store.findSession(sessionId);
-        } catch {
-            return NextResponse.json(
-                {
-                    error: "store_failure",
-                    message: "Failed to access session database",
-                },
-                { status: 500 }
-            );
-        }
+    try {
+        const store = getTurnsStore();
+        session = await store.findSession(sessionId);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access session database",
+            },
+            { status: 500 }
+        );
+    }
 
-        if (!session) {
-            return NextResponse.json(
-                { error: "session_not_found", message: `Session '${sessionId}' not found` },
-                { status: 404 }
-            );
-        }
+    if (!session) {
+        return NextResponse.json(
+            { error: "session_not_found", message: `Session '${sessionId}' not found` },
+            { status: 404 }
+        );
     }
 
     const resolvedLocale: Locale = locale ?? session.locale;
@@ -152,13 +120,12 @@ export async function POST(request: Request): Promise<Response> {
         if (matchesLocale && matchesProject) {
             return NextResponse.json(
                 {
-                    document: toResponseDocument(existingDoc),
+                    document: existingDoc,
                     butuh_konfirmasi: existingDoc.butuh_konfirmasi ?? [],
                     status:
                         (existingDoc.butuh_konfirmasi?.length ?? 0) > 0
                             ? "perlu_konfirmasi"
                             : "siap",
-                    ...sparkPathMarker(existingDoc._spark_path === true),
                 },
                 { status: 200 }
             );
@@ -228,17 +195,20 @@ export async function POST(request: Request): Promise<Response> {
         sessionId,
     });
 
-    // Save document
+    // Save document. `_spark_path` travels on the document itself, so every
+    // route that returns one (POST here, PATCH /api/documents/{id}) reports
+    // the same origin: true when Muse Spark produced it, absent on the rule
+    // fallback. Both paths answer 200, so this is the only way a caller can
+    // tell a model document from a degraded one.
     if (candidate._spark_path) {
         result.document._spark_path = true;
     }
     docStore.set(sessionId, result.document);
     return NextResponse.json(
         {
-            document: toResponseDocument(result.document),
+            document: result.document,
             butuh_konfirmasi: result.butuh_konfirmasi,
             status: result.status,
-            ...sparkPathMarker(candidate._spark_path === true),
         },
         { status: 200 }
     );
