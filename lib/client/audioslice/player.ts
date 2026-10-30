@@ -8,10 +8,11 @@ export interface PlaybackState {
     isPlaying: boolean;
     activeTurnId: string | null;
     audioUnavailableTurnId: string | null;
+    autoplayBlockedTurnId?: string | null;
     error: string | null;
 }
 
-export function useAudioSlicePlayer(sessionId: string) {
+export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id") {
     const [state, setState] = useState<PlaybackState>({
         isPlaying: false,
         activeTurnId: null,
@@ -29,6 +30,8 @@ export function useAudioSlicePlayer(sessionId: string) {
 
     const cleanupAudio = useCallback(() => {
         if (audioRef.current) {
+            audioRef.current.onended = null;
+            audioRef.current.onerror = null;
             audioRef.current.pause();
             audioRef.current.src = "";
             audioRef.current = null;
@@ -145,7 +148,10 @@ export function useAudioSlicePlayer(sessionId: string) {
                         ...prev,
                         isPlaying: false,
                         activeTurnId: null,
-                        error: "Gagal memutar audio slice",
+                        error:
+                            locale === "en"
+                                ? "Failed to play the audio slice"
+                                : "Gagal memutar audio slice",
                     }));
                 };
 
@@ -154,7 +160,43 @@ export function useAudioSlicePlayer(sessionId: string) {
                     return;
                 }
 
-                await audio.play();
+                try {
+                    await audio.play();
+                } catch (playErr: unknown) {
+                    const isNotAllowed =
+                        (playErr instanceof DOMException &&
+                            playErr.name === "NotAllowedError") ||
+                        (playErr instanceof Error &&
+                            (playErr.name === "NotAllowedError" ||
+                                playErr.message?.includes("NotAllowedError") ||
+                                playErr.message?.includes("user")));
+
+                    // Only an autoplay block reads as a policy message; every
+                    // other rejection is a real failure the outer catch reports.
+                    if (!isNotAllowed) {
+                        throw playErr;
+                    }
+                    if (generation !== generationRef.current) {
+                        return;
+                    }
+                    if (pendingTurnIdRef.current === turnId) {
+                        pendingTurnIdRef.current = null;
+                    }
+                    cleanupAudio();
+                    const autoplayMsg =
+                        locale === "en"
+                            ? "Autoplay blocked: user interaction required"
+                            : "Autoplay diblokir: interaksi pengguna diperlukan";
+                    setState((prev) => ({
+                        ...prev,
+                        isPlaying: false,
+                        activeTurnId: null,
+                        audioUnavailableTurnId: null,
+                        autoplayBlockedTurnId: turnId,
+                        error: autoplayMsg,
+                    }));
+                    return;
+                }
                 if (generation !== generationRef.current) {
                     cleanupAudio();
                     return;
@@ -187,13 +229,14 @@ export function useAudioSlicePlayer(sessionId: string) {
                 }));
             }
         },
-        [sessionId, state.isPlaying, state.activeTurnId, stop, cleanupAudio]
+        [sessionId, state.isPlaying, state.activeTurnId, stop, cleanupAudio, locale]
     );
 
     const clearUnavailableNotice = useCallback(() => {
         setState((prev) => ({
             ...prev,
             audioUnavailableTurnId: null,
+            autoplayBlockedTurnId: null,
         }));
     }, []);
 

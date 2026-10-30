@@ -79,3 +79,50 @@ describe("Guard Rules §B2 - Clean Fixtures with Expected Documents", () => {
         });
     }
 });
+
+describe("Guard Rules §B2 - locale and currency stay paired", () => {
+    it("recomputes mata_uang from the locale instead of trusting the document", () => {
+        const turns: Turn[] = [
+            {
+                turn_id: "turn_1",
+                startMs: 0,
+                endMs: 3000,
+                transcript: "twenty square feet of drywall for 500 dollars",
+                final: true,
+            },
+        ];
+        const project: Proyek = {
+            nama: "Austin",
+            lokasi: "Austin",
+            klien: "Bob",
+        };
+        const candidate = {
+            jenis: "surat_penawaran" as const,
+            locale: "en" as const,
+            mata_uang: "IDR" as const,
+            nomor: "SL/QTN/2026-10-30/001",
+            tanggal: "2026-10-30",
+            proyek: project,
+            pekerjaan: [
+                {
+                    uraian: "Drywall",
+                    volume: 20,
+                    satuan: "sq_ft" as const,
+                    harga_satuan: 25,
+                    jumlah: 500,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 500,
+            terbilang: "Five hundred US dollars",
+            butuh_konfirmasi: [],
+        };
+
+        const result = applyGuard(candidate, turns, {
+            locale: "en",
+            project,
+        });
+
+        expect(result.document.mata_uang).toBe("USD");
+    });
+});

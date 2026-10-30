@@ -156,5 +156,15 @@ test.describe("locales", () => {
         // English copy here would mean the id catalogue is missing the key.
         await expect(page.getByText("Belum ada item pekerjaan")).toBeVisible();
         await expect(page.getByRole("banner")).toContainText("Suara Lapangan");
+
+        // Step 2 Susun: manual session input label must be translated, no English fallback
+        await page.goto("/id/susun");
+        await expect(
+            page.getByText("Atau masukkan ID sesi secara manual:")
+        ).toBeVisible();
+        await expect(page.locator("body")).not.toContainText("Session ID");
+        await expect(page.locator("body")).not.toContainText(
+            "Or enter Session ID manually:"
+        );
     });
 });

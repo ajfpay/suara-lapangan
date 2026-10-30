@@ -26,6 +26,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # The schema and fixture contract checker. Nothing ran it before, so a
+      # schema change could leave it red unnoticed.
+      - name: Contract tests
+        run: npm run test:contracts
+
       # Only Chromium: both Playwright projects use it, so pulling Firefox and
       # WebKit would add minutes per run for browsers nothing here targets.
       - name: Install Playwright browser

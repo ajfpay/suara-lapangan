@@ -51,7 +51,9 @@
         "primary": "Susun daftar",
         "workItemsTitle": "Item pekerjaan",
         "workItemsEmpty": "Belum ada item pekerjaan",
-        "workItemsEmptyBody": "Belum ada rekaman untuk disusun. Langkah 1 yang menambahkannya."
+        "workItemsEmptyBody": "Belum ada rekaman untuk disusun. Langkah 1 yang menambahkannya.",
+        "manualSessionIdLabel": "Atau masukkan ID sesi secara manual:",
+        "manualSessionIdPlaceholder": "contoh: sess-123"
     },
     "dokumen": {
         "heading": "Dokumen",

@@ -22,6 +22,14 @@
         --primary: 18 92% 38%;
         --primary-foreground: 0 0% 100%;
 
+        /*
+         * Stop, failure and delete states. A red one step darker than the
+         * safety orange so a destructive control never reads as the ordinary
+         * primary action next to it.
+         */
+        --destructive: 0 72% 42%;
+        --destructive-foreground: 0 0% 100%;
+
         --accent: 211 45% 15%;
         --accent-foreground: 40 33% 97%;
 
