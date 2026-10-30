@@ -475,4 +475,79 @@ describe("PATCH /api/documents/[id] route handler", () => {
         expect(store.get("sess-alias-77")?.pekerjaan[0].volume).toBe(12);
         expect(store.get("SL/QTN/2026-10-29/077")?.pekerjaan[0].volume).toBe(12);
     });
+
+    // `_spark_path` travels on the stored document, so PATCH has to strip it
+    // on its own: gating the POST envelope alone left the patch response
+    // reporting the marker in production.
+    it("reports _spark_path outside production", async () => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV = "test";
+        try {
+            const store = getDocumentStore();
+            store.set(
+                "sess-spark-patch-dev",
+                createTestDocument({ _spark_path: true })
+            );
+
+            const res = await PATCH(
+                new Request("http://localhost/api/documents/sess-spark-patch-dev", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].volume",
+                        nilai: 30,
+                    }),
+                }),
+                { params: Promise.resolve({ id: "sess-spark-patch-dev" }) }
+            );
+            expect(res.status).toBe(200);
+            const data = await res.json();
+            expect(data.document._spark_path).toBe(true);
+        } finally {
+            if (originalNodeEnv === undefined) {
+                delete (process.env as Record<string, string | undefined>)
+                    .NODE_ENV;
+            } else {
+                (process.env as Record<string, string | undefined>).NODE_ENV =
+                    originalNodeEnv;
+            }
+        }
+    });
+
+    it("omits _spark_path entirely in production", async () => {
+        const originalNodeEnv = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV =
+            "production";
+        try {
+            const store = getDocumentStore();
+            store.set(
+                "sess-spark-patch-prod",
+                createTestDocument({ _spark_path: true })
+            );
+
+            const res = await PATCH(
+                new Request("http://localhost/api/documents/sess-spark-patch-prod", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].volume",
+                        nilai: 30,
+                    }),
+                }),
+                { params: Promise.resolve({ id: "sess-spark-patch-prod" }) }
+            );
+            expect(res.status).toBe(200);
+            const data = await res.json();
+            expect("_spark_path" in data.document).toBe(false);
+            expect(JSON.stringify(data)).not.toContain("_spark_path");
+        } finally {
+            if (originalNodeEnv === undefined) {
+                delete (process.env as Record<string, string | undefined>)
+                    .NODE_ENV;
+            } else {
+                (process.env as Record<string, string | undefined>).NODE_ENV =
+                    originalNodeEnv;
+            }
+        }
+    });
 });

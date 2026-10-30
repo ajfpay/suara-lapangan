@@ -4,6 +4,10 @@ import { applyGuard } from "@/lib/server/guard/rules";
 import { callMuseSpark, SparkError } from "@/lib/server/guard/spark";
 import { documentFromTurns } from "@/lib/server/guard/documentFromTurns";
 import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import {
+    sparkPathMarker,
+    toResponseDocument,
+} from "@/lib/server/guard/sparkPath";
 import type { Locale, Proyek } from "@/lib/server/guard/types";
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -14,28 +18,6 @@ type PostDocumentBody = {
     project?: unknown;
     turns?: unknown;
 };
-
-/**
- * Debug marker distinguishing the live Spark model path from the rule
- * fallback. Non-production only: the response must not carry the field at
- * all (not `false`, not `undefined` as an own key) when running in
- * production. Kept for dev/test so e2e can prove the real Spark path.
- */
-function sparkPathMarker(fromModel: boolean): { _spark_path?: true } {
-    if (fromModel && process.env.NODE_ENV !== "production") {
-        return { _spark_path: true };
-    }
-    return {};
-}
-
-function toResponseDocument<T extends { _spark_path?: boolean }>(doc: T): T {
-    if (process.env.NODE_ENV === "production" && "_spark_path" in doc) {
-        const { ...rest } = doc;
-        delete (rest as { _spark_path?: boolean })._spark_path;
-        return rest as T;
-    }
-    return doc;
-}
 
 export async function POST(request: Request): Promise<Response> {
     let body: PostDocumentBody;
