@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderQuotationHtml } from "./render";
+import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { formatMoney } from "./QuotationTemplate";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 

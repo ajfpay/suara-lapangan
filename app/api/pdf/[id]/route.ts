@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { renderQuotationHtml } from "@/app/components/templates/quotation-pdf/render";
+import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getDocumentStore } from "@/lib/server/guard/documentStore";
 import { createHash } from "node:crypto";
 
