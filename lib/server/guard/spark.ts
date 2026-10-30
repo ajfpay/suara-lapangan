@@ -98,6 +98,14 @@ export async function callMuseSpark({
 
     const text = await response.text();
     if (!response.ok) {
+        if (response.status === 400) {
+            throw new SparkError(
+                "schema_rejected",
+                400,
+                "Model API rejected the request schema (HTTP 400)",
+                { body: text.slice(0, 200) }
+            );
+        }
         if (response.status === 401 || response.status === 403) {
             throw new SparkError(
                 "upstream_auth",
@@ -151,7 +159,9 @@ export async function callMuseSpark({
             throw new Error("No output text in Responses API response");
         }
 
-        return JSON.parse(outputText) as CandidateDocument;
+        const candidate = JSON.parse(outputText) as CandidateDocument;
+        candidate._spark_path = true;
+        return candidate;
     } catch (cause) {
         throw new SparkError(
             "invalid_response",

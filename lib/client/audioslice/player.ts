@@ -8,10 +8,11 @@ export interface PlaybackState {
     isPlaying: boolean;
     activeTurnId: string | null;
     audioUnavailableTurnId: string | null;
+    autoplayBlockedTurnId?: string | null;
     error: string | null;
 }
 
-export function useAudioSlicePlayer(sessionId: string) {
+export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id") {
     const [state, setState] = useState<PlaybackState>({
         isPlaying: false,
         activeTurnId: null,
@@ -29,6 +30,8 @@ export function useAudioSlicePlayer(sessionId: string) {
 
     const cleanupAudio = useCallback(() => {
         if (audioRef.current) {
+            audioRef.current.onended = null;
+            audioRef.current.onerror = null;
             audioRef.current.pause();
             audioRef.current.src = "";
             audioRef.current = null;
@@ -154,7 +157,49 @@ export function useAudioSlicePlayer(sessionId: string) {
                     return;
                 }
 
-                await audio.play();
+                try {
+                    await audio.play();
+                } catch (playErr: unknown) {
+                    if (generation !== generationRef.current) {
+                        return;
+                    }
+                    if (pendingTurnIdRef.current === turnId) {
+                        pendingTurnIdRef.current = null;
+                    }
+                    cleanupAudio();
+                    const isNotAllowed =
+                        (playErr instanceof DOMException &&
+                            playErr.name === "NotAllowedError") ||
+                        (playErr instanceof Error &&
+                            (playErr.name === "NotAllowedError" ||
+                                playErr.message?.includes("NotAllowedError") ||
+                                playErr.message?.includes("user")));
+
+                    if (isNotAllowed) {
+                        const autoplayMsg =
+                            locale === "en"
+                                ? "Autoplay blocked: user interaction required"
+                                : "Autoplay diblokir: interaksi pengguna diperlukan";
+                        setState((prev) => ({
+                            ...prev,
+                            isPlaying: false,
+                            activeTurnId: null,
+                            audioUnavailableTurnId: null,
+                            autoplayBlockedTurnId: turnId,
+                            error: autoplayMsg,
+                        }));
+                    } else {
+                        setState((prev) => ({
+                            ...prev,
+                            isPlaying: false,
+                            activeTurnId: null,
+                            audioUnavailableTurnId: turnId,
+                            autoplayBlockedTurnId: null,
+                            error: null,
+                        }));
+                    }
+                    return;
+                }
                 if (generation !== generationRef.current) {
                     cleanupAudio();
                     return;
@@ -187,13 +232,14 @@ export function useAudioSlicePlayer(sessionId: string) {
                 }));
             }
         },
-        [sessionId, state.isPlaying, state.activeTurnId, stop, cleanupAudio]
+        [sessionId, state.isPlaying, state.activeTurnId, stop, cleanupAudio, locale]
     );
 
     const clearUnavailableNotice = useCallback(() => {
         setState((prev) => ({
             ...prev,
             audioUnavailableTurnId: null,
+            autoplayBlockedTurnId: null,
         }));
     }, []);
 

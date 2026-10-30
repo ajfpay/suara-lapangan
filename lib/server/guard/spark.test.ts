@@ -71,6 +71,7 @@ describe("callMuseSpark", () => {
         });
 
         expect(res.jenis).toBe("surat_penawaran");
+        expect(res._spark_path).toBe(true);
         expect((res.pekerjaan as Array<{ volume: number }>)[0].volume).toBe(20);
     });
 
@@ -103,6 +104,7 @@ describe("callMuseSpark", () => {
         });
 
         expect(res.jenis).toBe("surat_penawaran");
+        expect(res._spark_path).toBe(true);
     });
 
     it("throws invalid_response on missing output text", async () => {
