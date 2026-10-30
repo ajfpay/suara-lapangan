@@ -130,10 +130,15 @@ test.describe("Ticket 02: Rekam native, WAV 16 kHz, antrean offline", () => {
             badgeRed,
             `record-duration text colour was ${painted.badgeText}`
         ).toBeGreaterThan(badgeBlue + 40);
+        const [bgRed, bgGreen, bgBlue] = channels(painted.background);
         expect(
-            painted.background,
-            "record button painted no background"
-        ).not.toBe("rgba(0, 0, 0, 0)");
+            bgRed,
+            `record button background was ${painted.background}`
+        ).toBeGreaterThan(bgGreen + 40);
+        expect(
+            bgRed,
+            `record button background was ${painted.background}`
+        ).toBeGreaterThan(bgBlue + 40);
         for (const channel of channels(painted.foreground)) {
             expect(
                 channel,
