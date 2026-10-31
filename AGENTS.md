@@ -21,6 +21,9 @@ Batasan lain yang sudah berlaku: pekerja tidak menyentuh worktree tiket lain, ti
 menghapus cabang/worktree, dan tidak membuat repo publik atau deploy (butuh persetujuan tertulis
 pemilik).
 
+Catatan: `.capy/setup.json` mengonfigurasi dev environment Capy (capy.ai) dan hanya relevan bila
+repo ini dipakai dengan Capy; bila tidak, abaikan atau hapus berkas tersebut.
+
 ## Project Status
 
 Diperbarui 29 Okt 2026.
