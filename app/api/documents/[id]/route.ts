@@ -9,7 +9,6 @@ import { amountInWords, terbilang } from "@/lib/server/guard/words";
 import type {
     CanonicalUnit,
     DocumentStatus,
-    QuotationDocument,
 } from "@/lib/server/guard/types";
 
 function round(value: number, decimals = 2): number {
