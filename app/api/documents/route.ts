@@ -9,6 +9,10 @@ import {
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
 import {
+    allocateDocumentNumber,
+    getDocumentNumberPool,
+} from "@/lib/server/db/documentNumber";
+import {
     sparkPathMarker,
     toResponseDocument,
 } from "@/lib/server/guard/sparkPath";
@@ -218,6 +222,24 @@ export async function POST(request: Request): Promise<Response> {
         }
     }
 
+    // One number per created document, allocated after the idempotency check so
+    // a reuse hit never burns a number. The allocation commits independently of
+    // the document insert, so a failed create burns its number (never reused);
+    // the unique index on documents.nomor is the second line of defence.
+    const year = new Date().getFullYear();
+    let nomor: string;
+    try {
+        nomor = await allocateDocumentNumber(getDocumentNumberPool(), year);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[documents] allocation failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            { error: "store_failure", message: "Failed to allocate document number" },
+            { status: 500 }
+        );
+    }
+
     async function persistAndRespond(
         document: QuotationDocument,
         fromModel: boolean
@@ -268,7 +290,7 @@ export async function POST(request: Request): Promise<Response> {
             session.turns,
             resolvedLocale,
             project,
-            { sessionId }
+            { sessionId, nomor }
         );
         return persistAndRespond(result.document, false);
     }
@@ -288,7 +310,7 @@ export async function POST(request: Request): Promise<Response> {
                     session.turns,
                     resolvedLocale,
                     project,
-                    { sessionId }
+                    { sessionId, nomor }
                 );
                 // Skip persisting on transient upstream error so subsequent requests can retry
                 return NextResponse.json(
@@ -316,6 +338,7 @@ export async function POST(request: Request): Promise<Response> {
         locale: resolvedLocale,
         project,
         sessionId,
+        nomor,
     });
 
     // Save document

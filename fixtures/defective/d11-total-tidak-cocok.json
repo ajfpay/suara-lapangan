@@ -34,7 +34,7 @@
     "jenis": "surat_penawaran",
     "locale": "en",
     "mata_uang": "USD",
-    "nomor": "SL/QTN/2026-11-02/041",
+    "nomor": "SL/QTN/2026/0541",
     "tanggal": "2026-11-02",
     "proyek": {
       "nama": "Office Partition",
@@ -68,5 +68,8 @@
     "alasan": "total_nominal (720) disagrees with the sum of the rows (500 + 120 = 620). Guard rule 5 makes the server the only source of the total.",
     "bukti": "twenty-five dollars a square foot"
   },
-  "expectation": { "field": "total_nominal", "verdict": "butuh_konfirmasi" }
+  "expectation": {
+    "field": "total_nominal",
+    "verdict": "butuh_konfirmasi"
+  }
 }

@@ -308,6 +308,61 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(second.document.id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
+        expect(second.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+        expect(second.document.nomor).not.toBe(first.document.nomor);
+    });
+
+    it("assigns the yearly number at creation and never lets the model's nomor through", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const session = mockSession(
+            "sess-nomor-owner",
+            "Twenty-four square feet of drywall at twenty-five dollars a square foot."
+        );
+        await seedSessionsIntoDb([{ id: "sess-nomor-owner", locale: "en", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
+
+        const modelNomor = "SL/QTN/1999/0001";
+        const mockCandidate: CandidateDocument = {
+            jenis: "surat_penawaran",
+            locale: "en",
+            mata_uang: "USD",
+            nomor: modelNomor,
+            tanggal: "2026-10-29",
+            proyek: { nama: "Living Room Remodel", lokasi: "Austin, TX", klien: "Mr. Carter" },
+            pekerjaan: [
+                {
+                    uraian: "Drywall installation",
+                    volume: 24,
+                    satuan: "sq_ft",
+                    harga_satuan: 25,
+                    jumlah: 600,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 600,
+            terbilang: "Six hundred US dollars",
+            butuh_konfirmasi: [],
+        };
+        vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(mockCandidate);
+
+        const res = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId: "sess-nomor-owner", locale: "en" }),
+            })
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+
+        const year = new Date().getFullYear();
+        expect(data.document.nomor).toMatch(new RegExp(`^SL/QTN/${year}/\\d{4}$`));
+        expect(data.document.nomor).not.toBe(modelNomor);
+        const row = await pool.query(
+            "select nomor from documents where id = $1::uuid",
+            [data.document.id]
+        );
+        expect(row.rows[0].nomor).toBe(data.document.nomor);
     });
 
     it("an inline-turns POST against a stored session builds from the stored turns, never clobbering them", async () => {
@@ -404,7 +459,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
             jenis: "surat_penawaran",
             locale: "en",
             mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-29",
             proyek: {
                 nama: "Living Room Remodel",
@@ -467,7 +522,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
             jenis: "surat_penawaran",
             locale: "en",
             mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-29",
             proyek: { nama: "Living Room Remodel", lokasi: "Austin, TX", klien: "Mr. Carter" },
             pekerjaan: [
@@ -518,7 +573,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
             jenis: "surat_penawaran",
             locale: "en",
             mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-29",
             proyek: { nama: "Living Room Remodel", lokasi: "Austin, TX", klien: "Mr. Carter" },
             pekerjaan: [

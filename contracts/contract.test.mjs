@@ -49,8 +49,7 @@ const EXTENSION_DEFECT_CODES = [
 const ALL_DEFECT_CODES = [...FROZEN_DEFECT_CODES, ...EXTENSION_DEFECT_CODES];
 
 const VERDICTS = ["butuh_konfirmasi", "tolak_dokumen"];
-const NOMOR_PATTERN =
-    /^SL\/QTN\/(?:\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|02-(?:0[1-9]|[12]\d)))\/\d{3}$/;
+const NOMOR_PATTERN = /^SL\/QTN\/\d{4}\/\d{4}$/;
 
 // Canonical unit -> how it is said, in either language. Longest phrase first
 // when scanning, so "meter persegi" is not read as a bare "meter".
@@ -437,6 +436,28 @@ test("quotation schema rejects impossible calendar dates and turn_0 citations", 
         valueProblems(schema, turn0, "turn0", []).length > 0,
         "schema must reject turn_0"
     );
+});
+
+test("quotation schema accepts the yearly nomor and rejects the old date format", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+    for (const nomor of ["SL/QTN/2026/0001", "SL/QTN/2026/9999"]) {
+        assert.deepEqual(
+            valueProblems(schema, { ...valid, nomor }, nomor, []),
+            [],
+            `schema must accept ${nomor}`
+        );
+    }
+    for (const nomor of [
+        "SL/QTN/2026-10-29/001",
+        "SL/QTN/2026/00001",
+        "SL/QTN/26/0001",
+    ]) {
+        assert.ok(
+            valueProblems(schema, { ...valid, nomor }, nomor, []).length > 0,
+            `schema must reject ${nomor}`
+        );
+    }
 });
 
 function terbilangNumber(n) {

@@ -24,7 +24,7 @@ function createTestDocument(
         jenis: "surat_penawaran",
         locale: "id",
         mata_uang: "IDR",
-        nomor: "SL/QTN/2026-10-29/001",
+        nomor: "SL/QTN/2026/0001",
         tanggal: "2026-10-29",
         proyek: {
             nama: "Renovasi Rumah",
@@ -331,7 +331,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
             createTestDocument({
                 locale: "en",
                 mata_uang: "USD",
-                nomor: "SL/QTN/2026-10-29/002",
+                nomor: "SL/QTN/2026/0002",
                 proyek: {
                     nama: "Drywall project",
                     lokasi: "Seattle, WA",

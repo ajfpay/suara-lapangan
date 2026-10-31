@@ -41,10 +41,6 @@ function formatDate(d: Date): string {
     return `${yyyy}-${mm}-${dd}`;
 }
 
-function defaultNomor(dateStr: string): string {
-    return `SL/QTN/${dateStr}/001`;
-}
-
 /**
  * Validates candidate against schema baseline and applies the 5 deterministic guard rules:
  * 1. Citation isolation: sumber_kutipan must cite a final=true turn in the session.
@@ -74,7 +70,7 @@ export function applyGuard(
             ? candidate.tanggal
             : context?.date ?? formatDate(new Date());
 
-    const nomor = context?.nomor ?? defaultNomor(tanggal);
+    const nomor = context?.nomor ?? "";
 
     // Project extraction
     const rawProyek =

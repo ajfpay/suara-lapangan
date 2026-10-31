@@ -29,7 +29,7 @@ describe("callMuseSpark", () => {
             jenis: "surat_penawaran",
             locale: "en",
             mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-29",
             proyek: { nama: "Drywall", lokasi: "Austin", klien: "Bob" },
             pekerjaan: [
@@ -80,7 +80,7 @@ describe("callMuseSpark", () => {
             jenis: "surat_penawaran",
             locale: "en",
             mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-29",
             proyek: { nama: "Drywall", lokasi: "Austin", klien: "Bob" },
             pekerjaan: [],

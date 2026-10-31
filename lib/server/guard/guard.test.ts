@@ -67,15 +67,13 @@ describe("Guard Rules §B2 - Clean Fixtures with Expected Documents", () => {
                 locale,
                 project,
                 date: doc.tanggal,
+                nomor: doc.nomor,
             });
 
             expect(result.status).toBe("siap");
             expect(result.butuh_konfirmasi).toEqual([]);
-            expect(result.document.nomor).toMatch(/^SL\/QTN\/\d{4}-\d{2}-\d{2}\/\d{3}$/);
-            expect(result.document).toEqual({
-                ...doc,
-                nomor: result.document.nomor,
-            });
+            expect(result.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+            expect(result.document).toEqual(doc);
         });
     }
 });
@@ -100,7 +98,7 @@ describe("Guard Rules §B2 - locale and currency stay paired", () => {
             jenis: "surat_penawaran" as const,
             locale: "en" as const,
             mata_uang: "IDR" as const,
-            nomor: "SL/QTN/2026-10-30/001",
+            nomor: "SL/QTN/2026/0001",
             tanggal: "2026-10-30",
             proyek: project,
             pekerjaan: [
