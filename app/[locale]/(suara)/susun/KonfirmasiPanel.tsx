@@ -71,13 +71,10 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 const fallback = isIndo
                     ? "Gagal membuat dokumen"
                     : "Failed to create document";
-                setError(
-                    `${fallback} (no_document_id): ${
-                        isIndo
-                            ? "server mengembalikan 200 tanpa id dokumen"
-                            : "server returned 200 without a document id"
-                    }`
-                );
+                const detail = isIndo
+                    ? "server mengembalikan 200 tanpa id dokumen"
+                    : "server returned 200 without a document id";
+                setError(`${fallback} (no_document_id): ${detail}`);
                 return;
             }
             setDocId(doc.id);

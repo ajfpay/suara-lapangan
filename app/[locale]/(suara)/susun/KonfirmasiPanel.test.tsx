@@ -538,9 +538,38 @@ describe("KonfirmasiPanel", () => {
         const alert = await screen.findByRole("alert");
         expect(alert.textContent).toContain("Gagal membuat dokumen");
         expect(alert.textContent).toContain("no_document_id");
+        expect(alert.textContent).toContain("server mengembalikan 200 tanpa id dokumen");
         expect(screen.queryByTestId("document-nomor")).toBeNull();
         expect(
             screen.queryByRole("link", { name: "Lihat dokumen" })
         ).toBeNull();
+    });
+
+    it("create: 200 with no document.id shows the English-locale retry error", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: { nomor: "SL/QTN/2026/0103" },
+                butuh_konfirmasi: [],
+                status: "siap",
+            }),
+        });
+
+        render(
+            <KonfirmasiPanel
+                locale="en"
+                sessionId="sess-no-id-en-test"
+                onPlayEvidence={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Create document" }));
+
+        const alert = await screen.findByRole("alert");
+        expect(alert.textContent).toContain("Failed to create document");
+        expect(alert.textContent).toContain("no_document_id");
+        expect(alert.textContent).toContain("server returned 200 without a document id");
+        expect(screen.queryByTestId("document-nomor")).toBeNull();
     });
 });
