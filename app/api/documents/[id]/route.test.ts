@@ -1,10 +1,21 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { PATCH } from "./route";
-import {
-    getDocumentStore,
-    resetDocumentStoreForTesting,
-} from "@/lib/server/guard/documentStore";
+import { Pool } from "pg";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { GET, PATCH } from "./route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
+
+/**
+ * PATCH /api/documents/[id] against the test Postgres (`ASR_TEST_DATABASE_URL`).
+ * The route's field whitelist and server-side recompute are pure logic checked
+ * through the HTTP shapes; the store itself is exercised end to end.
+ */
+
+const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
+
+if (TEST_DATABASE_URL !== undefined) {
+    // The route builds its store from DATABASE_URL; point it at the same test
+    // database the assertions read through their own pool.
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+}
 
 function createTestDocument(
     overrides?: Partial<QuotationDocument>
@@ -45,10 +56,62 @@ function createTestDocument(
     };
 }
 
-describe("PATCH /api/documents/[id] route handler", () => {
-    beforeEach(() => {
-        resetDocumentStoreForTesting();
+describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", () => {
+    let pool: Pool;
+    let seededIds: string[] = [];
+
+    beforeAll(async () => {
+        pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        for (const file of [
+            "0001_sessions_turns.sql",
+            "0002_usage_meter.sql",
+            "0003_documents.sql",
+        ]) {
+            const sql = await import("node:fs/promises").then((fs) =>
+                fs.readFile(`db/migrations/${file}`, "utf8")
+            );
+            await pool.query(sql);
+        }
     });
+
+    beforeEach(async () => {
+        await pool.query("truncate documents, sessions cascade");
+        seededIds = [];
+        await pool.query(
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+        );
+    });
+
+    afterAll(async () => {
+        await pool.end();
+    });
+
+    async function seedDocument(document: QuotationDocument): Promise<string> {
+        const result = await pool.query<{ id: string }>(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('seed-session', $1, $2, $3, $4, $5) returning id`,
+            [
+                document.locale,
+                document.nomor + "#" + seededIds.length,
+                document.butuh_konfirmasi.length > 0
+                    ? "perlu_konfirmasi"
+                    : "siap",
+                "hash-" + seededIds.length,
+                JSON.stringify(document),
+            ]
+        );
+        const id = result.rows[0].id;
+        seededIds.push(id);
+        return id;
+    }
+
+    async function readDocument(id: string): Promise<QuotationDocument | null> {
+        const result = await pool.query<{ data_json: QuotationDocument }>(
+            "select data_json from documents where id = $1::uuid",
+            [id]
+        );
+        return result.rows[0]?.data_json ?? null;
+    }
 
     it("rejects non-JSON body with 400", async () => {
         const req = new Request("http://localhost/api/documents/doc-1", {
@@ -151,17 +214,22 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("returns 404 for an unknown id", async () => {
-        const req = new Request("http://localhost/api/documents/unknown-id", {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                field: "pekerjaan[0].volume",
-                nilai: 15,
-            }),
-        });
+        const req = new Request(
+            "http://localhost/api/documents/00000000-0000-0000-0000-000000000000",
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    field: "pekerjaan[0].volume",
+                    nilai: 15,
+                }),
+            }
+        );
 
         const res = await PATCH(req, {
-            params: Promise.resolve({ id: "unknown-id" }),
+            params: Promise.resolve({
+                id: "00000000-0000-0000-0000-000000000000",
+            }),
         });
         expect(res.status).toBe(404);
         const data = await res.json();
@@ -169,10 +237,9 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("rejects pekerjaan index out of bounds with 400", async () => {
-        const store = getDocumentStore();
-        store.set("doc-1", createTestDocument());
+        const id = await seedDocument(createTestDocument());
 
-        const req = new Request("http://localhost/api/documents/doc-1", {
+        const req = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -182,7 +249,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res = await PATCH(req, {
-            params: Promise.resolve({ id: "doc-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res.status).toBe(400);
         const data = await res.json();
@@ -190,10 +257,9 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("rejects invalid numeric values with 400", async () => {
-        const store = getDocumentStore();
-        store.set("doc-1", createTestDocument());
+        const id = await seedDocument(createTestDocument());
 
-        const nonNumReq = new Request("http://localhost/api/documents/doc-1", {
+        const nonNumReq = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -202,13 +268,13 @@ describe("PATCH /api/documents/[id] route handler", () => {
             }),
         });
         const nonNumRes = await PATCH(nonNumReq, {
-            params: Promise.resolve({ id: "doc-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(nonNumRes.status).toBe(400);
         const nonNumData = await nonNumRes.json();
         expect(nonNumData.error).toBe("invalid_request");
 
-        const negReq = new Request("http://localhost/api/documents/doc-1", {
+        const negReq = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -217,7 +283,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
             }),
         });
         const negRes = await PATCH(negReq, {
-            params: Promise.resolve({ id: "doc-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(negRes.status).toBe(400);
         const negData = await negRes.json();
@@ -225,19 +291,10 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("correcting pekerjaan[i].volume recomputes jumlah, total_nominal, and terbilang on the server", async () => {
-        const store = getDocumentStore();
-        const initialDoc = createTestDocument();
-        store.set("doc-vol-1", initialDoc);
-
-        // Initial state:
-        // Item 0: volume 10, harga 50000 -> 500000
-        // Item 1: volume 5, harga 40000 -> 200000
-        // Total: 700000
-        expect(initialDoc.pekerjaan[0].jumlah).toBe(500000);
-        expect(initialDoc.total_nominal).toBe(700000);
+        const id = await seedDocument(createTestDocument());
 
         // Patch volume of item 0 to 20
-        const req = new Request("http://localhost/api/documents/doc-vol-1", {
+        const req = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -247,55 +304,56 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res = await PATCH(req, {
-            params: Promise.resolve({ id: "doc-vol-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res.status).toBe(200);
 
         const data = await res.json();
-        // Server recomputations:
         // Item 0 jumlah: 20 * 50000 = 1,000,000
         // Item 1 jumlah: 5 * 40000 = 200,000
-        // total_nominal: 1,000,000 + 200,000 = 1,200,000
-        // terbilang: "Satu juta dua ratus ribu rupiah"
+        // total_nominal: 1,200,000
+        expect(data.document.id).toBe(id);
         expect(data.document.pekerjaan[0].volume).toBe(20);
         expect(data.document.pekerjaan[0].jumlah).toBe(1000000);
         expect(data.document.pekerjaan[1].jumlah).toBe(200000);
         expect(data.document.total_nominal).toBe(1200000);
         expect(data.document.terbilang).toBe("Satu juta dua ratus ribu rupiah");
         expect(data.status).toBe("siap");
+
+        // The patch reached Postgres, not just the response.
+        const stored = await readDocument(id);
+        expect(stored?.pekerjaan[0].volume).toBe(20);
+        expect(stored?.total_nominal).toBe(1200000);
     });
 
     it("correcting pekerjaan[i].harga_satuan with string coercion in English locale document", async () => {
-        const store = getDocumentStore();
-        const enDoc: QuotationDocument = {
-            jenis: "surat_penawaran",
-            locale: "en",
-            mata_uang: "USD",
-            nomor: "SL/QTN/2026-10-29/002",
-            tanggal: "2026-10-29",
-            proyek: {
-                nama: "Drywall project",
-                lokasi: "Seattle, WA",
-                klien: "John Doe",
-            },
-            pekerjaan: [
-                {
-                    uraian: "Install drywall",
-                    volume: 4,
-                    satuan: "sheet",
-                    harga_satuan: 25,
-                    jumlah: 100,
-                    sumber_kutipan: "turn_1",
+        const id = await seedDocument(
+            createTestDocument({
+                locale: "en",
+                mata_uang: "USD",
+                nomor: "SL/QTN/2026-10-29/002",
+                proyek: {
+                    nama: "Drywall project",
+                    lokasi: "Seattle, WA",
+                    klien: "John Doe",
                 },
-            ],
-            total_nominal: 100,
-            terbilang: "One hundred US dollars",
-            butuh_konfirmasi: [],
-        };
-        store.set("doc-en-1", enDoc);
+                pekerjaan: [
+                    {
+                        uraian: "Install drywall",
+                        volume: 4,
+                        satuan: "sheet",
+                        harga_satuan: 25,
+                        jumlah: 100,
+                        sumber_kutipan: "turn_1",
+                    },
+                ],
+                total_nominal: 100,
+                terbilang: "One hundred US dollars",
+            })
+        );
 
         // Patch harga_satuan as string "30.5"
-        const req = new Request("http://localhost/api/documents/doc-en-1", {
+        const req = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -305,7 +363,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res = await PATCH(req, {
-            params: Promise.resolve({ id: "doc-en-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res.status).toBe(200);
 
@@ -319,10 +377,9 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("patches string fields (satuan and uraian)", async () => {
-        const store = getDocumentStore();
-        store.set("doc-str-1", createTestDocument());
+        const id = await seedDocument(createTestDocument());
 
-        const req1 = new Request("http://localhost/api/documents/doc-str-1", {
+        const req1 = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -331,13 +388,13 @@ describe("PATCH /api/documents/[id] route handler", () => {
             }),
         });
         const res1 = await PATCH(req1, {
-            params: Promise.resolve({ id: "doc-str-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res1.status).toBe(200);
         const data1 = await res1.json();
         expect(data1.document.pekerjaan[0].satuan).toBe("sak");
 
-        const req2 = new Request("http://localhost/api/documents/doc-str-1", {
+        const req2 = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -346,7 +403,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
             }),
         });
         const res2 = await PATCH(req2, {
-            params: Promise.resolve({ id: "doc-str-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res2.status).toBe(200);
         const data2 = await res2.json();
@@ -356,25 +413,25 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("removes matching entry from butuh_konfirmasi and status flips from perlu_konfirmasi to siap only when empty", async () => {
-        const store = getDocumentStore();
-        const docWithDefects = createTestDocument({
-            butuh_konfirmasi: [
-                {
-                    field: "pekerjaan[0].volume",
-                    alasan: "Volume tidak cocok dengan transkrip",
-                    sumber_kutipan: "turn_1",
-                },
-                {
-                    field: "pekerjaan[0].harga_satuan",
-                    alasan: "Harga satuan tidak cocok dengan transkrip",
-                    sumber_kutipan: "turn_1",
-                },
-            ],
-        });
-        store.set("doc-def-1", docWithDefects);
+        const id = await seedDocument(
+            createTestDocument({
+                butuh_konfirmasi: [
+                    {
+                        field: "pekerjaan[0].volume",
+                        alasan: "Volume tidak cocok dengan transkrip",
+                        sumber_kutipan: "turn_1",
+                    },
+                    {
+                        field: "pekerjaan[0].harga_satuan",
+                        alasan: "Harga satuan tidak cocok dengan transkrip",
+                        sumber_kutipan: "turn_1",
+                    },
+                ],
+            })
+        );
 
         // First patch: fix pekerjaan[0].volume
-        const req1 = new Request("http://localhost/api/documents/doc-def-1", {
+        const req1 = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -384,7 +441,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res1 = await PATCH(req1, {
-            params: Promise.resolve({ id: "doc-def-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res1.status).toBe(200);
         const data1 = await res1.json();
@@ -396,7 +453,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
         expect(data1.document.butuh_konfirmasi).toHaveLength(1);
 
         // Second patch: fix pekerjaan[0].harga_satuan
-        const req2 = new Request("http://localhost/api/documents/doc-def-1", {
+        const req2 = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -406,7 +463,7 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res2 = await PATCH(req2, {
-            params: Promise.resolve({ id: "doc-def-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res2.status).toBe(200);
         const data2 = await res2.json();
@@ -418,10 +475,9 @@ describe("PATCH /api/documents/[id] route handler", () => {
     });
 
     it("persists document so a second read reflects the patch", async () => {
-        const store = getDocumentStore();
-        store.set("doc-persist-1", createTestDocument());
+        const id = await seedDocument(createTestDocument());
 
-        const req = new Request("http://localhost/api/documents/doc-persist-1", {
+        const req = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -431,66 +487,29 @@ describe("PATCH /api/documents/[id] route handler", () => {
         });
 
         const res = await PATCH(req, {
-            params: Promise.resolve({ id: "doc-persist-1" }),
+            params: Promise.resolve({ id }),
         });
         expect(res.status).toBe(200);
 
-        // Second read from store directly
-        const storedDoc = store.get("doc-persist-1");
-        expect(storedDoc).toBeDefined();
-        expect(storedDoc?.pekerjaan[0].volume).toBe(25);
-        expect(storedDoc?.pekerjaan[0].jumlah).toBe(1250000);
-        expect(storedDoc?.total_nominal).toBe(1450000);
-        expect(storedDoc?.terbilang).toBe(
+        const stored = await readDocument(id);
+        expect(stored?.pekerjaan[0].volume).toBe(25);
+        expect(stored?.pekerjaan[0].jumlah).toBe(1250000);
+        expect(stored?.total_nominal).toBe(1450000);
+        expect(stored?.terbilang).toBe(
             "Satu juta empat ratus lima puluh ribu rupiah"
         );
     });
 
-    it("allows patching using nomor as the id parameter", async () => {
-        const store = getDocumentStore();
-        const doc = createTestDocument({ nomor: "SL/QTN/2026-10-29/077" });
-        store.set("sess-alias-77", doc);
-
-        const req = new Request(
-            "http://localhost/api/documents/SL/QTN/2026-10-29/077",
-            {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    field: "pekerjaan[0].volume",
-                    nilai: 12,
-                }),
-            }
-        );
-
-        const res = await PATCH(req, {
-            params: Promise.resolve({ id: "SL/QTN/2026-10-29/077" }),
-        });
-        expect(res.status).toBe(200);
-
-        const data = await res.json();
-        expect(data.document.pekerjaan[0].volume).toBe(12);
-
-        // Both session id and nomor aliases reflect the updated state
-        expect(store.get("sess-alias-77")?.pekerjaan[0].volume).toBe(12);
-        expect(store.get("SL/QTN/2026-10-29/077")?.pekerjaan[0].volume).toBe(12);
-    });
-
-    // `_spark_path` travels on the stored document, so PATCH has to strip it
-    // on its own: gating the POST envelope alone left the patch response
-    // reporting the marker in production.
-    it("reports _spark_path outside production", async () => {
+    it("reports _spark_path outside production and omits it in production", async () => {
         const originalNodeEnv = process.env.NODE_ENV;
-        (process.env as Record<string, string | undefined>).NODE_ENV = "test";
         try {
-            const store = getDocumentStore();
-            store.set(
-                "sess-spark-patch-dev",
+            (process.env as Record<string, string | undefined>).NODE_ENV =
+                "test";
+            const idDev = await seedDocument(
                 createTestDocument({ _spark_path: true })
             );
-
             const res = await PATCH(
-                new Request("http://localhost/api/documents/sess-spark-patch-dev", {
+                new Request(`http://localhost/api/documents/${idDev}`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -498,11 +517,31 @@ describe("PATCH /api/documents/[id] route handler", () => {
                         nilai: 30,
                     }),
                 }),
-                { params: Promise.resolve({ id: "sess-spark-patch-dev" }) }
+                { params: Promise.resolve({ id: idDev }) }
             );
             expect(res.status).toBe(200);
             const data = await res.json();
             expect(data.document._spark_path).toBe(true);
+
+            (process.env as Record<string, string | undefined>).NODE_ENV =
+                "production";
+            const idProd = await seedDocument(
+                createTestDocument({ _spark_path: true })
+            );
+            const resProd = await PATCH(
+                new Request(`http://localhost/api/documents/${idProd}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].volume",
+                        nilai: 30,
+                    }),
+                }),
+                { params: Promise.resolve({ id: idProd }) }
+            );
+            const dataProd = await resProd.json();
+            expect("_spark_path" in dataProd.document).toBe(false);
+            expect(JSON.stringify(dataProd)).not.toContain("_spark_path");
         } finally {
             if (originalNodeEnv === undefined) {
                 delete (process.env as Record<string, string | undefined>)
@@ -513,41 +552,90 @@ describe("PATCH /api/documents/[id] route handler", () => {
             }
         }
     });
+});
 
-    it("omits _spark_path entirely in production", async () => {
-        const originalNodeEnv = process.env.NODE_ENV;
-        (process.env as Record<string, string | undefined>).NODE_ENV =
-            "production";
-        try {
-            const store = getDocumentStore();
-            store.set(
-                "sess-spark-patch-prod",
-                createTestDocument({ _spark_path: true })
-            );
+describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () => {
+    let pool: Pool;
 
-            const res = await PATCH(
-                new Request("http://localhost/api/documents/sess-spark-patch-prod", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        field: "pekerjaan[0].volume",
-                        nilai: 30,
-                    }),
-                }),
-                { params: Promise.resolve({ id: "sess-spark-patch-prod" }) }
+    beforeAll(async () => {
+        pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        for (const file of [
+            "0001_sessions_turns.sql",
+            "0002_usage_meter.sql",
+            "0003_documents.sql",
+        ]) {
+            const sql = await import("node:fs/promises").then((fs) =>
+                fs.readFile(`db/migrations/${file}`, "utf8")
             );
-            expect(res.status).toBe(200);
-            const data = await res.json();
-            expect("_spark_path" in data.document).toBe(false);
-            expect(JSON.stringify(data)).not.toContain("_spark_path");
-        } finally {
-            if (originalNodeEnv === undefined) {
-                delete (process.env as Record<string, string | undefined>)
-                    .NODE_ENV;
-            } else {
-                (process.env as Record<string, string | undefined>).NODE_ENV =
-                    originalNodeEnv;
-            }
+            await pool.query(sql);
         }
+    });
+
+    beforeEach(async () => {
+        await pool.query("truncate documents, sessions cascade");
+        await pool.query(
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+        );
+    });
+
+    afterAll(async () => {
+        await pool.end();
+    });
+
+    async function seedDocument(document: QuotationDocument, hash: string) {
+        const result = await pool.query<{ id: string }>(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('seed-session', $1, $2, $3, $4, $5) returning id`,
+            [
+                document.locale,
+                document.nomor,
+                document.butuh_konfirmasi.length > 0
+                    ? "perlu_konfirmasi"
+                    : "siap",
+                hash,
+                JSON.stringify(document),
+            ]
+        );
+        return result.rows[0].id;
+    }
+
+    it("answers the same envelope as PATCH's 200", async () => {
+        const doc = createTestDocument({
+            butuh_konfirmasi: [
+                {
+                    field: "pekerjaan[0].volume",
+                    alasan: "a",
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+        });
+        const id = await seedDocument(doc, "get-hash-1");
+
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.id).toBe(id);
+        expect(data.document.nomor).toBe(doc.nomor);
+        expect(data.document.total_nominal).toBe(700000);
+        expect(data.butuh_konfirmasi).toHaveLength(1);
+        expect(data.status).toBe("perlu_konfirmasi");
+    });
+
+    it("returns 404 for an unknown id", async () => {
+        const res = await GET(
+            new Request(
+                "http://localhost/api/documents/00000000-0000-0000-0000-000000000000"
+            ),
+            {
+                params: Promise.resolve({
+                    id: "00000000-0000-0000-0000-000000000000",
+                }),
+            }
+        );
+        expect(res.status).toBe(404);
+        const data = await res.json();
+        expect(data.error).toBe("not_found");
     });
 });

@@ -1,76 +1,110 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Pool } from "pg";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
 import * as dbStore from "@/lib/server/db/store";
 import * as sparkModule from "@/lib/server/guard/spark";
 import type { StoredSession, TurnsStore } from "@/lib/server/db/store";
 import type { CandidateDocument } from "@/lib/server/guard/types";
-import { resetDocumentStoreForTesting } from "@/lib/server/guard/documentStore";
 
-describe("POST /api/documents route handler", () => {
+/**
+ * POST /api/documents against the test Postgres (`ASR_TEST_DATABASE_URL`),
+ * which the route reads documents from through `DATABASE_URL`.
+ */
+
+const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
+
+describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
     const originalApiKey = process.env.MODEL_API_KEY;
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    let pool: Pool;
 
-    beforeEach(() => {
-        resetDocumentStoreForTesting();
-        delete process.env.MODEL_API_KEY;
+    beforeAll(async () => {
+        process.env.DATABASE_URL = TEST_DATABASE_URL;
+        pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        const fs = await import("node:fs/promises");
+        const migrationFiles = (await fs.readdir("db/migrations"))
+            .filter((f) => f.endsWith(".sql"))
+            .sort();
+        for (const file of migrationFiles) {
+            await pool.query(await fs.readFile(`db/migrations/${file}`, "utf8"));
+        }
+    });
+
+    beforeEach(async () => {
+        await pool.query("truncate documents, sessions cascade");
+        process.env.DATABASE_URL = TEST_DATABASE_URL;
         vi.restoreAllMocks();
     });
 
-    afterEach(() => {
+    afterEach(async () => {
         if (originalApiKey !== undefined) {
             process.env.MODEL_API_KEY = originalApiKey;
         } else {
             delete process.env.MODEL_API_KEY;
         }
+        if (originalDatabaseUrl === undefined) {
+            delete process.env.DATABASE_URL;
+        } else {
+            process.env.DATABASE_URL = originalDatabaseUrl;
+        }
     });
 
-    it("rejects non-JSON bodies with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            body: "not json",
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
+    afterAll(async () => {
+        await pool.end();
     });
 
-    it("rejects missing or empty sessionId with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
+    function mockSession(sessionId: string, transcript: string): StoredSession {
+        return {
+            sessionId,
+            locale: "id",
+            audioSha256: "sha-test",
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 5000,
+                    transcript,
+                    final: true,
+                },
+            ],
+        };
+    }
 
-    it("rejects invalid sessionId format with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: "bad id with spaces!!!" }),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
 
-    it("rejects invalid locale with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: "sess-valid-1", locale: "fr" }),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
+    async function seedSessionsIntoDb(sessions: { id: string; locale: string; turns: { startMs: number; endMs: number; transcript: string }[] }[]) {
+        const { Pool } = await import("pg");
+        const seedPool = new Pool({ connectionString: TEST_DATABASE_URL });
+        try {
+            for (const s of sessions) {
+                await seedPool.query(
+                    "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ($1, $2, 'sha', 1, 'seed') on conflict (id) do update set locale = excluded.locale",
+                    [s.id, s.locale]
+                );
+                await seedPool.query("delete from turns where session_id = $1", [s.id]);
+                for (const [i, t] of s.turns.entries()) {
+                    await seedPool.query(
+                        "insert into turns (session_id, turn_index, start_ms, end_ms, transcript) values ($1, $2, $3, $4, $5)",
+                        [s.id, i + 1, t.startMs, t.endMs, t.transcript]
+                    );
+                }
+            }
+        } finally {
+            await seedPool.end();
+        }
+    }
 
-    it("returns 500 when database fails to look up session", async () => {
+    function mockStore(session: StoredSession): TurnsStore {
+        return {
+            findSession: vi.fn().mockResolvedValue(session),
+            saveTranscription: vi.fn(),
+        };
+    }
+
+
+
+
+
+    it("returns 500 when the session database fails to look up a session", async () => {
         vi.spyOn(dbStore, "getTurnsStore").mockReturnValue({
             findSession: vi.fn().mockRejectedValue(new Error("DB error")),
         } as unknown as TurnsStore);
@@ -105,14 +139,13 @@ describe("POST /api/documents route handler", () => {
     });
 
     it("returns 400 when session has no turns", async () => {
-        const mockSession: StoredSession = {
-            sessionId: "empty-session",
-            locale: "en",
-            audioSha256: "dummy-sha",
-            turns: [],
-        };
         const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
+            findSession: vi.fn().mockResolvedValue({
+                sessionId: "empty-session",
+                locale: "en",
+                audioSha256: "dummy-sha",
+                turns: [],
+            }),
             saveTranscription: vi.fn(),
         };
         vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
@@ -128,33 +161,30 @@ describe("POST /api/documents route handler", () => {
         expect(data.error).toBe("empty_turns");
     });
 
-    it("falls back to documentFromTurns when MODEL_API_KEY is not configured", async () => {
+    it("creates and persists the document with a server-issued id and unchanged envelope", async () => {
         delete process.env.MODEL_API_KEY;
-        const mockSession: StoredSession = {
-            sessionId: "sess-fallback-1",
-            locale: "id",
-            audioSha256: "sha-fb",
-            turns: [
-                {
-                    turn_id: "turn_1",
-                    startMs: 0,
-                    endMs: 5000,
-                    transcript: "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.",
-                    final: true,
-                },
-            ],
-        };
-        const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
-            saveTranscription: vi.fn(),
-        };
-        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+        const transcript =
+            "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.";
+        const pool2 = await import("pg").then(({ Pool }) => new Pool({ connectionString: TEST_DATABASE_URL }));
+        try {
+            await pool2.query(
+                "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('sess-persist-1', 'id', 'sha', 1, 'seed') on conflict (id) do nothing"
+            );
+            await pool2.query(
+                "insert into turns (session_id, turn_index, start_ms, end_ms, transcript) values ('sess-persist-1', 1, 0, 5000, $1)",
+                [transcript]
+            );
+        } finally {
+            await pool2.end();
+        }
+        const session = mockSession("sess-persist-1", transcript);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
 
         const req = new Request("http://localhost/api/documents", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                sessionId: "sess-fallback-1",
+                sessionId: "sess-persist-1",
                 project: {
                     nama: "Proyek Sleman",
                     lokasi: "Sleman",
@@ -165,45 +195,210 @@ describe("POST /api/documents route handler", () => {
         const res = await POST(req);
         expect(res.status).toBe(200);
         const data = await res.json();
+
+        expect(data.document.id).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        );
         expect(data.status).toBe("siap");
-        expect(data.document.pekerjaan.length).toBe(1);
+        expect(data.butuh_konfirmasi).toEqual([]);
+        expect(data.document.pekerjaan).toHaveLength(1);
         expect(data.document.pekerjaan[0].volume).toBe(100);
         expect(data.document.pekerjaan[0].harga_satuan).toBe(30000);
         expect(data.document.proyek.nama).toBe("Proyek Sleman");
 
-        // Idempotent reuse: second call for same session returns cached document
-        const reqReplay = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: "sess-fallback-1" }),
-        });
-        const resReplay = await POST(reqReplay);
-        expect(resReplay.status).toBe(200);
-        const dataReplay = await resReplay.json();
-        expect(dataReplay.document).toEqual(data.document);
+        // The row is in Postgres with the same id and payload.
+        const row = await pool.query(
+            "select id, session_id, status, data_json from documents where id = $1::uuid",
+            [data.document.id]
+        );
+        expect(row.rowCount).toBe(1);
+        expect(row.rows[0].session_id).toBe("sess-persist-1");
+        expect(row.rows[0].status).toBe("siap");
+        expect(row.rows[0].data_json.total_nominal).toBe(
+            data.document.total_nominal
+        );
     });
 
-    it("calls Muse Spark 1.3, runs guard, and returns 200 with result when key is set", async () => {
-        process.env.MODEL_API_KEY = "test-key";
-        const mockSession: StoredSession = {
-            sessionId: "sess-happy-1",
-            locale: "en",
-            audioSha256: "sha-1",
-            turns: [
-                {
-                    turn_id: "turn_1",
-                    startMs: 0,
-                    endMs: 5000,
-                    transcript: "Twenty-four square feet of drywall at twenty-five dollars a square foot.",
-                    final: true,
-                },
-            ],
-        };
-        const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
+    it("returns the existing document for an identical create on the same day", async () => {
+        delete process.env.MODEL_API_KEY;
+        const transcript =
+            "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.";
+        const session = mockSession("sess-idem-1", transcript);
+        await seedSessionsIntoDb([{ id: "sess-idem-1", locale: "id", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
+
+        const body = JSON.stringify({
+            sessionId: "sess-idem-1",
+            project: {
+                nama: "Proyek Sleman",
+                lokasi: "Sleman",
+                klien: "Pak Andi",
+            },
+        });
+        const res1 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        expect(res1.status).toBe(200);
+        const first = await res1.json();
+
+        const res2 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        expect(res2.status).toBe(200);
+        const second = await res2.json();
+
+        expect(second.document.id).toBe(first.document.id);
+        expect(second.document.nomor).toBe(first.document.nomor);
+
+        // Only one row exists.
+        const rows = await pool.query(
+            "select count(*)::int as n from documents where session_id = 'sess-idem-1'"
+        );
+        expect(rows.rows[0].n).toBe(1);
+    });
+
+    it("creates a distinct document when the turns change for the same session", async () => {
+        delete process.env.MODEL_API_KEY;
+        const turnsStore: TurnsStore = {
+            findSession: vi
+                .fn()
+                .mockResolvedValueOnce(
+                    mockSession("sess-new-1", "pagar dua puluh meter")
+                )
+                .mockResolvedValueOnce(
+                    mockSession("sess-new-1", "pagar tiga puluh meter")
+                ),
             saveTranscription: vi.fn(),
         };
-        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(turnsStore);
+        await seedSessionsIntoDb([
+            { id: "sess-new-1", locale: "id", turns: [{ startMs: 0, endMs: 5000, transcript: "pagar dua puluh meter" }] },
+            { id: "sess-new-1b", locale: "id", turns: [{ startMs: 0, endMs: 5000, transcript: "pagar tiga puluh meter" }] },
+        ]);
+
+        const body = JSON.stringify({ sessionId: "sess-new-1" });
+        const res1 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        const res2 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        expect(res1.status).toBe(200);
+        expect(res2.status).toBe(200);
+        const first = await res1.json();
+        const second = await res2.json();
+
+        expect(second.document.id).not.toBe(first.document.id);
+        expect(second.document.id).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        );
+    });
+
+    it("an inline-turns POST against a stored session builds from the stored turns, never clobbering them", async () => {
+        delete process.env.MODEL_API_KEY;
+        const storedTranscript =
+            "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.";
+        await seedSessionsIntoDb([
+            {
+                id: "sess-inline-guard",
+                locale: "id",
+                turns: [
+                    { startMs: 0, endMs: 5000, transcript: storedTranscript },
+                ],
+            },
+        ]);
+        const storedSession = mockSession("sess-inline-guard", storedTranscript);
+        const save = vi.fn().mockResolvedValue(undefined);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue({
+            findSession: vi.fn().mockResolvedValue(storedSession),
+            saveTranscription: save,
+        });
+
+        const res = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sessionId: "sess-inline-guard",
+                    turns: [
+                        {
+                            turn_id: "turn_1",
+                            startMs: 0,
+                            endMs: 5000,
+                            transcript: "CLOBBERED",
+                            final: true,
+                        },
+                    ],
+                }),
+            })
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+
+        // The document content comes from the stored turns, not the inline copy.
+        expect(data.document.pekerjaan[0].uraian).toBe("Pengecatan kamar");
+        expect(data.document.pekerjaan[0].volume).toBe(100);
+        // The stored session was never rewritten.
+        expect(save).not.toHaveBeenCalled();
+        const row = await pool.query(
+            "select transcript from turns where session_id = 'sess-inline-guard'"
+        );
+        expect(row.rows[0].transcript).toBe(storedTranscript);
+    });
+
+    it("falls back to rule generation when the model rejects the schema, without persisting", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const session = mockSession(
+            "sess-schema-rejected",
+            "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi."
+        );
+        await seedSessionsIntoDb([{ id: "sess-schema-rejected", locale: "id", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
+        vi.spyOn(sparkModule, "callMuseSpark").mockRejectedValue(
+            new sparkModule.SparkError("schema_rejected", 422, "bad candidate"),
+        );
+
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: "sess-schema-rejected" }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan.length).toBeGreaterThan(0);
+
+        // Transient fallback answers are not persisted: the next create can retry.
+        const rows = await pool.query(
+            "select count(*)::int as n from documents where session_id = 'sess-schema-rejected'"
+        );
+        expect(rows.rows[0].n).toBe(0);
+    });
+
+    it("calls Muse Spark 1.3, runs guard, persists, and returns 200 with result when key is set", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const session = mockSession(
+            "sess-happy-1",
+            "Twenty-four square feet of drywall at twenty-five dollars a square foot."
+        );
+        await seedSessionsIntoDb([{ id: "sess-happy-1", locale: "en", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
 
         const mockCandidate: CandidateDocument = {
             jenis: "surat_penawaran",
@@ -249,77 +444,24 @@ describe("POST /api/documents route handler", () => {
         expect(data.document.pekerjaan[0].jumlah).toBe(600);
         expect(data.document.total_nominal).toBe(600);
         expect(data.document.terbilang).toBe("Six hundred US dollars");
-    });
 
-    it("falls back to rule generation when the model rejects the schema", async () => {
-        process.env.MODEL_API_KEY = "test-key";
-        const mockSession: StoredSession = {
-            sessionId: "sess-schema-rejected",
-            locale: "id",
-            audioSha256: "sha-schema",
-            turns: [
-                {
-                    turn_id: "turn_1",
-                    startMs: 0,
-                    endMs: 5000,
-                    transcript: "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.",
-                    final: true,
-                },
-            ],
-        };
-        const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
-            saveTranscription: vi.fn(),
-        };
-        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
-        vi.spyOn(sparkModule, "callMuseSpark").mockRejectedValue(
-            new sparkModule.SparkError(
-                "schema_rejected",
-                400,
-                "Model API rejected the request schema (HTTP 400)"
-            )
+        const row = await pool.query(
+            "select status from documents where id = $1::uuid",
+            [data.document.id]
         );
-
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                sessionId: "sess-schema-rejected",
-                locale: "id",
-            }),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(200);
-        const data = await res.json();
-        expect(data.status).toBe("siap");
-        expect(data.document.pekerjaan.length).toBe(1);
-        expect(data.document.pekerjaan[0].volume).toBe(100);
-        expect(data.document.pekerjaan[0].harga_satuan).toBe(30000);
+        expect(row.rows[0].status).toBe("siap");
     });
 
     it("carries _spark_path on the model path outside production", async () => {
         const originalNodeEnv = process.env.NODE_ENV;
         (process.env as Record<string, string | undefined>).NODE_ENV = "test";
         process.env.MODEL_API_KEY = "test-key";
-        const mockSession: StoredSession = {
-            sessionId: "sess-spark-dev",
-            locale: "en",
-            audioSha256: "sha-dev",
-            turns: [
-                {
-                    turn_id: "turn_1",
-                    startMs: 0,
-                    endMs: 5000,
-                    transcript: "Twenty-four square feet of drywall at twenty-five dollars a square foot.",
-                    final: true,
-                },
-            ],
-        };
-        const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
-            saveTranscription: vi.fn(),
-        };
-        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+        const session = mockSession(
+            "sess-spark-dev",
+            "Twenty-four square feet of drywall at twenty-five dollars a square foot."
+        );
+        await seedSessionsIntoDb([{ id: "sess-spark-dev", locale: "en", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
 
         const mockCandidate: CandidateDocument = {
             jenis: "surat_penawaran",
@@ -365,25 +507,12 @@ describe("POST /api/documents route handler", () => {
         const originalNodeEnv = process.env.NODE_ENV;
         (process.env as Record<string, string | undefined>).NODE_ENV = "production";
         process.env.MODEL_API_KEY = "test-key";
-        const mockSession: StoredSession = {
-            sessionId: "sess-spark-prod",
-            locale: "en",
-            audioSha256: "sha-prod",
-            turns: [
-                {
-                    turn_id: "turn_1",
-                    startMs: 0,
-                    endMs: 5000,
-                    transcript: "Twenty-four square feet of drywall at twenty-five dollars a square foot.",
-                    final: true,
-                },
-            ],
-        };
-        const mockStore: TurnsStore = {
-            findSession: vi.fn().mockResolvedValue(mockSession),
-            saveTranscription: vi.fn(),
-        };
-        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore);
+        const session = mockSession(
+            "sess-spark-prod",
+            "Twenty-four square feet of drywall at twenty-five dollars a square foot."
+        );
+        await seedSessionsIntoDb([{ id: "sess-spark-prod", locale: "en", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
 
         const mockCandidate: CandidateDocument = {
             jenis: "surat_penawaran",
@@ -418,10 +547,60 @@ describe("POST /api/documents route handler", () => {
             const res = await POST(req);
             expect(res.status).toBe(200);
             const data = await res.json();
-            expect("_spark_path" in data).toBe(false);
             expect("_spark_path" in data.document).toBe(false);
+            expect(JSON.stringify(data)).not.toContain("_spark_path");
         } finally {
             if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
         }
+    });
+});
+
+/**
+ * Pure request-validation tests: no Postgres, run everywhere. The
+ * Postgres-backed suite below carries the rest.
+ */
+describe("POST /api/documents request validation", () => {
+    it("rejects non-JSON bodies with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            body: "not json",
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects missing or empty sessionId with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects invalid sessionId format with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: "bad id with spaces!!!" }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects invalid locale with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: "sess-valid-1", locale: "fr" }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
     });
 });

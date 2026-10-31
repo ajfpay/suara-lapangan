@@ -43,6 +43,9 @@ export type ButuhKonfirmasiItem = {
 };
 
 export type QuotationDocument = {
+    // Server-issued uuid, set when the document is persisted. Absent on a
+    // document the transient SparkError path returns without persisting.
+    id?: string;
     jenis: "surat_penawaran";
     locale: Locale;
     mata_uang: "USD" | "IDR";
@@ -56,7 +59,7 @@ export type QuotationDocument = {
     _spark_path?: boolean;
 };
 
-export type DocumentStatus = "siap" | "perlu_konfirmasi";
+export type DocumentStatus = "siap" | "perlu_konfirmasi" | "terkirim";
 
 export type DocumentResult = {
     document: QuotationDocument;

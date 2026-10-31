@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
-import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
+import { redactSecrets } from "@/lib/server/asr/log";
 import { createHash } from "node:crypto";
+import type { QuotationDocument } from "@/lib/server/guard/types";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -44,7 +46,21 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
             { status: 404 }
         );
     }
-    const doc = getDocumentStore().get(id);
+    let doc: QuotationDocument | undefined;
+    try {
+        doc = (await getPostgresDocumentStore().get(id))?.document;
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[pdf] document read failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
     if (!doc) {
         return NextResponse.json(
             { error: "not_found", message: `Document '${id}' not found` },
