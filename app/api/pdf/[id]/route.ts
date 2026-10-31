@@ -158,7 +158,18 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     const relativePath = storedPdfPath ?? relativePdfPathFor(doc.nomor);
     const diskPath = path.resolve(storageDir, relativePath);
 
-    const snapshot = await readPdfSnapshot(diskPath);
+    let snapshot: { pdf: Buffer; hash: string } | null = null;
+    try {
+        snapshot = await readPdfSnapshot(diskPath);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            { error: "pdf_failure", message: "Failed to render PDF" },
+            { status: 500 }
+        );
+    }
     if (snapshot && snapshot.hash === hash) {
         if (!storedPdfPath) {
             try {

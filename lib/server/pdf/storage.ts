@@ -37,6 +37,36 @@ export async function writePdfAtomic(
     const dir = path.dirname(filePath);
     await mkdir(dir, { recursive: true });
 
+    // Write the sidecar hash FIRST, then the PDF. A reader never observes a
+    // new PDF paired with a stale hash: the hash rename lands before the PDF
+    // rename, so a document whose hash matches the disk hash always sees a
+    // fully written, matching pair. The caller writes the database record
+    // (pdf_path) last, so a reader whose document hash equals the disk hash
+    // is always reading a pair written for that document version.
+    if (hash) {
+        const hashPath = `${filePath}.hash`;
+        const hashTemp = path.join(
+            dir,
+            `.${path.basename(hashPath)}.tmp-${randomUUID()}`
+        );
+        let hashSuccess = false;
+        try {
+            const handle = await open(hashTemp, "w");
+            try {
+                await handle.writeFile(hash, "utf8");
+                await handle.sync();
+            } finally {
+                await handle.close();
+            }
+            await rename(hashTemp, hashPath);
+            hashSuccess = true;
+        } finally {
+            if (!hashSuccess) {
+                await unlink(hashTemp).catch(() => {});
+            }
+        }
+    }
+
     const tempPath = path.join(
         dir,
         `.${path.basename(filePath)}.tmp-${randomUUID()}`
@@ -55,11 +85,12 @@ export async function writePdfAtomic(
     } finally {
         if (!success) {
             await unlink(tempPath).catch(() => {});
+            // The PDF write failed after the hash was already committed: remove
+            // the orphaned hash so no half-written pair is left on disk.
+            if (hash) {
+                await unlink(`${filePath}.hash`).catch(() => {});
+            }
         }
-    }
-
-    if (hash) {
-        await writePdfHash(filePath, hash);
     }
 }
 
