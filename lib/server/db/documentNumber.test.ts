@@ -191,13 +191,15 @@ describe.skipIf(!TEST_DATABASE_URL)("0003 renumber migration", () => {
 
     beforeAll(async () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        // Self-sufficient setup: this suite must pass when selected alone, so
+        // it applies the prerequisite migrations itself instead of relying on
+        // the allocator describe's hooks having run first.
         for (const file of [
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
+            "0003_documents.sql",
         ]) {
-            await pool.query(
-                await readFile(`db/migrations/${file}`, "utf8")
-            );
+            await pool.query(await readFile(`db/migrations/${file}`, "utf8"));
         }
     });
 
