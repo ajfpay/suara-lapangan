@@ -356,6 +356,58 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         );
     });
 
+    it("an inline-turns POST against a stored session builds from the stored turns, never clobbering them", async () => {
+        delete process.env.MODEL_API_KEY;
+        const storedTranscript =
+            "Pengecatan kamar, seratus meter persegi, tiga puluh ribu per meter persegi.";
+        await seedSessionsIntoDb([
+            {
+                id: "sess-inline-guard",
+                locale: "id",
+                turns: [
+                    { startMs: 0, endMs: 5000, transcript: storedTranscript },
+                ],
+            },
+        ]);
+        const storedSession = mockSession("sess-inline-guard", storedTranscript);
+        const save = vi.fn().mockResolvedValue(undefined);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue({
+            findSession: vi.fn().mockResolvedValue(storedSession),
+            saveTranscription: save,
+        });
+
+        const res = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sessionId: "sess-inline-guard",
+                    turns: [
+                        {
+                            turn_id: "turn_1",
+                            startMs: 0,
+                            endMs: 5000,
+                            transcript: "CLOBBERED",
+                            final: true,
+                        },
+                    ],
+                }),
+            })
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+
+        // The document content comes from the stored turns, not the inline copy.
+        expect(data.document.pekerjaan[0].uraian).toBe("Pengecatan kamar");
+        expect(data.document.pekerjaan[0].volume).toBe(100);
+        // The stored session was never rewritten.
+        expect(save).not.toHaveBeenCalled();
+        const row = await pool.query(
+            "select transcript from turns where session_id = 'sess-inline-guard'"
+        );
+        expect(row.rows[0].transcript).toBe(storedTranscript);
+    });
+
     it("falls back to rule generation when the model rejects the schema, without persisting", async () => {
         process.env.MODEL_API_KEY = "test-key";
         const session = mockSession(

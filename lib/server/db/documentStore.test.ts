@@ -140,7 +140,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(await store.findByIdempotencyKey("s-idem", otherHash))!.toMatchObject({ id: second.id });
     });
 
-    it("rejects a second document for the same session, hash, and day", async () => {
+    it("converges on one document for a second create with the same session, hash, and day", async () => {
         const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-unique");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
