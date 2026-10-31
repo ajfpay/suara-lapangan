@@ -105,6 +105,7 @@ export function TurnCard({
             }
 
             if (isNumber) {
+                const tokenLabel = part.trim();
                 return (
                     <span key={i} className="inline-flex items-center align-middle mx-0.5">
                         <strong className="font-bold text-foreground underline decoration-primary/40 underline-offset-4">
@@ -122,18 +123,20 @@ export function TurnCard({
                             title={
                                 isPlaying
                                     ? isIndo
-                                        ? "Hentikan audio"
-                                        : "Stop audio"
+                                        ? `Hentikan kutipan "${tokenLabel}"`
+                                        : `Stop excerpt "${tokenLabel}"`
                                     : isIndo
-                                      ? `Putar kutipan audio [${index}]`
-                                      : `Play audio quote [${index}]`
+                                      ? `Putar kutipan "${tokenLabel}"`
+                                      : `Play excerpt "${tokenLabel}"`
                             }
                             aria-label={
                                 isPlaying
                                     ? isIndo
-                                        ? "Hentikan audio"
-                                        : "Stop audio"
-                                    : `${quoteBadgeLabel} [${index}]`
+                                        ? `Hentikan kutipan "${tokenLabel}"`
+                                        : `Stop excerpt "${tokenLabel}"`
+                                    : isIndo
+                                      ? `Kutipan "${tokenLabel}"`
+                                      : `Excerpt "${tokenLabel}"`
                             }
                         >
                             {isPlaying ? (
