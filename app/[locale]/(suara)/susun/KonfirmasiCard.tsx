@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Volume2 } from "lucide-react";
 
 import { fieldLabel, isNumericField, parseOptions } from "./konfirmasi";
@@ -15,8 +15,17 @@ interface Props {
     item: KonfirmasiItem;
     locale: string;
     onPlayEvidence: (turnId: string) => void;
-    onResolved: (field: string) => void;
+    onResolved: (field: string, response: PatchResponse) => void;
     documentId: string;
+}
+
+export interface PatchResponse {
+    document: {
+        butuh_konfirmasi?: KonfirmasiItem[];
+        status?: "siap" | "perlu_konfirmasi";
+    };
+    butuh_konfirmasi?: KonfirmasiItem[];
+    status?: "siap" | "perlu_konfirmasi";
 }
 
 export function KonfirmasiCard({
@@ -52,7 +61,8 @@ export function KonfirmasiCard({
                         (isIndo ? "Gagal menyimpan." : "Failed to save.")
                 );
             }
-            onResolved(item.field);
+            const body = (await res.json()) as PatchResponse;
+            onResolved(item.field, body);
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
         } finally {
@@ -75,7 +85,7 @@ export function KonfirmasiCard({
                 <button
                     type="button"
                     onClick={() => onPlayEvidence(item.sumber_kutipan!)}
-                    className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground"
+                    className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-primary-foreground"
                     aria-label={
                         isIndo ? "Dengar bukti suara" : "Play audio evidence"
                     }
@@ -92,7 +102,7 @@ export function KonfirmasiCard({
                             type="button"
                             disabled={saving}
                             onClick={() => patch(opt)}
-                            className="min-h-[44px] rounded-xl border border-amber-500 bg-white px-4 py-2 font-bold text-amber-950 disabled:opacity-50"
+                            className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl border border-amber-500 bg-white px-4 py-2 font-bold text-amber-950 disabled:opacity-50"
                         >
                             {opt}
                         </button>
@@ -121,7 +131,7 @@ export function KonfirmasiCard({
                 <button
                     type="submit"
                     disabled={saving || !manual.trim()}
-                    className="min-h-[44px] rounded-xl bg-secondary px-4 font-bold text-secondary-foreground disabled:opacity-50"
+                    className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl bg-secondary px-4 font-bold text-secondary-foreground disabled:opacity-50"
                 >
                     {isIndo ? "Simpan" : "Save"}
                 </button>

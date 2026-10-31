@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import React, { useState } from "react";
+import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
-import { KonfirmasiCard, type KonfirmasiItem } from "./KonfirmasiCard";
+import {
+    KonfirmasiCard,
+    type KonfirmasiItem,
+} from "./KonfirmasiCard";
 import {
     buildShareSummary,
     buildWhatsAppShareUrl,
@@ -19,47 +23,93 @@ interface Props {
 export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     const isIndo = locale === "id";
     const [docId, setDocId] = useState<string | null>(null);
+    const [nomor, setNomor] = useState<string | null>(null);
     const [items, setItems] = useState<KonfirmasiItem[]>([]);
     const [status, setStatus] = useState<"siap" | "perlu_konfirmasi" | null>(
         null
     );
-    const [loading, setLoading] = useState(false);
     const [total, setTotal] = useState<number | null>(null);
+    const [creating, setCreating] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const load = useCallback(async () => {
-        if (!sessionId) return;
-        setLoading(true);
+    if (!sessionId) return null;
+
+    const createDocument = async () => {
+        if (!sessionId || creating) return;
+        setCreating(true);
+        setError(null);
         try {
-            const res = await fetch(
-                `/api/documents?sessionId=${encodeURIComponent(sessionId)}`
-            );
-            if (!res.ok) return;
-            const j = await res.json();
-            const doc = j.document;
-            if (!doc) return;
-            setDocId(doc.nomor ?? sessionId);
+            const res = await fetch("/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sessionId,
+                    locale,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                const fallback = isIndo
+                    ? "Gagal membuat dokumen"
+                    : "Failed to create document";
+                let errMsg = fallback;
+                if (data?.error && data?.message) {
+                    errMsg = `${fallback} (${data.error}): ${data.message}`;
+                } else if (data?.error) {
+                    errMsg = `${fallback} (${data.error})`;
+                } else if (data?.message) {
+                    errMsg = `${fallback}: ${data.message}`;
+                }
+                setError(errMsg);
+                return;
+            }
+
+            const data = await res.json();
+            const doc = data.document;
+            if (!doc?.id) {
+                const fallback = isIndo
+                    ? "Gagal membuat dokumen"
+                    : "Failed to create document";
+                const detail = isIndo
+                    ? "server mengembalikan 200 tanpa id dokumen"
+                    : "server returned 200 without a document id";
+                setError(`${fallback} (no_document_id): ${detail}`);
+                return;
+            }
+            setDocId(doc.id);
+            if (doc.nomor) {
+                setNomor(doc.nomor);
+            }
             setTotal(
-                typeof doc.total_nominal === "number" ? doc.total_nominal : null
+                typeof doc.total_nominal === "number"
+                    ? doc.total_nominal
+                    : null
             );
-            setItems(j.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? []);
-            setStatus(j.status ?? null);
+            const rawItems =
+                data.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? [];
+            setItems(rawItems);
+            const resolvedStatus =
+                data.status ??
+                doc.status ??
+                (rawItems.length > 0 ? "perlu_konfirmasi" : "siap");
+            setStatus(resolvedStatus);
+        } catch (e) {
+            const fallback = isIndo
+                ? "Gagal membuat dokumen"
+                : "Failed to create document";
+            const detail = e instanceof Error ? e.message : String(e);
+            setError(`${fallback}: ${detail}`);
         } finally {
-            setLoading(false);
+            setCreating(false);
         }
-    }, [sessionId]);
-
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    if (!sessionId || loading) return null;
-    if (!docId && items.length === 0) return null;
+    };
 
     const blocked = status === "perlu_konfirmasi" || items.length > 0;
     const shareBlocked = isShareBlocked(status, items.length);
     const shareUrl = buildWhatsAppShareUrl(
         buildShareSummary({
-            nomor: docId ?? sessionId ?? "",
+            nomor: nomor ?? docId ?? sessionId ?? "",
             total,
             pendingCount: items.length,
             locale,
@@ -75,90 +125,186 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
             <h2 id="konfirmasi-title" className="text-xl font-bold">
                 {isIndo ? "Konfirmasi Dokumen" : "Confirm Document"}
             </h2>
-            {items.map((item) => (
-                <KonfirmasiCard
-                    key={item.field}
-                    item={item}
-                    locale={locale}
-                    documentId={docId ?? sessionId}
-                    onPlayEvidence={onPlayEvidence}
-                    onResolved={(field) => {
-                        setItems((prev) =>
-                            prev.filter((i) => i.field !== field)
-                        );
-                        setItems((prev) => {
-                            if (prev.length === 0) setStatus("siap");
-                            return prev;
-                        });
-                    }}
-                />
-            ))}
-            <div className="flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    disabled={blocked}
-                    title={
-                        blocked
-                            ? isIndo
-                                ? "Selesaikan semua konfirmasi dulu"
-                                : "Resolve all confirmations first"
-                            : undefined
-                    }
-                    className="min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
-                    data-testid="btn-unduh"
-                >
-                    {isIndo ? "Unduh PDF" : "Download PDF"}
-                </button>
-                <button
-                    type="button"
-                    disabled={blocked}
-                    title={
-                        blocked
-                            ? isIndo
-                                ? "Selesaikan semua konfirmasi dulu"
-                                : "Resolve all confirmations first"
-                            : undefined
-                    }
-                    className="min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground disabled:opacity-50"
-                    data-testid="btn-kirim"
-                >
-                    {isIndo ? "Kirim" : "Send"}
-                </button>
-                <a
-                    href={shareBlocked ? undefined : shareUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-disabled={shareBlocked}
-                    onClick={(e) => {
-                        if (shareBlocked) e.preventDefault();
-                    }}
-                    title={
-                        shareBlocked
-                            ? isIndo
-                                ? "Selesaikan semua konfirmasi dulu"
-                                : "Resolve all confirmations first"
-                            : undefined
-                    }
-                    className={`inline-flex min-h-[48px] items-center rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground ${
-                        shareBlocked
-                            ? "pointer-events-none opacity-50"
-                            : ""
-                    }`}
-                    data-testid="btn-share-wa"
-                >
-                    {isIndo ? "Bagikan via WhatsApp" : "Share via WhatsApp"}
-                </a>
-            </div>
-            {blocked && (
-                <p
-                    className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200"
-                    role="note"
+            {error && (
+                <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+                    data-testid="create-error"
                 >
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    {isIndo
-                        ? `Masih ada ${items.length} field yang perlu dikonfirmasi sebelum dokumen siap.`
-                        : `${items.length} field(s) still need confirmation before the document is ready.`}
-                </p>
+                    <span>{error}</span>
+                </div>
+            )}
+
+            {!docId ? (
+                <div>
+                    <button
+                        type="button"
+                        onClick={createDocument}
+                        disabled={creating}
+                        className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                        data-testid="btn-buat-dokumen"
+                    >
+                        {creating
+                            ? isIndo
+                                ? "Membuat…"
+                                : "Creating…"
+                            : isIndo
+                              ? "Buat dokumen"
+                              : "Create document"}
+                    </button>
+                </div>
+            ) : (
+                <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                        {isIndo ? "Dokumen dibuat" : "Document created"}
+                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground">
+                                {isIndo ? "Nomor dokumen:" : "Document number:"}{" "}
+                                <span
+                                    className="font-bold text-foreground"
+                                    data-testid="document-nomor"
+                                >
+                                    {nomor}
+                                </span>
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                Status:{" "}
+                                <span
+                                    className="font-bold text-foreground"
+                                    data-testid="document-status"
+                                >
+                                    {status}
+                                </span>
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                                href={`/${locale}/dokumen?doc=${encodeURIComponent(
+                                    docId
+                                )}`}
+                                className="inline-flex min-h-[44px] items-center rounded-xl bg-primary px-4 py-2 font-bold text-primary-foreground hover:opacity-90"
+                                data-testid="link-lihat-dokumen"
+                            >
+                                {isIndo ? "Lihat dokumen" : "View document"}
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={createDocument}
+                                disabled={creating}
+                                className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl border border-input bg-background px-4 py-2 font-semibold text-foreground hover:bg-accent disabled:opacity-50"
+                                data-testid="btn-buat-dokumen-retry"
+                            >
+                                {creating
+                                    ? isIndo
+                                         ? "Membuat…"
+                                         : "Creating…"
+                                    : isIndo
+                                      ? "Buat dokumen"
+                                      : "Create document"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {docId && (
+                <>
+                    {items.map((item) => (
+                        <KonfirmasiCard
+                            key={item.field}
+                            item={item}
+                            locale={locale}
+                            documentId={docId}
+                            onPlayEvidence={onPlayEvidence}
+                            onResolved={(_field, response) => {
+                                const serverItems =
+                                    response.butuh_konfirmasi ??
+                                    response.document?.butuh_konfirmasi ??
+                                    [];
+                                setItems(serverItems);
+                                const serverStatus =
+                                    response.status ??
+                                    response.document?.status ??
+                                    (serverItems.length > 0
+                                        ? "perlu_konfirmasi"
+                                        : "siap");
+                                setStatus(serverStatus);
+                            }}
+                        />
+                    ))}
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            disabled={blocked}
+                            title={
+                                blocked
+                                    ? isIndo
+                                        ? "Selesaikan semua konfirmasi dulu"
+                                        : "Resolve all confirmations first"
+                                    : undefined
+                            }
+                            className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                            data-testid="btn-unduh"
+                        >
+                            {isIndo ? "Unduh PDF" : "Download PDF"}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={blocked}
+                            title={
+                                blocked
+                                    ? isIndo
+                                        ? "Selesaikan semua konfirmasi dulu"
+                                        : "Resolve all confirmations first"
+                                    : undefined
+                            }
+                            className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground disabled:opacity-50"
+                            data-testid="btn-kirim"
+                        >
+                            {isIndo ? "Kirim" : "Send"}
+                        </button>
+                        <a
+                            href={shareBlocked ? undefined : shareUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-disabled={shareBlocked}
+                            onClick={(e) => {
+                                if (shareBlocked) e.preventDefault();
+                            }}
+                            title={
+                                shareBlocked
+                                    ? isIndo
+                                        ? "Selesaikan semua konfirmasi dulu"
+                                        : "Resolve all confirmations first"
+                                    : undefined
+                            }
+                            className={`inline-flex min-h-[48px] items-center rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground ${
+                                shareBlocked
+                                    ? "pointer-events-none opacity-50"
+                                    : ""
+                            }`}
+                            data-testid="btn-share-wa"
+                        >
+                            {isIndo
+                                ? "Bagikan via WhatsApp"
+                                : "Share via WhatsApp"}
+                        </a>
+                    </div>
+                    {blocked && (
+                        <p
+                            className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200"
+                            role="note"
+                        >
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            {isIndo
+                                ? `Masih ada ${items.length} field yang perlu dikonfirmasi sebelum dokumen siap.`
+                                : `${items.length} field(s) still need confirmation before the document is ready.`}
+                        </p>
+                    )}
+                </>
             )}
         </section>
     );
