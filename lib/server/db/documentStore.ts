@@ -114,6 +114,7 @@ export function createPostgresDocumentStore(
             // two identical concurrent creates converge on one row instead of a
             // unique-violation 500.
             const client = await pool.connect();
+            let clientReleased = false;
             try {
                 await client.query("begin");
                 await client.query("select pg_advisory_xact_lock(hashtext($1))", [
@@ -151,12 +152,17 @@ export function createPostgresDocumentStore(
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
-                // A failed rollback must not replace the original cause; the
-                // connection returns to the pool already aborted either way.
-                await client.query("rollback").catch(() => undefined);
+                // A failed rollback must not replace the original cause. But a
+                // rollback that fails leaves the client in an unknown state, so
+                // it is destroyed instead of released back to the pool: a later
+                // borrower could inherit an aborted transaction or its locks.
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
                 throw cause;
             } finally {
-                client.release();
+                if (!clientReleased) client.release();
             }
         },
 
@@ -174,6 +180,7 @@ export function createPostgresDocumentStore(
         async update(id, transform) {
             if (!UUID_RE.test(id)) return null;
             const client = await pool.connect();
+            let clientReleased = false;
             try {
                 await client.query("begin");
                 // Serializes overlapping PATCHes on this document: the second
@@ -208,12 +215,17 @@ export function createPostgresDocumentStore(
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
-                // A failed rollback must not replace the original cause; the
-                // connection returns to the pool already aborted either way.
-                await client.query("rollback").catch(() => undefined);
+                // A failed rollback must not replace the original cause. But a
+                // rollback that fails leaves the client in an unknown state, so
+                // it is destroyed instead of released back to the pool: a later
+                // borrower could inherit an aborted transaction or its locks.
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
                 throw cause;
             } finally {
-                client.release();
+                if (!clientReleased) client.release();
             }
         },
     };
