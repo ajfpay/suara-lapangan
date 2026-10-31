@@ -56,6 +56,13 @@ begin
     if exhausted > 0 then
         raise exception 'cannot migrate: a year has sequence 9999 taken and legacy nomor rows still to renumber';
     end if;
+    if exists (
+        select 1 from documents
+        where nomor ~ '^SL/QTN/[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9]{3}$'
+          and substring(nomor from 8 for 1) = '0'
+    ) then
+        raise exception 'cannot migrate: a legacy nomor carries a year below 1000, which the SL/QTN/YYYY/NNNN contract cannot represent';
+    end if;
 end $$;
 
 with legacy as (
