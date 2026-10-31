@@ -49,12 +49,16 @@ begin
                        substring(nomor from 13 for 4)::int as seq
                 from documents
                 where nomor ~ '^SL/QTN/[0-9]{4}/[0-9]{4}$') s
-          group by yr) m
-    where exists (select 1 from documents
-                  where nomor ~ ('^SL/QTN/' || m.yr::text || '-[0-9]{2}-[0-9]{2}/[0-9]{3}$'))
-      and m.max_seq >= 9999;
+          group by yr) yearly
+    join (select substring(nomor from 8 for 4)::int as yr,
+                 count(*) as count_pending
+          from documents
+          where nomor ~ '^SL/QTN/[0-9]{4}-[0-9]{2}-[0-9]{2}/[0-9]{3}$'
+          group by yr) pending
+    using (yr)
+    where yearly.max_seq + pending.count_pending > 9999;
     if exhausted > 0 then
-        raise exception 'cannot migrate: a year has sequence 9999 taken and legacy nomor rows still to renumber';
+        raise exception 'cannot migrate: renumbering the pending legacy nomor rows for a year would exceed sequence 9999';
     end if;
     if exists (
         select 1 from documents
@@ -82,7 +86,9 @@ renumber as (
     from legacy l
 )
 update documents d
-set nomor = 'SL/QTN/' || r.yr::text || '/' || lpad(r.seq::text, 4, '0')
+set nomor = 'SL/QTN/' || r.yr::text || '/' || lpad(r.seq::text, 4, '0'),
+    data_json = jsonb_set(data_json, '{nomor}',
+                          to_jsonb('SL/QTN/' || r.yr::text || '/' || lpad(r.seq::text, 4, '0')))
 from renumber r
 where d.id = r.id;
 

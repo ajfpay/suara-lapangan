@@ -144,9 +144,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const first = await store.create(input("s-nextday", doc(), hash));
 
         // Backdate the first document out of today so the unique index no longer
-        // sees it (the calendar day of created_at is what scopes the reuse).
+        // sees it (the calendar day of created_at is what scopes the reuse), and
+        // give it last year's nomor so documents_nomor_uidx cannot collide with
+        // the second create's fixed SL/QTN/2026/0001 fixture number.
         await pool.query(
-            "update documents set created_at = now() - interval '1 day', updated_at = now() - interval '1 day' where id = $1",
+            "update documents set created_at = now() - interval '1 year', updated_at = now() - interval '1 year', nomor = 'SL/QTN/' || ((extract(year from now()))::int - 1)::text || '/0001' where id = $1",
             [first.id]
         );
 
