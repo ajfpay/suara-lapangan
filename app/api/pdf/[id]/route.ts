@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
-import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { createHash } from "node:crypto";
 
 type RouteContext = {
@@ -44,7 +44,7 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
             { status: 404 }
         );
     }
-    const doc = getDocumentStore().get(id);
+    const doc = (await getPostgresDocumentStore().get(id))?.document;
     if (!doc) {
         return NextResponse.json(
             { error: "not_found", message: `Document '${id}' not found` },

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { getDocumentStore } from "@/lib/server/guard/documentStore";
+import {
+    getPostgresDocumentStore,
+    type StoredDocument,
+} from "@/lib/server/db/documentStore";
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { amountInWords, terbilang } from "@/lib/server/guard/words";
 import type {
     CanonicalUnit,
     DocumentStatus,
+    QuotationDocument,
 } from "@/lib/server/guard/types";
 
 function round(value: number, decimals = 2): number {
@@ -80,9 +84,20 @@ export async function PATCH(
         );
     }
 
-    const docStore = getDocumentStore();
-    const document = docStore.get(id);
-    if (!document) {
+    const docStore = getPostgresDocumentStore();
+    let stored: StoredDocument | null;
+    try {
+        stored = await docStore.get(id);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
+    if (!stored) {
         return NextResponse.json(
             {
                 error: "not_found",
@@ -91,6 +106,8 @@ export async function PATCH(
             { status: 404 }
         );
     }
+
+    const document: QuotationDocument = stored.document;
 
     const index = parseInt(match[1], 10);
     const subfield = match[2];
@@ -204,14 +221,74 @@ export async function PATCH(
     const status: DocumentStatus =
         document.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
 
-    // Persist via docStore.set(id, document) and return 200 {document, butuh_konfirmasi, status}.
-    docStore.set(id, document);
+    // Persist via Postgres and return 200 {document, butuh_konfirmasi, status}.
+    try {
+        await docStore.update(id, document);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to persist document",
+            },
+            { status: 500 }
+        );
+    }
 
     return NextResponse.json(
         {
-            document: toResponseDocument(document),
+            document: toResponseDocument({ ...document, id: stored.id }),
             butuh_konfirmasi: document.butuh_konfirmasi,
             status,
+        },
+        { status: 200 }
+    );
+}
+
+export async function GET(
+    _request: Request,
+    context: RouteContext
+): Promise<Response> {
+    const { id } = await context.params;
+    if (!id || typeof id !== "string" || id.trim() === "") {
+        return NextResponse.json(
+            {
+                error: "not_found",
+                message: "Document id is required",
+            },
+            { status: 404 }
+        );
+    }
+
+    let stored: StoredDocument | null;
+    try {
+        stored = await getPostgresDocumentStore().get(id);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
+    if (!stored) {
+        return NextResponse.json(
+            {
+                error: "not_found",
+                message: `Document '${id}' not found`,
+            },
+            { status: 404 }
+        );
+    }
+
+    return NextResponse.json(
+        {
+            document: toResponseDocument({
+                ...stored.document,
+                id: stored.id,
+            }),
+            butuh_konfirmasi: stored.document.butuh_konfirmasi,
+            status: stored.status,
         },
         { status: 200 }
     );
