@@ -17,6 +17,14 @@ Setiap tiket punya worktree + cabang sendiri. Satu folder hanya punya SATU pemil
 - **Siapa pun yang perlu mengubah `app/api/documents/**` harus lewat tiket 05.** Agen lain tidak
   boleh mengedit langsung, bahkan untuk "satu baris"; ajukan perubahan ke pekerja/verifikator tiket 05.
 
+Catatan seri document-pipeline (spec
+`docs/specs/document-pipeline/2026-10-31-document-pipeline-spec.md`, disetujui Gate 1): untuk seri
+ini, `app/api/documents/**` dan `lib/server/db/**` dimiliki tiket 01 (`agent/doc-01-postgres`), dan
+`app/api/pdf/**` dimiliki tiket 03 (`agent/doc-03-pdf-disk`) sesuai rencana eksekusi
+`.scratch/suara-lapangan-mvp/execution-plan.md` §2. Nomor tiket MVP lama di atas (05, 07, 08) tidak
+lagi mengatur jalur-jalur tersebut untuk seri ini; pemetaan kepemilikan lama tetap berlaku untuk
+tiket MVP lama itu sendiri.
+
 Batasan lain yang sudah berlaku: pekerja tidak menyentuh worktree tiket lain, tidak merge, tidak
 menghapus cabang/worktree, dan tidak membuat repo publik atau deploy (butuh persetujuan tertulis
 pemilik).
