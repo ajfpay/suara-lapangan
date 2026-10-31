@@ -19,11 +19,17 @@ Setiap tiket punya worktree + cabang sendiri. Satu folder hanya punya SATU pemil
 
 Catatan seri document-pipeline (spec
 `docs/specs/document-pipeline/2026-10-31-document-pipeline-spec.md`, disetujui Gate 1): untuk seri
-ini, `app/api/documents/**` dan `lib/server/db/**` dimiliki tiket 01 (`agent/doc-01-postgres`), dan
-`app/api/pdf/**` dimiliki tiket 03 (`agent/doc-03-pdf-disk`) sesuai rencana eksekusi
-`.scratch/suara-lapangan-mvp/execution-plan.md` §2. Nomor tiket MVP lama di atas (05, 07, 08) tidak
-lagi mengatur jalur-jalur tersebut untuk seri ini; pemetaan kepemilikan lama tetap berlaku untuk
-tiket MVP lama itu sendiri.
+ini, kepemilikan mengikuti rencana eksekusi (sumber deklaratif:
+`$HOME/repos/prototype/.scratch/suara-lapangan-mvp/execution-plan.md`, §2 — belum di-commit ke repo
+ini). Untuk jalur yang disentuh seri ini: tiket 01 (`agent/doc-01-postgres`) memiliki
+`lib/server/db/documentStore.ts`, `lib/server/db/documentStore.test.ts`,
+`db/migrations/0003_documents.sql`, dan rute dokumen `app/api/documents/**` yang ada; tiket 02
+(`agent/doc-02-numbering`) memiliki alokator `lib/server/db/documentNumber.ts` dan suntik nomor di
+`app/api/documents/route.ts`; tiket 03 (`agent/doc-03-pdf-disk`) memiliki `app/api/pdf/**` dan
+`lib/server/pdf/**`. Tiket Batch 2 di bawah (03 ASR) tetap memiliki `app/api/asr/**` dan
+`lib/server/asr/**` + `lib/server/quota/**`, tidak termasuk `lib/server/db/**`. Nomor tiket MVP
+lama di atas (05, 07, 08) tidak lagi mengatur jalur-jalur ini untuk seri ini; pemetaan lama tetap
+berlaku untuk tiket MVP lama itu sendiri.
 
 Batasan lain yang sudah berlaku: pekerja tidak menyentuh worktree tiket lain, tidak merge, tidak
 menghapus cabang/worktree, dan tidak membuat repo publik atau deploy (butuh persetujuan tertulis
