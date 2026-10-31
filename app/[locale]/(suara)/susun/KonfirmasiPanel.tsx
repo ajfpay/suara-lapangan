@@ -131,7 +131,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                         type="button"
                         onClick={createDocument}
                         disabled={creating}
-                        className="min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                        className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
                         data-testid="btn-buat-dokumen"
                     >
                         {creating
@@ -183,8 +183,8 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                                 type="button"
                                 onClick={createDocument}
                                 disabled={creating}
-                                className="min-h-[44px] rounded-xl border border-input bg-background px-4 py-2 font-semibold text-foreground hover:bg-accent disabled:opacity-50"
-                                data-testid="btn-buat-dokumen"
+                                className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl border border-input bg-background px-4 py-2 font-semibold text-foreground hover:bg-accent disabled:opacity-50"
+                                data-testid="btn-buat-dokumen-retry"
                             >
                                 {creating
                                     ? isIndo
@@ -230,7 +230,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                                         : "Resolve all confirmations first"
                                     : undefined
                             }
-                            className="min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
+                            className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground disabled:opacity-50"
                             data-testid="btn-unduh"
                         >
                             {isIndo ? "Unduh PDF" : "Download PDF"}
@@ -245,7 +245,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                                         : "Resolve all confirmations first"
                                     : undefined
                             }
-                            className="min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground disabled:opacity-50"
+                            className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground disabled:opacity-50"
                             data-testid="btn-kirim"
                         >
                             {isIndo ? "Kirim" : "Send"}
