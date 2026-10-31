@@ -2,8 +2,6 @@ import { mkdir, open, rename, unlink, readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
-const NOMOR_RE = /^SL\/QTN\/(\d{4})\/(\d{4})$/;
-
 export function resolvePdfStorageDir(): string {
     const configured = process.env.PDF_STORAGE_DIR;
     if (configured && configured.trim() !== "") {
@@ -12,21 +10,51 @@ export function resolvePdfStorageDir(): string {
     return path.resolve(process.cwd(), "./data/pdf");
 }
 
-export function relativePdfPathFor(nomor: string): string {
-    const match = NOMOR_RE.exec(nomor);
-    if (match) {
-        const [, year, seq] = match;
-        return path.join(year, `${seq}.pdf`);
-    }
-    const sanitized = nomor.replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";
-    return `${sanitized}.pdf`;
+export function relativePdfPathFor(documentId: string): string {
+    return `${documentId}.pdf`;
 }
 
 export function pdfPathFor(
-    nomor: string,
+    documentId: string,
     storageDir: string = resolvePdfStorageDir()
 ): string {
-    return path.join(storageDir, relativePdfPathFor(nomor));
+    return path.join(storageDir, relativePdfPathFor(documentId));
+}
+
+/**
+ * Validate a pdf_path read from the database before using it to build a disk
+ * path. Rejects absolute values, `..` segments, and anything that resolves
+ * outside the storage directory — defense in depth for a value only this
+ * server writes today.
+ */
+export function isSafeStoredPdfPath(storedPath: string): boolean {
+    if (!storedPath || storedPath.trim() === "") {
+        return false;
+    }
+    if (path.isAbsolute(storedPath)) {
+        return false;
+    }
+    if (storedPath.includes("\0")) {
+        return false;
+    }
+    const segments = storedPath.split(path.sep);
+    if (segments.includes("..")) {
+        return false;
+    }
+    const resolved = path.resolve(storageDirFromEnvOrDefault(), storedPath);
+    const storageRoot = storageDirFromEnvOrDefault();
+    return (
+        resolved === storageRoot ||
+        resolved.startsWith(storageRoot + path.sep)
+    );
+}
+
+function storageDirFromEnvOrDefault(): string {
+    const configured = process.env.PDF_STORAGE_DIR;
+    if (configured && configured.trim() !== "") {
+        return path.resolve(process.cwd(), configured.trim());
+    }
+    return path.resolve(process.cwd(), "./data/pdf");
 }
 
 export async function writePdfAtomic(
@@ -37,61 +65,74 @@ export async function writePdfAtomic(
     const dir = path.dirname(filePath);
     await mkdir(dir, { recursive: true });
 
-    // Write the sidecar hash FIRST, then the PDF. A reader never observes a
-    // new PDF paired with a stale hash: the hash rename lands before the PDF
-    // rename, so a document whose hash matches the disk hash always sees a
-    // fully written, matching pair. The caller writes the database record
-    // (pdf_path) last, so a reader whose document hash equals the disk hash
-    // is always reading a pair written for that document version.
-    if (hash) {
-        const hashPath = `${filePath}.hash`;
-        const hashTemp = path.join(
-            dir,
-            `.${path.basename(hashPath)}.tmp-${randomUUID()}`
-        );
-        let hashSuccess = false;
-        try {
-            const handle = await open(hashTemp, "w");
+    // Per-path write lock serializes concurrent renders to the same file, so a
+    // reader never observes one writer's hash paired with another writer's PDF
+    // bytes (finding 2). Cross-instance races are caught by readPdfSnapshot's
+    // double-read; this lock handles same-process concurrency.
+    const lock = withWriteLock(filePath, async () => {
+        if (hash) {
+            const hashPath = `${filePath}.hash`;
+            const hashTemp = path.join(
+                dir,
+                `.${path.basename(hashPath)}.tmp-${randomUUID()}`
+            );
+            let hashSuccess = false;
             try {
-                await handle.writeFile(hash, "utf8");
+                const handle = await open(hashTemp, "w");
+                try {
+                    await handle.writeFile(hash, "utf8");
+                    await handle.sync();
+                } finally {
+                    await handle.close();
+                }
+                await rename(hashTemp, hashPath);
+                hashSuccess = true;
+            } finally {
+                if (!hashSuccess) {
+                    await unlink(hashTemp).catch(() => {});
+                }
+            }
+        }
+
+        const tempPath = path.join(
+            dir,
+            `.${path.basename(filePath)}.tmp-${randomUUID()}`
+        );
+        let success = false;
+        try {
+            const handle = await open(tempPath, "w");
+            try {
+                await handle.writeFile(buffer);
                 await handle.sync();
             } finally {
                 await handle.close();
             }
-            await rename(hashTemp, hashPath);
-            hashSuccess = true;
+            await rename(tempPath, filePath);
+            success = true;
         } finally {
-            if (!hashSuccess) {
-                await unlink(hashTemp).catch(() => {});
+            if (!success) {
+                await unlink(tempPath).catch(() => {});
+                // The PDF write failed after the hash was already committed: remove
+                // the orphaned hash so no half-written pair is left on disk.
+                if (hash) {
+                    await unlink(`${filePath}.hash`).catch(() => {});
+                }
             }
         }
-    }
+    });
+    await lock;
+}
 
-    const tempPath = path.join(
-        dir,
-        `.${path.basename(filePath)}.tmp-${randomUUID()}`
-    );
-    let success = false;
-    try {
-        const handle = await open(tempPath, "w");
-        try {
-            await handle.writeFile(buffer);
-            await handle.sync();
-        } finally {
-            await handle.close();
-        }
-        await rename(tempPath, filePath);
-        success = true;
-    } finally {
-        if (!success) {
-            await unlink(tempPath).catch(() => {});
-            // The PDF write failed after the hash was already committed: remove
-            // the orphaned hash so no half-written pair is left on disk.
-            if (hash) {
-                await unlink(`${filePath}.hash`).catch(() => {});
-            }
-        }
-    }
+const writeLocks = new Map<string, Promise<unknown>>();
+
+async function withWriteLock<T>(
+    filePath: string,
+    fn: () => Promise<T>
+): Promise<T> {
+    const previous = writeLocks.get(filePath) ?? Promise.resolve();
+    const next = previous.then(() => fn());
+    writeLocks.set(filePath, next);
+    return next as Promise<T>;
 }
 
 export async function readPdf(filePath: string): Promise<Buffer | null> {

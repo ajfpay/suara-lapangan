@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting } from "./route";
+import { PATCH } from "@/app/api/documents/[id]/route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import {
     resolvePdfStorageDir,
@@ -11,8 +12,10 @@ import {
     pdfPathFor,
     writePdfAtomic,
     readPdf,
+    readPdfSnapshot,
     writePdfHash,
     readPdfHash,
+    isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
 
 /**
@@ -50,17 +53,22 @@ describe("pdf storage", () => {
         expect(resolvePdfStorageDir()).toBe(path.resolve(process.cwd(), "relative/pdf"));
     });
 
-    it("relativePdfPathFor and pdfPathFor derive <year>/<nnnn>.pdf from SL/QTN/YYYY/NNNN", () => {
-        expect(relativePdfPathFor("SL/QTN/2026/0001")).toBe(path.join("2026", "0001.pdf"));
-        expect(pdfPathFor("SL/QTN/2026/0001", "/data/pdf")).toBe(
-            path.join("/data/pdf", "2026", "0001.pdf")
+    it("relativePdfPathFor derives <id>.pdf from the document id", () => {
+        expect(relativePdfPathFor("550e8400-e29b-41d4-a716-446655440000")).toBe(
+            "550e8400-e29b-41d4-a716-446655440000.pdf"
         );
+        expect(pdfPathFor("550e8400-e29b-41d4-a716-446655440000", "/data/pdf")).toBe(
+            path.join("/data/pdf", "550e8400-e29b-41d4-a716-446655440000.pdf")
+        );
+    });
 
-        // Fallback for non-conforming nomor sanitizes safely
-        expect(relativePdfPathFor("LEGACY/123-abc")).toBe("LEGACY_123-abc.pdf");
-        expect(pdfPathFor("LEGACY/123-abc", "/data/pdf")).toBe(
-            path.join("/data/pdf", "LEGACY_123-abc.pdf")
-        );
+    it("isSafeStoredPdfPath rejects absolute paths, dot-dot segments, and escapes", () => {
+        expect(isSafeStoredPdfPath("550e8400.pdf")).toBe(true);
+        expect(isSafeStoredPdfPath("2026/0001.pdf")).toBe(true);
+        expect(isSafeStoredPdfPath("/etc/passwd")).toBe(false);
+        expect(isSafeStoredPdfPath("../../etc/passwd")).toBe(false);
+        expect(isSafeStoredPdfPath("foo/../bar.pdf")).toBe(false);
+        expect(isSafeStoredPdfPath("")).toBe(false);
     });
 
     it("readPdf returns null for non-existent path", async () => {
@@ -280,7 +288,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
         });
         expect(res.status).toBe(200);
 
-        const expectedRelativePath = path.join("2026", "0001.pdf");
+        const expectedRelativePath = `${id}.pdf`;
         const expectedDiskPath = path.join(
             process.env.PDF_STORAGE_DIR!,
             expectedRelativePath
@@ -330,7 +338,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
         expect(r1.status).toBe(200);
         const bytes1 = Buffer.from(await r1.arrayBuffer());
 
-        const expectedRelativePath = path.join("2026", "0001.pdf");
+        const expectedRelativePath = `${id}.pdf`;
         const expectedDiskPath = path.join(
             process.env.PDF_STORAGE_DIR!,
             expectedRelativePath
@@ -412,6 +420,115 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             ).toBe(true);
         } finally {
             console.error = originalError;
+        }
+    }, 60000);
+
+    it("old-style pdf_path resolves to a missing file and gets re-rendered", async () => {
+        const id = await seed(doc());
+        // Simulate a dev row written under the old nomor-based scheme.
+        await pool.query(
+            "update documents set pdf_path = $1 where id = $2",
+            ["2026/0001.pdf", id]
+        );
+        resetPdfCacheForTesting();
+
+        const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        expect(res.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes = Buffer.from(await res.arrayBuffer());
+        expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
+
+        // Re-render landed at the id-keyed path, not the old one.
+        const newDiskPath = path.join(process.env.PDF_STORAGE_DIR!, `${id}.pdf`);
+        const newFile = await fs.stat(newDiskPath).then(() => true).catch(() => false);
+        expect(newFile).toBe(true);
+        const newBytes = await fs.readFile(newDiskPath);
+        expect(newBytes.equals(bytes)).toBe(true);
+
+        // The database now records the id-keyed path.
+        const dbRes = await pool.query<{ pdf_path: string | null }>(
+            "select pdf_path from documents where id = $1",
+            [id]
+        );
+        expect(dbRes.rows[0].pdf_path).toBe(`${id}.pdf`);
+    }, 60000);
+
+    it("PATCH then GET re-renders and overwrites the same id-keyed path", async () => {
+        const id = await seed(doc());
+        const ctx = { params: Promise.resolve({ id }) };
+
+        const r1 = await GET(new Request(`http://localhost/api/pdf/${id}`), ctx);
+        expect(r1.status).toBe(200);
+        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes1 = Buffer.from(await r1.arrayBuffer());
+
+        const expectedDiskPath = path.join(
+            process.env.PDF_STORAGE_DIR!,
+            `${id}.pdf`
+        );
+        const diskBytes1 = await fs.readFile(expectedDiskPath);
+        expect(diskBytes1.equals(bytes1)).toBe(true);
+
+        // PATCH through the real endpoint changes data_json.
+        const patchRes = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                    field: "pekerjaan[0].volume",
+                    nilai: 20,
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(patchRes.status).toBe(200);
+
+        resetPdfCacheForTesting();
+
+        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), ctx);
+        expect(r2.status).toBe(200);
+        expect(r2.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes2 = Buffer.from(await r2.arrayBuffer());
+        expect(bytes2.subarray(0, 4).toString()).toBe("%PDF");
+        expect(bytes2.equals(bytes1)).toBe(false);
+
+        // Same id-keyed path overwritten with new content.
+        const diskBytes2 = await fs.readFile(expectedDiskPath);
+        expect(diskBytes2.equals(bytes2)).toBe(true);
+        expect(diskBytes2.equals(diskBytes1)).toBe(false);
+    }, 60000);
+
+    it("concurrent writers with different hashes never serve a mixed pair", async () => {
+        // Directly exercise writePdfAtomic + readPdfSnapshot under concurrency,
+        // simulating the race finding 2 described: two writers carrying different
+        // hashes land on the same path. The reader must observe either writer's
+        // complete pair, never new bytes with a stale hash.
+        const storageDir = await fs.mkdtemp(
+            path.join(os.tmpdir(), "suara-pdf-race-")
+        );
+        tempStorageDirs.push(storageDir);
+        const filePath = path.join(storageDir, "shared.pdf");
+        const hashA = "hash-a";
+        const hashB = "hash-b";
+        const pdfA = Buffer.from("%PDF-1.4 A CONTENT");
+        const pdfB = Buffer.from("%PDF-1.4 B CONTENT");
+
+        await Promise.all([
+            writePdfAtomic(filePath, pdfA, hashA),
+            writePdfAtomic(filePath, pdfB, hashB),
+        ]);
+
+        const snapshot = await readPdfSnapshot(filePath);
+        expect(snapshot).not.toBeNull();
+        if (snapshot) {
+            // Either writer's complete pair is valid; a mixed pair is not.
+            const isA =
+                snapshot.hash === hashA && snapshot.pdf.equals(pdfA);
+            const isB =
+                snapshot.hash === hashB && snapshot.pdf.equals(pdfB);
+            expect(isA || isB).toBe(true);
         }
     }, 60000);
 });

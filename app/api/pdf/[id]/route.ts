@@ -11,6 +11,7 @@ import {
     relativePdfPathFor,
     writePdfAtomic,
     readPdfSnapshot,
+    isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
 
 type RouteContext = {
@@ -155,25 +156,48 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     }
 
     const storageDir = resolvePdfStorageDir();
-    const relativePath = storedPdfPath ?? relativePdfPathFor(doc.nomor);
-    const diskPath = path.resolve(storageDir, relativePath);
+    const idPath = relativePdfPathFor(id);
+    const idDiskPath = path.resolve(storageDir, idPath);
+
+    // A stored pdf_path is used only for reading; writes always go to the
+    // id-keyed path so an old or missing stored path can never shadow a
+    // different document's file.
+    let storedDiskPath: string | null = null;
+    if (storedPdfPath && isSafeStoredPdfPath(storedPdfPath)) {
+        storedDiskPath = path.resolve(storageDir, storedPdfPath);
+    }
 
     let snapshot: { pdf: Buffer; hash: string } | null = null;
-    try {
-        snapshot = await readPdfSnapshot(diskPath);
-    } catch (cause) {
-        console.error(
-            redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
-        );
-        return NextResponse.json(
-            { error: "pdf_failure", message: "Failed to render PDF" },
-            { status: 500 }
-        );
+    if (storedDiskPath) {
+        try {
+            snapshot = await readPdfSnapshot(storedDiskPath);
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
+            );
+            return NextResponse.json(
+                { error: "pdf_failure", message: "Failed to render PDF" },
+                { status: 500 }
+            );
+        }
+    }
+    if (!snapshot) {
+        try {
+            snapshot = await readPdfSnapshot(idDiskPath);
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
+            );
+            return NextResponse.json(
+                { error: "pdf_failure", message: "Failed to render PDF" },
+                { status: 500 }
+            );
+        }
     }
     if (snapshot && snapshot.hash === hash) {
-        if (!storedPdfPath) {
+        if (!storedPdfPath || storedPdfPath !== idPath) {
             try {
-                await setDocumentPdfPath(id, relativePath);
+                await setDocumentPdfPath(id, idPath);
             } catch (cause) {
                 console.error(
                     redactSecrets(`[pdf] path update failed: ${String(cause)}`)
@@ -201,8 +225,8 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     let pdf: Buffer;
     try {
         pdf = await renderPdf(html);
-        await writePdfAtomic(diskPath, pdf, hash);
-        await setDocumentPdfPath(id, relativePath);
+        await writePdfAtomic(idDiskPath, pdf, hash);
+        await setDocumentPdfPath(id, idPath);
     } catch (cause) {
         console.error(
             redactSecrets(`[pdf] render or write failed: ${String(cause)}`)
