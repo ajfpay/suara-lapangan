@@ -40,9 +40,9 @@ const StepScreen = ({
                 >
                     {heading}
                 </h1>
-                <p className="mt-5 text-2xl font-semibold leading-snug sm:text-3xl">
+                <h2 className="mt-5 text-2xl font-semibold leading-snug sm:text-3xl">
                     {title}
-                </p>
+                </h2>
                 <p className="mt-3 text-lg leading-relaxed text-muted-foreground sm:text-xl">
                     {body}
                 </p>

@@ -50,6 +50,7 @@ export function useAudioSlicePlayer(sessionId: string, locale: "id" | "en" = "id
             ...prev,
             isPlaying: false,
             activeTurnId: null,
+            audioUnavailableTurnId: null,
         }));
     }, [cleanupAudio]);
 
