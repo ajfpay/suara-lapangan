@@ -10,8 +10,7 @@ import {
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
-    readPdf,
-    readPdfHash,
+    readPdfSnapshot,
 } from "@/lib/server/pdf/storage";
 
 type RouteContext = {
@@ -159,29 +158,32 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     const relativePath = storedPdfPath ?? relativePdfPathFor(doc.nomor);
     const diskPath = path.resolve(storageDir, relativePath);
 
-    const diskHash = await readPdfHash(diskPath);
-    if (diskHash && diskHash === hash) {
-        const diskPdf = await readPdf(diskPath);
-        if (diskPdf) {
-            if (!storedPdfPath) {
-                try {
-                    await setDocumentPdfPath(id, relativePath);
-                } catch (cause) {
-                    console.error(
-                        redactSecrets(`[pdf] path update failed: ${String(cause)}`)
-                    );
-                }
+    const snapshot = await readPdfSnapshot(diskPath);
+    if (snapshot && snapshot.hash === hash) {
+        if (!storedPdfPath) {
+            try {
+                await setDocumentPdfPath(id, relativePath);
+            } catch (cause) {
+                console.error(
+                    redactSecrets(`[pdf] path update failed: ${String(cause)}`)
+                );
             }
-            pdfCache.set(doc.nomor, { hash, pdf: diskPdf });
-            return new Response(new Uint8Array(diskPdf), {
-                status: 200,
-                headers: {
-                    "Content-Type": "application/pdf",
-                    "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll("/", "-")}.pdf"`,
-                    "X-PDF-Cache": "HIT",
-                },
-            });
         }
+        pdfCache.set(doc.nomor, {
+            hash,
+            pdf: snapshot.pdf,
+        });
+        return new Response(new Uint8Array(snapshot.pdf), {
+            status: 200,
+            headers: {
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll(
+                    "/",
+                    "-"
+                )}.pdf"`,
+                "X-PDF-Cache": "HIT",
+            },
+        });
     }
 
     const html = renderQuotationHtml(doc);

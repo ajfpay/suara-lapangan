@@ -67,11 +67,37 @@ export async function readPdf(filePath: string): Promise<Buffer | null> {
     try {
         return await readFile(filePath);
     } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") {
             return null;
         }
         throw err;
     }
+}
+
+/**
+ * Read a PDF file and its sidecar hash as one snapshot.
+ * Re-reads the hash after reading the bytes so a concurrent rewrite is detected:
+ * if the hash changed while we read, the pair is inconsistent and we return null
+ * so the caller re-renders instead of serving a mixed snapshot.
+ */
+export async function readPdfSnapshot(filePath: string): Promise<{
+    pdf: Buffer;
+    hash: string;
+} | null> {
+    const firstHash = await readPdfHash(filePath);
+    if (firstHash === null) {
+        return null;
+    }
+    const pdf = await readPdf(filePath);
+    if (pdf === null) {
+        return null;
+    }
+    const currentHash = await readPdfHash(filePath);
+    if (currentHash !== firstHash) {
+        return null;
+    }
+    return { pdf, hash: firstHash };
 }
 
 export async function writePdfHash(
@@ -110,7 +136,8 @@ export async function readPdfHash(filePath: string): Promise<string | null> {
         const content = await readFile(hashPath, "utf8");
         return content.trim();
     } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") {
             return null;
         }
         throw err;

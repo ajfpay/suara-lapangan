@@ -378,12 +378,15 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
 
     it("unwritable-directory case: 500 pdf_failure, does not leak path in body, logs error", async () => {
         const id = await seed(doc());
-        const readOnlyParent = await fs.mkdtemp(
-            path.join(os.tmpdir(), "suara-pdf-ro-")
+        // Use a regular file as an ancestor of PDF_STORAGE_DIR to force a write failure
+        // regardless of process privileges (e.g., running as root).
+        const blockingFile = await fs.mkdtemp(
+            path.join(os.tmpdir(), "suara-pdf-block-")
         );
-        tempStorageDirs.push(readOnlyParent);
-        await fs.chmod(readOnlyParent, 0o555);
-        const unwritableDir = path.join(readOnlyParent, "unwritable-child", "data", "pdf");
+        tempStorageDirs.push(blockingFile);
+        const blockerPath = path.join(blockingFile, "blocker");
+        await fs.writeFile(blockerPath, "block");
+        const unwritableDir = path.join(blockerPath, "data", "pdf");
         process.env.PDF_STORAGE_DIR = unwritableDir;
 
         const errorLogs: string[] = [];
@@ -402,14 +405,13 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             expect(body.error).toBe("pdf_failure");
             expect(body.message).toBe("Failed to render PDF");
             expect(JSON.stringify(body)).not.toContain(unwritableDir);
-            expect(JSON.stringify(body)).not.toContain(readOnlyParent);
+            expect(JSON.stringify(body)).not.toContain(blockingFile);
             expect(errorLogs.length).toBeGreaterThan(0);
             expect(
                 errorLogs.some((l) => l.includes("[pdf] render or write failed"))
             ).toBe(true);
         } finally {
             console.error = originalError;
-            await fs.chmod(readOnlyParent, 0o755).catch(() => {});
         }
     }, 60000);
 });
