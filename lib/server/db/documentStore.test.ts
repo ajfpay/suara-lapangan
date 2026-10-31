@@ -53,19 +53,19 @@ function input(
 
 describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     let pool: Pool;
+    let store: ReturnType<typeof createPostgresDocumentStore>;
 
     beforeAll(async () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
-        for (const file of [
-            "0001_sessions_turns.sql",
-            "0002_usage_meter.sql",
-            "0003_documents.sql",
-        ]) {
-            const sql = await import("node:fs/promises").then((fs) =>
-                fs.readFile(`db/migrations/${file}`, "utf8")
-            );
+        const migrations = await import("node:fs/promises").then(async (fs) => {
+            const dir = "db/migrations";
+            const files = (await fs.readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
+            return Promise.all(files.map((f) => fs.readFile(`${dir}/${f}`, "utf8")));
+        });
+        for (const sql of migrations) {
             await pool.query(sql);
         }
+        store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await pool.query("truncate documents, sessions cascade");
     });
 
@@ -85,7 +85,6 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     }
 
     it("round-trips create and get, deriving status from butuh_konfirmasi", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-create");
 
         const created = await store.create(
@@ -101,7 +100,6 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     });
 
     it("maps a payload with open confirmations to perlu_konfirmasi", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-confirm");
         const created = await store.create(
             input(
@@ -116,13 +114,13 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(created.status).toBe("perlu_konfirmasi");
     });
 
-    it("rejects a session that does not exist", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
-        await expect(store.create(input("no-such-session", doc()))).rejects.toThrow();
+    it("rejects a session that does not exist with the FK violation code", async () => {
+        await expect(store.create(input("no-such-session", doc()))).rejects.toMatchObject({
+            code: "23503",
+        });
     });
 
     it("reuses the same document for an identical create on the same day", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-idem");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
 
@@ -140,8 +138,26 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(await store.findByIdempotencyKey("s-idem", otherHash))!.toMatchObject({ id: second.id });
     });
 
+    it("creates a distinct document when the same session+hash repeats the next day", async () => {
+        await seedSession("s-nextday");
+        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const first = await store.create(input("s-nextday", doc(), hash));
+
+        // Backdate the first document out of today so the unique index no longer
+        // sees it (the calendar day of created_at is what scopes the reuse).
+        await pool.query(
+            "update documents set created_at = now() - interval '1 day', updated_at = now() - interval '1 day' where id = $1",
+            [first.id]
+        );
+
+        const second = await store.create(input("s-nextday", doc(), hash));
+        expect(second.id).not.toBe(first.id);
+        expect(
+            await store.findByIdempotencyKey("s-nextday", hash)
+        ).toMatchObject({ id: second.id });
+    });
+
     it("converges on one document for a second create with the same session, hash, and day", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-unique");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
         const first = await store.create(input("s-unique", doc(), hash));
@@ -156,7 +172,6 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     });
 
     it("concurrent identical creates converge on one document", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-race");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
         const results = await Promise.all(
@@ -173,18 +188,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     }, 30000);
 
     it("persists a patch and recomputes the status", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-patch");
         const created = await store.create(input("s-patch", doc()));
-        const patched = await store.update(created.id, doc({
+        const patched = await store.update(created.id, (document) => ({
+            ...document,
             pekerjaan: [
                 {
-                    uraian: "Pemasangan hebel",
+                    ...document.pekerjaan[0],
                     volume: 20,
-                    satuan: "m2",
-                    harga_satuan: 50000,
                     jumlah: 1000000,
-                    sumber_kutipan: "turn_1",
                 },
             ],
             total_nominal: 1000000,
@@ -199,16 +211,22 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     });
 
     it("get and update answer null for unknown or malformed ids", async () => {
-        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
 
         expect(await store.get("00000000-0000-0000-0000-000000000000")).toBeNull();
         expect(await store.get("not-a-uuid")).toBeNull();
 
-        const patched = await store.update("00000000-0000-0000-0000-000000000000", doc());
+        const patched = await store.update(
+            "00000000-0000-0000-0000-000000000000",
+            (document) => document
+        );
         expect(patched).toBeNull();
     });
 
-    it("turnsHashOf separates turns that differ only in timing or text", async () => {
+
+});
+
+ describe("turnsHashOf", () => {
+    it("separates turns that differ only in timing or text", () => {
         const base = [{ startMs: 0, endMs: 500, transcript: "pagar" }];
         const same = turnsHashOf(base);
         expect(turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }])).toBe(same);

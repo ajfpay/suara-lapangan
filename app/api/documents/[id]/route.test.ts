@@ -11,7 +11,11 @@ import type { QuotationDocument } from "@/lib/server/guard/types";
 
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
 
-process.env.DATABASE_URL = TEST_DATABASE_URL;
+if (TEST_DATABASE_URL !== undefined) {
+    // The route builds its store from DATABASE_URL; point it at the same test
+    // database the assertions read through their own pool.
+    process.env.DATABASE_URL = TEST_DATABASE_URL;
+}
 
 function createTestDocument(
     overrides?: Partial<QuotationDocument>

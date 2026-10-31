@@ -122,19 +122,11 @@ export async function POST(request: Request): Promise<Response> {
         }
     }
 
-    const resolvedLocale: Locale = locale ?? session.locale;
-
-    if (!session.turns || session.turns.length === 0) {
-        return NextResponse.json(
-            { error: "empty_turns", message: "Session contains no speech turns" },
-            { status: 400 }
-        );
-    }
-
     // The inline-turns test branch never went through ASR, so the session row the
     // document's foreign key needs may not exist. Only a truly absent session is
     // persisted here; an existing row always wins, so a POST with inline turns can
-    // never clobber what a real ASR upload stored.
+    // never clobber what a real ASR upload stored. After the swap, locale and turns
+    // follow the stored session; an explicit request locale still wins over it.
     if (!turnsStore) {
         try {
             turnsStore = getTurnsStore();
@@ -162,6 +154,14 @@ export async function POST(request: Request): Promise<Response> {
                 { status: 500 }
             );
         }
+    }
+    const resolvedLocale: Locale = locale ?? session.locale;
+
+    if (!session.turns || session.turns.length === 0) {
+        return NextResponse.json(
+            { error: "empty_turns", message: "Session contains no speech turns" },
+            { status: 400 }
+        );
     }
 
     // Idempotent reuse: an identical create (same session, same turns fingerprint,
@@ -220,8 +220,6 @@ export async function POST(request: Request): Promise<Response> {
 
     async function persistAndRespond(
         document: QuotationDocument,
-        butuh_konfirmasi: QuotationDocument["butuh_konfirmasi"],
-        status: DocumentStatus,
         fromModel: boolean
     ): Promise<Response> {
         let stored: StoredDocument;
@@ -249,12 +247,17 @@ export async function POST(request: Request): Promise<Response> {
             ...stored.document,
             id: stored.id,
         };
+        // A concurrent identical create can make create() return the winner's row;
+        // answer from the stored row so the envelope always matches what is stored.
+        const butuhKonfirmasi = stored.document.butuh_konfirmasi ?? [];
+        const status: DocumentStatus =
+            butuhKonfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
         return NextResponse.json(
             {
                 document: toResponseDocument(documentWithId),
-                butuh_konfirmasi,
+                butuh_konfirmasi: butuhKonfirmasi,
                 status,
-                ...sparkPathMarker(fromModel),
+                ...sparkPathMarker(stored.document._spark_path === true || fromModel),
             },
             { status: 200 }
         );
@@ -267,12 +270,7 @@ export async function POST(request: Request): Promise<Response> {
             project,
             { sessionId }
         );
-        return persistAndRespond(
-            result.document,
-            result.butuh_konfirmasi,
-            result.status,
-            false
-        );
+        return persistAndRespond(result.document, false);
     }
 
     // Call Muse Spark 1.3 inline with strict schema
@@ -324,10 +322,5 @@ export async function POST(request: Request): Promise<Response> {
     if (candidate._spark_path) {
         result.document._spark_path = true;
     }
-    return persistAndRespond(
-        result.document,
-        result.butuh_konfirmasi,
-        result.status,
-        candidate._spark_path === true
-    );
+    return persistAndRespond(result.document, candidate._spark_path === true);
 }

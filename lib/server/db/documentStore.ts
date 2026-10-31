@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { Pool } from "pg";
 
+import { redactSecrets } from "@/lib/server/asr/log";
 import type { DocumentStatus, QuotationDocument } from "@/lib/server/guard/types";
 
 export type StoredDocument = {
@@ -29,8 +30,15 @@ export interface DocumentStore {
     ): Promise<StoredDocument | null>;
     create(input: CreateDocumentInput): Promise<StoredDocument>;
     get(id: string): Promise<StoredDocument | null>;
-    /** Rewrites data_json and recomputes status from the payload's butuh_konfirmasi. */
-    update(id: string, document: QuotationDocument): Promise<StoredDocument | null>;
+    /**
+     * Applies transform to the stored payload inside a row lock (SELECT … FOR
+     * UPDATE), so overlapping PATCHes serialize on the row instead of racing a
+     * read-modify-write. Null when the id is unknown or malformed.
+     */
+    update(
+        id: string,
+        transform: (document: QuotationDocument) => QuotationDocument
+    ): Promise<StoredDocument | null>;
 }
 
 export function turnsHashOf(
@@ -59,6 +67,12 @@ export function createPostgresDocumentStore(
     connectionString: string
 ): DocumentStore {
     const pool = new Pool({ connectionString });
+    // Without a listener, pg emits 'error' on the pool for a background idle
+    // client failure (Postgres restart, dropped connection) and Node crashes
+    // the process; log it through redactSecrets and let the pool reconnect.
+    pool.on("error", (err) => {
+        console.error(redactSecrets(`[documents] pool error: ${String(err)}`));
+    });
     function toStored(row: {
         id: string;
         session_id: string;
@@ -155,25 +169,48 @@ export function createPostgresDocumentStore(
             return toStored(result.rows[0]);
         },
 
-        async update(id, document) {
+        async update(id, transform) {
             if (!UUID_RE.test(id)) return null;
-            const result = await pool.query(
-                `update documents
-                 set data_json = $2,
-                     status = $3,
-                     updated_at = now()
-                 where id = $1::uuid
-                 returning id, session_id, nomor, status, data_json, created_at`,
-                [
-                    id,
-                    JSON.stringify(document),
-                    document.butuh_konfirmasi.length > 0
-                        ? "perlu_konfirmasi"
-                        : "siap",
-                ]
-            );
-            if (result.rowCount === 0) return null;
-            return toStored(result.rows[0]);
+            const client = await pool.connect();
+            try {
+                await client.query("begin");
+                // Serializes overlapping PATCHes on this document: the second
+                // one reads the first one's committed payload, so its recomputed
+                // totals build on the corrected numbers instead of overwriting.
+                const locked = await client.query(
+                    `select id, session_id, nomor, status, data_json, created_at
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return null;
+                }
+                const stored = toStored(locked.rows[0]);
+                const updated = transform(stored.document);
+                const result = await client.query(
+                    `update documents
+                     set data_json = $2,
+                         status = $3,
+                         updated_at = now()
+                     where id = $1::uuid
+                     returning id, session_id, nomor, status, data_json, created_at`,
+                    [
+                        id,
+                        JSON.stringify(updated),
+                        updated.butuh_konfirmasi.length > 0
+                            ? "perlu_konfirmasi"
+                            : "siap",
+                    ]
+                );
+                await client.query("commit");
+                return toStored(result.rows[0]);
+            } catch (cause) {
+                await client.query("rollback");
+                throw cause;
+            } finally {
+                client.release();
+            }
         },
     };
 }

@@ -8,7 +8,8 @@ import { defineConfig } from "vitest/config";
  *
  * Postgres-backed suites truncate shared tables in `beforeEach`, so files run
  * one at a time (a parallel truncate against another file's open transaction
- * deadlocks); inside a file tests still run in parallel where independent.
+ * deadlocks). `sequence.concurrent` is already Vitest's default; it is stated
+ * here only next to the `fileParallelism` it complements.
  */
 export default defineConfig({
     resolve: {
@@ -19,6 +20,5 @@ export default defineConfig({
         include: ["**/*.test.ts", "**/*.test.tsx"],
         exclude: ["node_modules/**", "e2e/**", ".next/**"],
         fileParallelism: false,
-        sequence: { concurrent: false },
     },
 });

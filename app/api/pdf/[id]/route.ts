@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
+import { redactSecrets } from "@/lib/server/asr/log";
 import { createHash } from "node:crypto";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 
@@ -48,7 +49,10 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
     let doc: QuotationDocument | undefined;
     try {
         doc = (await getPostgresDocumentStore().get(id))?.document;
-    } catch {
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[pdf] document read failed: ${String(cause)}`)
+        );
         return NextResponse.json(
             {
                 error: "store_failure",

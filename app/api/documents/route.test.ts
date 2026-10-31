@@ -21,15 +21,12 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
     beforeAll(async () => {
         process.env.DATABASE_URL = TEST_DATABASE_URL;
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
-        for (const file of [
-            "0001_sessions_turns.sql",
-            "0002_usage_meter.sql",
-            "0003_documents.sql",
-        ]) {
-            const sql = await import("node:fs/promises").then((fs) =>
-                fs.readFile(`db/migrations/${file}`, "utf8")
-            );
-            await pool.query(sql);
+        const fs = await import("node:fs/promises");
+        const migrationFiles = (await fs.readdir("db/migrations"))
+            .filter((f) => f.endsWith(".sql"))
+            .sort();
+        for (const file of migrationFiles) {
+            await pool.query(await fs.readFile(`db/migrations/${file}`, "utf8"));
         }
     });
 
@@ -103,52 +100,9 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         };
     }
 
-    it("rejects non-JSON bodies with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            body: "not json",
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
 
-    it("rejects missing or empty sessionId with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({}),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
 
-    it("rejects invalid sessionId format with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: "bad id with spaces!!!" }),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
 
-    it("rejects invalid locale with 400", async () => {
-        const req = new Request("http://localhost/api/documents", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessionId: "sess-valid-1", locale: "fr" }),
-        });
-        const res = await POST(req);
-        expect(res.status).toBe(400);
-        const data = await res.json();
-        expect(data.error).toBe("invalid_request");
-    });
 
     it("returns 500 when the session database fails to look up a session", async () => {
         vi.spyOn(dbStore, "getTurnsStore").mockReturnValue({
@@ -598,5 +552,55 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         } finally {
             if (originalNodeEnv === undefined) { delete (process.env as Record<string, string | undefined>).NODE_ENV; } else { (process.env as Record<string, string | undefined>).NODE_ENV = originalNodeEnv; }
         }
+    });
+});
+
+/**
+ * Pure request-validation tests: no Postgres, run everywhere. The
+ * Postgres-backed suite below carries the rest.
+ */
+describe("POST /api/documents request validation", () => {
+    it("rejects non-JSON bodies with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            body: "not json",
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects missing or empty sessionId with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects invalid sessionId format with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: "bad id with spaces!!!" }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+    it("rejects invalid locale with 400", async () => {
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId: "sess-valid-1", locale: "fr" }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
     });
 });
