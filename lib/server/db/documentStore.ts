@@ -34,15 +34,22 @@ export interface DocumentStore {
 }
 
 export function turnsHashOf(
-    turns: { startMs: number; endMs: number; transcript: string }[]
+    turns: { startMs: number; endMs: number; transcript: string }[],
+    context?: {
+        locale?: string;
+        project?: { nama: string; lokasi: string; klien: string };
+    }
 ): string {
-    return createHash("sha256")
-        .update(
-            turns
-                .map((turn) => `${turn.startMs}-${turn.endMs}-${turn.transcript}`)
-                .join("\n")
-        )
-        .digest("hex");
+    // Length-prefixed parts, so a transcript containing a separator character
+    // cannot alias a different turn sequence.
+    const parts = turns.map(
+        (turn) => `${turn.startMs}:${turn.endMs}:${turn.transcript.length}:${turn.transcript}`
+    );
+    if (context) {
+        parts.push(`locale:${context.locale ?? ""}`);
+        if (context.project) parts.push(`project:${JSON.stringify(context.project)}`);
+    }
+    return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
 
 const UUID_RE =
@@ -87,15 +94,31 @@ export function createPostgresDocumentStore(
         },
 
         async create(input) {
-            // Serializes concurrent creates for one session so the second one
-            // either sees the committed document (idempotent reuse) or waits,
-            // instead of racing the unique index into a deadlock.
+            // Serializes concurrent creates for one session. Inside the lock the
+            // insert is re-checked against the unique (session, hash, day) index:
+            // the loser of a race re-reads and returns the winner's document, so
+            // two identical concurrent creates converge on one row instead of a
+            // unique-violation 500.
             const client = await pool.connect();
             try {
                 await client.query("begin");
                 await client.query("select pg_advisory_xact_lock(hashtext($1))", [
                     input.sessionId,
                 ]);
+                const existing = await client.query(
+                    `select id, session_id, nomor, status, data_json, created_at
+                     from documents
+                     where session_id = $1
+                       and turns_hash = $2
+                       and (created_at at time zone 'UTC')::date
+                           = (now() at time zone 'UTC')::date
+                     limit 1`,
+                    [input.sessionId, input.turnsHash]
+                );
+                if ((existing.rowCount ?? 0) > 0) {
+                    await client.query("commit");
+                    return toStored(existing.rows[0]);
+                }
                 const result = await client.query(
                     `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
                      values ($1, $2, $3, $4, $5, $6)

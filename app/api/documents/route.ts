@@ -133,23 +133,32 @@ export async function POST(request: Request): Promise<Response> {
 
     // Idempotent reuse: an identical create (same session, same turns fingerprint,
     // same calendar day) returns the document it created instead of minting a second one.
-    const fingerprint = turnsHashOf(session.turns);
-    // The inline-turns test branch never went through ASR, so the session row
-    // the document's foreign key needs does not exist yet. Upsert it here;
-    // saveTranscription is idempotent per session id (K3).
+    // The inline-turns test branch never went through ASR, so the session row the
+    // document's foreign key needs may not exist. Only a truly absent session is
+    // persisted here; an existing row always wins, so a POST with inline turns can
+    // never clobber what a real ASR upload stored.
+    const fingerprint = turnsHashOf(session.turns, {
+        locale: resolvedLocale,
+        project,
+    });
     if (!turnsStore) {
         try {
             turnsStore = getTurnsStore();
-            await turnsStore.saveTranscription({
-                sessionId,
-                locale: session.locale,
-                audioSha256: session.audioSha256,
-                audioBytes: 1,
-                metaSessionId: null,
-                transcript: session.turns.map((t) => t.transcript).join(" "),
-                audioDurationMs: null,
-                turns: session.turns,
-            });
+            const existingSession = await turnsStore.findSession(sessionId);
+            if (existingSession) {
+                session = existingSession;
+            } else {
+                await turnsStore.saveTranscription({
+                    sessionId,
+                    locale: session.locale,
+                    audioSha256: session.audioSha256,
+                    audioBytes: 1,
+                    metaSessionId: null,
+                    transcript: session.turns.map((t) => t.transcript).join(" "),
+                    audioDurationMs: null,
+                    turns: session.turns,
+                });
+            }
         } catch {
             return NextResponse.json(
                 {

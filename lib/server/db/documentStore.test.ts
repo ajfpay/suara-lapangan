@@ -144,9 +144,33 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await seedSession("s-unique");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
-        await store.create(input("s-unique", doc(), hash));
-        await expect(store.create(input("s-unique", doc(), hash))).rejects.toThrow();
+        const first = await store.create(input("s-unique", doc(), hash));
+        // The create path re-checks inside its per-session lock, so a second
+        // identical create converges on the first document instead of a 500.
+        const second = await store.create(input("s-unique", doc(), hash));
+        expect(second.id).toBe(first.id);
+        const rows = await pool.query(
+            "select count(*)::int as n from documents where session_id = 's-unique'"
+        );
+        expect(rows.rows[0].n).toBe(1);
     });
+
+    it("concurrent identical creates converge on one document", async () => {
+        const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
+        await seedSession("s-race");
+        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const results = await Promise.all(
+            Array.from({ length: 5 }, () =>
+                store.create(input("s-race", doc(), hash))
+            )
+        );
+        const ids = new Set(results.map((r) => r.id));
+        expect(ids.size).toBe(1);
+        const rows = await pool.query(
+            "select count(*)::int as n from documents where session_id = 's-race'"
+        );
+        expect(rows.rows[0].n).toBe(1);
+    }, 30000);
 
     it("persists a patch and recomputes the status", async () => {
         const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
@@ -197,6 +221,22 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         ).not.toBe(same);
         expect(
             turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar besi" }])
+        ).not.toBe(same);
+        // A transcript containing the separator cannot alias a different sequence.
+        expect(
+            turnsHashOf([
+                { startMs: 0, endMs: 1, transcript: "a" },
+                { startMs: 2, endMs: 3, transcript: "b" },
+            ])
+        ).not.toBe(
+            turnsHashOf([{ startMs: 0, endMs: 1, transcript: "a\n2:3:1:b" }])
+        );
+        // Same turns, different locale or project → different fingerprint.
+        expect(turnsHashOf(base, { locale: "en" })).not.toBe(same);
+        expect(
+            turnsHashOf(base, {
+                project: { nama: "X", lokasi: "Y", klien: "Z" },
+            })
         ).not.toBe(same);
     });
 });
