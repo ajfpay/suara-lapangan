@@ -1,0 +1,26 @@
+{
+  "$schema": "https://api.capy.ai/schemas/setup.v1.json",
+  "format_version": 1,
+  "scripts": {
+    "initialize": "npm ci && npx playwright install --with-deps chromium",
+    "refresh": "npm ci"
+  },
+  "timeouts": {
+    "initialize": 900,
+    "refresh": 300
+  },
+  "startup": [
+    { "name": "web", "command": "npm run dev", "port": 3000 }
+  ],
+  "commands": [
+    { "name": "test", "command": "npm test", "icon": "task" },
+    { "name": "typecheck", "command": "npm run typecheck", "icon": "search" },
+    { "name": "lint", "command": "npm run lint", "icon": "search" },
+    { "name": "contracts", "command": "npm run test:contracts", "icon": "task" },
+    { "name": "e2e", "command": "npm run test:e2e", "icon": "task" },
+    { "name": "build", "command": "npm run build", "icon": "task" },
+    { "name": "install-browsers", "command": "npx playwright install --with-deps chromium", "icon": "task" },
+    { "name": "db-migrate", "command": "node db/migrate.mjs", "icon": "task" },
+    { "name": "check-third-party", "command": "npm run check:third-party", "icon": "search" }
+  ]
+}
