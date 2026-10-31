@@ -4,7 +4,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
-import { KonfirmasiCard, type KonfirmasiItem } from "./KonfirmasiCard";
+import {
+    KonfirmasiCard,
+    type KonfirmasiItem,
+} from "./KonfirmasiCard";
 import {
     buildShareSummary,
     buildWhatsAppShareUrl,
@@ -64,23 +67,34 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
 
             const data = await res.json();
             const doc = data.document;
-            if (doc?.id) {
-                setDocId(doc.id);
+            if (!doc?.id) {
+                const fallback = isIndo
+                    ? "Gagal membuat dokumen"
+                    : "Failed to create document";
+                setError(
+                    `${fallback} (no_document_id): ${
+                        isIndo
+                            ? "server mengembalikan 200 tanpa id dokumen"
+                            : "server returned 200 without a document id"
+                    }`
+                );
+                return;
             }
-            if (doc?.nomor) {
+            setDocId(doc.id);
+            if (doc.nomor) {
                 setNomor(doc.nomor);
             }
             setTotal(
-                typeof doc?.total_nominal === "number"
+                typeof doc.total_nominal === "number"
                     ? doc.total_nominal
                     : null
             );
             const rawItems =
-                data.butuh_konfirmasi ?? doc?.butuh_konfirmasi ?? [];
+                data.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? [];
             setItems(rawItems);
             const resolvedStatus =
                 data.status ??
-                doc?.status ??
+                doc.status ??
                 (rawItems.length > 0 ? "perlu_konfirmasi" : "siap");
             setStatus(resolvedStatus);
         } catch (e) {
@@ -208,14 +222,19 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                             locale={locale}
                             documentId={docId}
                             onPlayEvidence={onPlayEvidence}
-                            onResolved={(field) => {
-                                setItems((prev) => {
-                                    const next = prev.filter(
-                                        (i) => i.field !== field
-                                    );
-                                    if (next.length === 0) setStatus("siap");
-                                    return next;
-                                });
+                            onResolved={(_field, response) => {
+                                const serverItems =
+                                    response.butuh_konfirmasi ??
+                                    response.document?.butuh_konfirmasi ??
+                                    [];
+                                setItems(serverItems);
+                                const serverStatus =
+                                    response.status ??
+                                    response.document?.status ??
+                                    (serverItems.length > 0
+                                        ? "perlu_konfirmasi"
+                                        : "siap");
+                                setStatus(serverStatus);
                             }}
                         />
                     ))}

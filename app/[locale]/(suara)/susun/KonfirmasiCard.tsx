@@ -15,8 +15,17 @@ interface Props {
     item: KonfirmasiItem;
     locale: string;
     onPlayEvidence: (turnId: string) => void;
-    onResolved: (field: string) => void;
+    onResolved: (field: string, response: PatchResponse) => void;
     documentId: string;
+}
+
+export interface PatchResponse {
+    document: {
+        butuh_konfirmasi?: KonfirmasiItem[];
+        status?: "siap" | "perlu_konfirmasi";
+    };
+    butuh_konfirmasi?: KonfirmasiItem[];
+    status?: "siap" | "perlu_konfirmasi";
 }
 
 export function KonfirmasiCard({
@@ -52,7 +61,8 @@ export function KonfirmasiCard({
                         (isIndo ? "Gagal menyimpan." : "Failed to save.")
                 );
             }
-            onResolved(item.field);
+            const body = (await res.json()) as PatchResponse;
+            onResolved(item.field, body);
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
         } finally {

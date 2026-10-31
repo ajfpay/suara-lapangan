@@ -432,4 +432,115 @@ describe("KonfirmasiPanel", () => {
         const link = screen.getByRole("link", { name: "Lihat dokumen" });
         expect(link.getAttribute("href")).toBe("/id/dokumen?doc=doc-uuid-idempotent");
     });
+
+    it("server-driven lock: PATCH 200 with status 'perlu_konfirmasi' must NOT unlock the panel", async () => {
+        const mockLockedDoc = {
+            id: "doc-uuid-server-locked",
+            nomor: "SL/QTN/2026/0101",
+            status: "perlu_konfirmasi",
+            total_nominal: 750000,
+            butuh_konfirmasi: [
+                {
+                    field: "pekerjaan[0].volume",
+                    alasan: "Volume tidak jelas [10/20] m2",
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+        };
+
+        fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+            if (init?.method === "PATCH") {
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        document: {
+                            ...mockLockedDoc,
+                            butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
+                            status: "perlu_konfirmasi",
+                        },
+                        butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
+                        status: "perlu_konfirmasi",
+                    }),
+                };
+            }
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    document: mockLockedDoc,
+                    butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
+                    status: "perlu_konfirmasi",
+                }),
+            };
+        });
+
+        render(
+            <KonfirmasiPanel
+                locale="id"
+                sessionId="sess-server-locked-test"
+                onPlayEvidence={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId("document-nomor").textContent
+            ).toContain("SL/QTN/2026/0101");
+        });
+
+        const optionBtn = screen.getByRole("button", { name: "20" });
+        fireEvent.click(optionBtn);
+
+        await waitFor(() => {
+            const patchCall = fetchMock.mock.calls.find(
+                (call) => call[1]?.method === "PATCH"
+            );
+            expect(patchCall).toBeDefined();
+        });
+
+        // Server still reports perlu_konfirmasi → panel must stay locked.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId("document-status").textContent
+            ).toContain("perlu_konfirmasi");
+        });
+        const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
+        expect(btnUnduh.disabled).toBe(true);
+        const btnKirim = screen.getByTestId("btn-kirim") as HTMLButtonElement;
+        expect(btnKirim.disabled).toBe(true);
+        expect(screen.queryByRole("note")).not.toBeNull();
+    });
+
+    it("create: 200 with no document.id shows a visible retry error and does not render the created card", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: { nomor: "SL/QTN/2026/0102" },
+                butuh_konfirmasi: [],
+                status: "siap",
+            }),
+        });
+
+        render(
+            <KonfirmasiPanel
+                locale="id"
+                sessionId="sess-no-id-test"
+                onPlayEvidence={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
+
+        const alert = await screen.findByRole("alert");
+        expect(alert.textContent).toContain("Gagal membuat dokumen");
+        expect(alert.textContent).toContain("no_document_id");
+        expect(screen.queryByTestId("document-nomor")).toBeNull();
+        expect(
+            screen.queryByRole("link", { name: "Lihat dokumen" })
+        ).toBeNull();
+    });
 });
