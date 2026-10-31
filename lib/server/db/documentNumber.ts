@@ -27,6 +27,7 @@ export async function allocateDocumentNumber(
     db: Pool | PoolClient,
     year: number
 ): Promise<string> {
+    formatDocumentNumber(year, 1);
     const result = await db.query<{ last_number: number }>(
         `insert into document_sequences (year, last_number)
          values ($1, 1)

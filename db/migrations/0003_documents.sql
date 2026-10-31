@@ -37,6 +37,27 @@ create table if not exists document_sequences (
 -- index below forbids. Legacy numbers move to the yearly format, oldest
 -- first within each year, continuing after any yearly number already
 -- issued. Idempotent: already-migrated rows match nothing.
+-- Refuses to run when a year's sequence is exhausted (9999 taken and legacy
+-- rows still pending): folding 10000 into four digits would mint a wrong
+-- number, so the migration fails loudly instead of writing a wrapped value.
+do $$
+declare exhausted int;
+begin
+    select count(*) into exhausted
+    from (select yr, max(seq) as max_seq
+          from (select substring(nomor from 8 for 4)::int as yr,
+                       substring(nomor from 13 for 4)::int as seq
+                from documents
+                where nomor ~ '^SL/QTN/[0-9]{4}/[0-9]{4}$') s
+          group by yr) m
+    where exists (select 1 from documents
+                  where nomor ~ ('^SL/QTN/' || m.yr::text || '-[0-9]{2}-[0-9]{2}/[0-9]{3}$'))
+      and m.max_seq >= 9999;
+    if exhausted > 0 then
+        raise exception 'cannot migrate: a year has sequence 9999 taken and legacy nomor rows still to renumber';
+    end if;
+end $$;
+
 with legacy as (
     select id,
            substring(nomor from 8 for 4)::int as yr,

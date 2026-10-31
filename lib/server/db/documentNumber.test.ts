@@ -46,6 +46,13 @@ describe.skipIf(!TEST_DATABASE_URL)("document number allocator", () => {
         expect(nomor).toBe(`SL/QTN/${YEAR}/0001`);
         expect(() => formatDocumentNumber(YEAR, 0)).toThrow();
         expect(() => formatDocumentNumber(YEAR, 10000)).toThrow();
+        expect(() => formatDocumentNumber(999, 1)).toThrow();
+        // An invalid year is rejected before the sequence row is touched.
+        await expect(allocateDocumentNumber(pool, 999)).rejects.toThrow();
+        const rows = await pool.query(
+            "select count(*)::int as n from document_sequences where year = 999"
+        );
+        expect(rows.rows[0].n).toBe(0);
     });
 
     it("increments sequentially within a year", async () => {
