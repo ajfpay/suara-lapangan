@@ -16,7 +16,7 @@ function doc(overrides?: Partial<QuotationDocument>): QuotationDocument {
         jenis: "surat_penawaran",
         locale: "id",
         mata_uang: "IDR",
-        nomor: "SL/QTN/2026-10-30/001",
+        nomor: "SL/QTN/2026/0001",
         tanggal: "2026-10-30",
         proyek: { nama: "Villa", lokasi: "Ubud", klien: "Pak Made" },
         pekerjaan: [

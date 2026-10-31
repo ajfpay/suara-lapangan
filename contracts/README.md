@@ -28,7 +28,8 @@ server (spec D3 and guard rule 5). `mata_uang` follows the locale and the guard
 recomputes it, so the schema carries no `anyOf` tying the two: a strict
 `json_schema` request refuses a top-level `anyOf`. Model output for these is
 ignored, never
-trusted: the document number is `SL/QTN/<date>/<nnn>` and is never spoken, and
+trusted: the document number is `SL/QTN/<year>/<nnnn>` — sequential per
+calendar year, reset each year, assigned at creation — and is never spoken, and
 `jumlah` must equal `volume × harga_satuan` exactly.
 
 `butuh_konfirmasi[]` carries the frozen K3 payload

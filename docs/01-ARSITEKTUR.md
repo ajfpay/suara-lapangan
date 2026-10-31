@@ -191,7 +191,7 @@ internal (ulang dengan backoff), 1013 limit (backoff + beri tahu klien "menunggu
   "jenis": "surat_penawaran",
   "locale": "en",                         // "en" (Global/English) atau "id" (Bahasa Indonesia)
   "mata_uang": "USD",                     // "USD" atau "IDR"
-  "nomor": "SL/QTN/2026-10-29/001",       // dibuat server, berubah tiap dokumen
+  "nomor": "SL/QTN/2026/0001",             // dibuat server, berurutan per tahun, reset tiap tahun
   "tanggal": "2026-10-29",
   "proyek": { "nama": "Living Room Remodel", "lokasi": "Austin, TX", "klien": "Mr. Carter" },
   "pekerjaan": [

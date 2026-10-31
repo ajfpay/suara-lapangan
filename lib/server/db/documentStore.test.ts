@@ -21,7 +21,7 @@ function doc(overrides?: Partial<QuotationDocument>): QuotationDocument {
         jenis: "surat_penawaran",
         locale: "id",
         mata_uang: "IDR",
-        nomor: "SL/QTN/2026-10-31/001",
+        nomor: "SL/QTN/2026/0001",
         tanggal: "2026-10-31",
         proyek: { nama: "Renovasi", lokasi: "Sleman", klien: "Pak Budi" },
         pekerjaan: [
@@ -133,7 +133,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const otherHash = turnsHashOf([
             { startMs: 0, endMs: 900, transcript: "pagar besi" },
         ]);
-        const second = await store.create(input("s-idem", doc({ nomor: "SL/QTN/2026-10-31/002" }), otherHash));
+        const second = await store.create(input("s-idem", doc({ nomor: "SL/QTN/2026/0002" }), otherHash));
         expect(second.id).not.toBe(first.id);
         expect(await store.findByIdempotencyKey("s-idem", otherHash))!.toMatchObject({ id: second.id });
     });
@@ -144,9 +144,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const first = await store.create(input("s-nextday", doc(), hash));
 
         // Backdate the first document out of today so the unique index no longer
-        // sees it (the calendar day of created_at is what scopes the reuse).
+        // sees it (the calendar day of created_at is what scopes the reuse), and
+        // give it last year's nomor so documents_nomor_uidx cannot collide with
+        // the second create's fixed SL/QTN/2026/0001 fixture number.
         await pool.query(
-            "update documents set created_at = now() - interval '1 day', updated_at = now() - interval '1 day' where id = $1",
+            "update documents set created_at = now() - interval '1 year', updated_at = now() - interval '1 year', nomor = 'SL/QTN/' || ((extract(year from now()))::int - 1)::text || '/0001' where id = $1",
             [first.id]
         );
 
