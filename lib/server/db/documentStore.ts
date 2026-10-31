@@ -151,7 +151,9 @@ export function createPostgresDocumentStore(
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
-                await client.query("rollback");
+                // A failed rollback must not replace the original cause; the
+                // connection returns to the pool already aborted either way.
+                await client.query("rollback").catch(() => undefined);
                 throw cause;
             } finally {
                 client.release();
@@ -206,7 +208,9 @@ export function createPostgresDocumentStore(
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
-                await client.query("rollback");
+                // A failed rollback must not replace the original cause; the
+                // connection returns to the pool already aborted either way.
+                await client.query("rollback").catch(() => undefined);
                 throw cause;
             } finally {
                 client.release();
