@@ -3,7 +3,16 @@ import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { createHash } from "node:crypto";
+import path from "node:path";
+import { Pool } from "pg";
 import type { QuotationDocument } from "@/lib/server/guard/types";
+import {
+    resolvePdfStorageDir,
+    relativePdfPathFor,
+    writePdfAtomic,
+    readPdfSnapshot,
+    isSafeStoredPdfPath,
+} from "@/lib/server/pdf/storage";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -11,6 +20,58 @@ type RouteContext = {
 
 // Identical-content cache: key = document nomor + content hash.
 const pdfCache = new Map<string, { hash: string; pdf: Buffer }>();
+
+export function resetPdfCacheForTesting(): void {
+    pdfCache.clear();
+}
+
+let dbPool: Pool | null = null;
+let dbPoolUrl: string | null = null;
+
+function getPdfDbPool(): Pool {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error("DATABASE_URL is not set");
+    }
+    if (!dbPool || dbPoolUrl !== connectionString) {
+        if (dbPool) {
+            dbPool.end().catch(() => {});
+        }
+        dbPoolUrl = connectionString;
+        dbPool = new Pool({ connectionString });
+        dbPool.on("error", (err) => {
+            console.error(redactSecrets(`[pdf] db pool error: ${String(err)}`));
+        });
+    }
+    return dbPool;
+}
+
+export async function resetPdfDbPoolForTesting(): Promise<void> {
+    if (dbPool) {
+        const p = dbPool;
+        dbPool = null;
+        dbPoolUrl = null;
+        await p.end().catch(() => {});
+    }
+}
+
+async function getDocumentPdfPath(id: string): Promise<string | null> {
+    const pool = getPdfDbPool();
+    const result = await pool.query<{ pdf_path: string | null }>(
+        "SELECT pdf_path FROM documents WHERE id = $1",
+        [id]
+    );
+    return result.rows[0]?.pdf_path ?? null;
+}
+
+// Stored pdf_path is relative to PDF_STORAGE_DIR (e.g. '2026/0001.pdf') for portability.
+async function setDocumentPdfPath(id: string, relativePath: string): Promise<void> {
+    const pool = getPdfDbPool();
+    await pool.query(
+        "UPDATE documents SET pdf_path = $2, updated_at = now() WHERE id = $1",
+        [id, relativePath]
+    );
+}
 
 function hashDoc(doc: unknown): string {
     return createHash("sha256").update(JSON.stringify(doc)).digest("hex");
@@ -47,8 +108,12 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
         );
     }
     let doc: QuotationDocument | undefined;
+    let storedPdfPath: string | null = null;
     try {
         doc = (await getPostgresDocumentStore().get(id))?.document;
+        if (doc) {
+            storedPdfPath = await getDocumentPdfPath(id);
+        }
     } catch (cause) {
         console.error(
             redactSecrets(`[pdf] document read failed: ${String(cause)}`)
@@ -89,11 +154,83 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
             },
         });
     }
+
+    const storageDir = resolvePdfStorageDir();
+    const idPath = relativePdfPathFor(id);
+    const idDiskPath = path.resolve(storageDir, idPath);
+
+    // A stored pdf_path is used only for reading; writes always go to the
+    // id-keyed path so an old or missing stored path can never shadow a
+    // different document's file.
+    let storedDiskPath: string | null = null;
+    if (storedPdfPath && isSafeStoredPdfPath(storedPdfPath)) {
+        storedDiskPath = path.resolve(storageDir, storedPdfPath);
+    }
+
+    let snapshot: { pdf: Buffer; hash: string } | null = null;
+    if (storedDiskPath) {
+        try {
+            snapshot = await readPdfSnapshot(storedDiskPath);
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
+            );
+            return NextResponse.json(
+                { error: "pdf_failure", message: "Failed to render PDF" },
+                { status: 500 }
+            );
+        }
+    }
+    if (!snapshot) {
+        try {
+            snapshot = await readPdfSnapshot(idDiskPath);
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[pdf] disk read failed: ${String(cause)}`)
+            );
+            return NextResponse.json(
+                { error: "pdf_failure", message: "Failed to render PDF" },
+                { status: 500 }
+            );
+        }
+    }
+    if (snapshot && snapshot.hash === hash) {
+        if (!storedPdfPath || storedPdfPath !== idPath) {
+            try {
+                await setDocumentPdfPath(id, idPath);
+            } catch (cause) {
+                console.error(
+                    redactSecrets(`[pdf] path update failed: ${String(cause)}`)
+                );
+            }
+        }
+        pdfCache.set(doc.nomor, {
+            hash,
+            pdf: snapshot.pdf,
+        });
+        return new Response(new Uint8Array(snapshot.pdf), {
+            status: 200,
+            headers: {
+                "Content-Type": "application/pdf",
+                "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll(
+                    "/",
+                    "-"
+                )}.pdf"`,
+                "X-PDF-Cache": "HIT",
+            },
+        });
+    }
+
     const html = renderQuotationHtml(doc);
     let pdf: Buffer;
     try {
         pdf = await renderPdf(html);
-    } catch {
+        await writePdfAtomic(idDiskPath, pdf, hash);
+        await setDocumentPdfPath(id, idPath);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[pdf] render or write failed: ${String(cause)}`)
+        );
         return NextResponse.json(
             { error: "pdf_failure", message: "Failed to render PDF" },
             { status: 500 }
