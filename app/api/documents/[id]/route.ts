@@ -221,7 +221,6 @@ export async function PATCH(
     const status: DocumentStatus =
         document.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
 
-    // Persist via Postgres and return 200 {document, butuh_konfirmasi, status}.
     try {
         await docStore.update(id, document);
     } catch {

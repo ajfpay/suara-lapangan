@@ -200,16 +200,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("get and update answer null for unknown or malformed ids", async () => {
         const store = createPostgresDocumentStore(TEST_DATABASE_URL!);
-        await seedSession("s-404");
-        const created = await store.create(input("s-404", doc()));
 
         expect(await store.get("00000000-0000-0000-0000-000000000000")).toBeNull();
         expect(await store.get("not-a-uuid")).toBeNull();
 
         const patched = await store.update("00000000-0000-0000-0000-000000000000", doc());
         expect(patched).toBeNull();
-
-        await store.update(created.id, doc({ butuh_konfirmasi: [] }));
     });
 
     it("turnsHashOf separates turns that differ only in timing or text", async () => {
