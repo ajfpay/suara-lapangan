@@ -1,7 +1,10 @@
 import { Pool, type PoolClient } from "pg";
 
 export function formatDocumentNumber(year: number, sequence: number): string {
-    if (sequence < 1 || sequence > 9999) {
+    if (!Number.isInteger(year) || year < 1000 || year > 9999) {
+        throw new Error(`document year ${year} is not a four-digit integer`);
+    }
+    if (!Number.isInteger(sequence) || sequence < 1 || sequence > 9999) {
         throw new Error(
             `document sequence ${sequence} for year ${year} is outside 0001..9999`
         );

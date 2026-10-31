@@ -49,7 +49,7 @@ const EXTENSION_DEFECT_CODES = [
 const ALL_DEFECT_CODES = [...FROZEN_DEFECT_CODES, ...EXTENSION_DEFECT_CODES];
 
 const VERDICTS = ["butuh_konfirmasi", "tolak_dokumen"];
-const NOMOR_PATTERN = /^SL\/QTN\/\d{4}\/\d{4}$/;
+const NOMOR_PATTERN = /^SL\/QTN\/\d{4}\/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})$/;
 
 // Canonical unit -> how it is said, in either language. Longest phrase first
 // when scanning, so "meter persegi" is not read as a bare "meter".
@@ -452,6 +452,7 @@ test("quotation schema accepts the yearly nomor and rejects the old date format"
         "SL/QTN/2026-10-29/001",
         "SL/QTN/2026/00001",
         "SL/QTN/26/0001",
+        "SL/QTN/2026/0000",
     ]) {
         assert.ok(
             valueProblems(schema, { ...valid, nomor }, nomor, []).length > 0,

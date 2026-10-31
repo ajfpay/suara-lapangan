@@ -106,9 +106,13 @@ describe.skipIf(!TEST_DATABASE_URL)("document number allocator", () => {
             "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('s-uniq', 'id', 'sha', 1, '')"
         );
         const nomor = await allocateDocumentNumber(pool, YEAR);
-        const insert = `insert into documents (session_id, locale, nomor, turns_hash, data_json)
-                        values ('s-uniq', 'id', $1, 'h', '{}'::jsonb)`;
-        await pool.query(insert, [nomor]);
-        await expect(pool.query(insert, [nomor])).rejects.toThrow();
+        // Different session ids and turns hashes, so the idempotency index on
+        // (session, hash, day) cannot fire and the duplicate nomor itself must
+        // be what the unique index rejects.
+        const insert = (sessionId: string, hash: string) =>
+            `insert into documents (session_id, locale, nomor, turns_hash, data_json)
+             values ('${sessionId}', 'id', $1, '${hash}', '{}'::jsonb)`;
+        await pool.query(insert("s-uniq", "h1"), [nomor]);
+        await expect(pool.query(insert("s-uniq-2", "h2"), [nomor])).rejects.toThrow();
     });
 });

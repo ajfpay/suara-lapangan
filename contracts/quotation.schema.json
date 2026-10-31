@@ -35,8 +35,8 @@
     },
     "nomor": {
       "type": "string",
-      "pattern": "^SL/QTN/\\d{4}/\\d{4}$",
-      "description": "Server-made document number: calendar year and a four-digit sequence that resets each year. Never spoken by the user and never invented by the model."
+      "pattern": "^SL/QTN/[0-9]{4}/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})$",
+      "description": "Server-made document number: calendar year and a four-digit sequence (0001..9999) that resets each year. Never spoken by the user and never invented by the model."
     },
     "tanggal": {
       "type": "string",

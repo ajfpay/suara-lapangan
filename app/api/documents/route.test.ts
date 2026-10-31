@@ -345,6 +345,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         };
         vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(mockCandidate);
 
+        const expectedYear = new Date().getFullYear();
         const res = await POST(
             new Request("http://localhost/api/documents", {
                 method: "POST",
@@ -355,8 +356,9 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(res.status).toBe(200);
         const data = await res.json();
 
-        const year = new Date().getFullYear();
-        expect(data.document.nomor).toMatch(new RegExp(`^SL/QTN/${year}/\\d{4}$`));
+        expect(data.document.nomor).toMatch(
+            new RegExp(`^SL/QTN/${expectedYear}/\\d{4}$`)
+        );
         expect(data.document.nomor).not.toBe(modelNomor);
         const row = await pool.query(
             "select nomor from documents where id = $1::uuid",

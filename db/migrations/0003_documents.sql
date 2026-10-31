@@ -46,7 +46,8 @@ with legacy as (
 ),
 renumber as (
     select id, yr,
-           (select count(*) from documents d2
+           (select coalesce(max(substring(d2.nomor from 13 for 4)::int), 0)
+            from documents d2
             where d2.nomor ~ ('^SL/QTN/' || l.yr::text || '/[0-9]{4}$'))
            + row_number() over (partition by yr order by created_at, id)
              as seq
