@@ -36,6 +36,6 @@ PR: feature/mcp-server -> main
 ## Worktree Setup Strategy
 
 - **Worktree Directory:** `$HOME/repos/suara-lapangan-mcp`
-- **Base Branch:** `main` (commit `eb7dabd`)
+- **Base Branch:** `main` (commit `fdaa8da`)
 - **Feature Branch:** `feature/mcp-server`
 - **Independence:** Isolates MCP development completely from the ongoing work in main and other tickets.

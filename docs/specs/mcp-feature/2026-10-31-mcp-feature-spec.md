@@ -1,7 +1,7 @@
 # SPEC — Suara Lapangan MCP Feature (Local AI & Web Muse Connector)
 
-- **Date:** 31 Oct 2026 · **Status:** DRAFT — Awaiting Approval Gate 1
-- **Authoritative references:** `docs/specs/document-pipeline/2026-10-31-document-pipeline-spec.md`, `AGENTS.md`, and official Model Context Protocol specifications (Streamable HTTP & stdio).
+- **Date:** 31 Oct 2026 · **Status:** APPROVED — Gate 1 Signed Off (User approved on 31 Oct 2026)
+- **Authoritative references:** `AGENTS.md`, `contracts/quotation.schema.json`, and official Model Context Protocol specifications (Streamable HTTP & stdio).
 - **Target Artifact:** `docs/specs/mcp-feature/2026-10-31-mcp-feature-spec.md`
 
 ---
@@ -66,7 +66,7 @@ The server operates strictly on application domain data and features, without ex
 
 ### 3. Business Tools Definition
 - **`list_documents`**:
-  - Parameters: optional `limit` (number, default 20), optional `status` filter (`siap`, `draft`, `butuh_konfirmasi`).
+  - Parameters: optional `limit` (number, default 20), optional `status` filter (`siap` | `perlu_konfirmasi` per `lib/server/guard/types.ts:59`).
   - Reads from the document store and returns metadata (id, nomor, proyek, total_nominal, status, created_at).
 - **`get_document`**:
   - Parameters: `id` (string, required).
@@ -123,5 +123,5 @@ The server operates strictly on application domain data and features, without ex
 
 ## Further Notes
 
-- Package additions are strictly bounded to `@modelcontextprotocol/sdk` (Zod is already present in peer dependencies and TypeScript types).
-- This specification establishes Approval Gate 1 of Engineering Mode.
+- Package additions: install `@modelcontextprotocol/sdk` and `zod` via `pnpm add @modelcontextprotocol/sdk zod` (`zod` is required for MCP schema definitions and is not present in existing `package.json`).
+- This specification represents the approved design from Gate 1 of Engineering Mode.

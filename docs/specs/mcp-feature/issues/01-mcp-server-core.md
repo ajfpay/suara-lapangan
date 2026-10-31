@@ -8,7 +8,7 @@ A self-contained Model Context Protocol (MCP) server instance using `@modelconte
 **Status:** ready-for-agent
 
 - [ ] Core MCP server factory created in `lib/server/mcp/server.ts`
-- [ ] Tool `list_documents` returns active documents and statuses
+- [ ] Tool `list_documents` returns active documents and filterable statuses ("siap" | "perlu_konfirmasi")
 - [ ] Tool `get_document` retrieves complete quotation JSON by ID
 - [ ] Tool `create_quotation_draft` processes input turns through guard rules and stores draf
 - [ ] Tool `get_document_pdf` returns PDF download readiness and endpoint URL
