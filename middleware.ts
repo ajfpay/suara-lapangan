@@ -9,10 +9,13 @@ function isProtectedPath(pathname: string): boolean {
     // Strip locale prefix (/en or /id)
     const stripped = pathname.replace(/^\/(?:en|id)/, "") || "/";
 
-    if (stripped.startsWith("/rekam")) return true;
-    if (stripped.startsWith("/susun")) return true;
-    if (stripped.startsWith("/dokumen/saya")) return true;
-    if (stripped.startsWith("/admin")) return true;
+    // Exact segment match: a prefix check alone would also protect lookalike
+    // routes like /rekaman or /administer, which should stay on the locale
+    // catch-all 404 instead of redirecting to login.
+    if (stripped === "/rekam" || stripped.startsWith("/rekam/")) return true;
+    if (stripped === "/susun" || stripped.startsWith("/susun/")) return true;
+    if (stripped === "/dokumen/saya" || stripped.startsWith("/dokumen/saya/")) return true;
+    if (stripped === "/admin" || stripped.startsWith("/admin/")) return true;
 
     return false;
 }

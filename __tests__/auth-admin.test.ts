@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import crypto from "node:crypto";
 import { Pool } from "pg";
-import { auth } from "@/lib/server/auth";
 import { getPostgresDocumentStore, resetDocumentStoreForTesting } from "@/lib/server/db/documentStore";
 import { PostgresUsageStore } from "@/lib/server/quota/usage-meter";
+import type { Auth } from "@/lib/server/auth";
 
 const TEST_DATABASE_URL =
     process.env.ASR_TEST_DATABASE_URL ||
@@ -13,10 +13,15 @@ const TEST_DATABASE_URL =
 describe("Better Auth & Admin Dashboard core contracts", () => {
     let pool: Pool;
     const origDbUrl = process.env.DATABASE_URL;
+    let auth: Auth;
 
     beforeAll(async () => {
         process.env.DATABASE_URL = TEST_DATABASE_URL;
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        // `auth` builds its pool from DATABASE_URL at module scope, so it must
+        // be imported after the test URL is set — otherwise auth requests and
+        // the verification updates would target different databases.
+        auth = (await import("@/lib/server/auth")).auth;
     });
 
     afterAll(async () => {

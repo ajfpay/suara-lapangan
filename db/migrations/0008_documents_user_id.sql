@@ -4,28 +4,35 @@
 -- Updates usage_meter and email_send_meter to foreign-key auth_user.id.
 -- Creates user_cost_limits for per-user daily cost caps.
 -- Idempotent: safe to run on every start.
+--
+-- The whole file runs in one transaction (the runner sends it as a single
+-- statement batch), so a failure rolls back every change and can never leave
+-- half-cast tables behind.
+
+begin;
 
 -- 1. Documents user_id foreign key
-do $$
-begin
-    if exists (
-        select 1 from information_schema.columns
-        where table_name = 'documents' and column_name = 'user_id'
-    ) then
-        alter table documents drop column user_id cascade;
-    end if;
-end $$;
-
+-- `ADD COLUMN IF NOT EXISTS` is idempotent; never drop the column on rerun,
+-- because existing owner links would be lost. Legacy sentinel values that are
+-- not UUIDs (for example 'default') are mapped to the system user before the
+-- cast, so the migration never aborts on existing data.
 alter table documents add column if not exists user_id uuid references auth_user (id) on delete set null;
+update documents set user_id = '00000000-0000-0000-0000-000000000000'
+where user_id is not null and user_id::text not similar to '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 create index if not exists documents_user_id_idx on documents (user_id);
 
 -- 2. usage_meter: drop default, convert column to uuid if needed, add FK and index
+-- Legacy rows minted before auth used `user_id = 'default'`; map that value to
+-- the seeded system UUID before the cast so the migration never aborts on
+-- existing data.
 do $$
 begin
     if exists (
         select 1 from information_schema.columns
         where table_name = 'usage_meter' and column_name = 'user_id' and data_type = 'text'
     ) then
+        update usage_meter set user_id = '00000000-0000-0000-0000-000000000000'
+        where user_id = 'default';
         alter table usage_meter alter column user_id drop default;
         alter table usage_meter alter column user_id type uuid using user_id::uuid;
     end if;
@@ -47,6 +54,8 @@ begin
         select 1 from information_schema.columns
         where table_name = 'email_send_meter' and column_name = 'user_id' and data_type = 'text'
     ) then
+        update email_send_meter set user_id = '00000000-0000-0000-0000-000000000000'
+        where user_id = 'default';
         alter table email_send_meter alter column user_id drop default;
         alter table email_send_meter alter column user_id type uuid using user_id::uuid;
     end if;
@@ -68,3 +77,5 @@ create table if not exists user_cost_limits (
     created_at       timestamptz not null default now(),
     updated_at       timestamptz not null default now()
 );
+
+commit;

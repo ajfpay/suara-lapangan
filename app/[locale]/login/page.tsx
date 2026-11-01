@@ -14,7 +14,14 @@ export default function LoginPage() {
     const searchParams = useSearchParams();
     const locale = String(params.locale ?? "id");
 
-    const callbackUrl = searchParams.get("callbackUrl") || `/${locale}/dokumen/saya`;
+    const rawCallbackUrl = searchParams.get("callbackUrl") || `/${locale}/dokumen/saya`;
+    // Only same-origin destinations are trusted as post-login targets; anything
+    // else (for example an absolute URL from a crafted query) falls back to the
+    // default Dokumen saya page.
+    const callbackUrl =
+        rawCallbackUrl.startsWith("/") && !rawCallbackUrl.startsWith("//")
+            ? rawCallbackUrl
+            : `/${locale}/dokumen/saya`;
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -64,7 +71,7 @@ export default function LoginPage() {
                 callbackURL: callbackUrl,
             });
         } catch {
-            setError("Google login failed");
+            setError(t("googleFailed"));
             setLoading(false);
         }
     }
@@ -133,7 +140,7 @@ export default function LoginPage() {
 
                 <div className="my-6 flex items-center gap-3">
                     <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs text-muted-foreground uppercase">Atau</span>
+                    <span className="text-xs text-muted-foreground uppercase">{t("or")}</span>
                     <div className="h-px flex-1 bg-border" />
                 </div>
 

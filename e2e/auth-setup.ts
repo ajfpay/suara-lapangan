@@ -26,7 +26,7 @@ export default async function globalSetup(): Promise<void> {
         );
     }
     const secret =
-        process.env.BETTER_AUTH_SECRET ??
+        process.env.BETTER_AUTH_SECRET ||
         "suara-lapangan-secret-key-development-minimum-32-chars";
 
     const pool = new Pool({ connectionString });

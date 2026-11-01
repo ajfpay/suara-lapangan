@@ -36,21 +36,30 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    if (!body || typeof body.userId !== "string") {
+    if (
+        !body ||
+        typeof body.userId !== "string" ||
+        typeof body.banned !== "boolean"
+    ) {
         return NextResponse.json({ error: "invalid_body" }, { status: 400 });
     }
 
     const { userId, banned, banReason } = body;
     const pool = getDbPool();
     try {
-        await pool.query(
+        // Admins are never banned from the dashboard; excluding them here also
+        // prevents disabling the last administrator even by a direct call.
+        const result = await pool.query(
             `update auth_user
              set banned = $1,
                  ban_reason = $2,
                  updated_at = now()
-             where id = $3`,
-            [Boolean(banned), banReason || null, userId]
+             where id = $3 and role <> 'admin'`,
+            [banned, banReason || null, userId]
         );
+        if (result.rowCount === 0) {
+            return NextResponse.json({ error: "not_found" }, { status: 404 });
+        }
         return NextResponse.json({ ok: true });
     } finally {
         await pool.end();

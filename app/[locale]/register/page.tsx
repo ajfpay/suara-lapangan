@@ -40,7 +40,7 @@ export default function RegisterPage() {
             // Registration succeeded: redirect to email verification notice
             router.push(`/${locale}/verify-email?email=${encodeURIComponent(email)}`);
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Registration failed");
+            setError(err instanceof Error ? err.message : t("registrationFailed"));
             setLoading(false);
         }
     }
@@ -49,12 +49,18 @@ export default function RegisterPage() {
         setLoading(true);
         setError(null);
         try {
-            await signIn.social({
+            const res = await signIn.social({
                 provider: "google",
                 callbackURL: `/${locale}/dokumen/saya`,
             });
+            // `signIn.social` returns an error result instead of throwing for
+            // provider-level failures; reset loading so the email form stays usable.
+            if (res.error) {
+                setError(t("googleFailed"));
+                setLoading(false);
+            }
         } catch {
-            setError("Google login failed");
+            setError(t("googleFailed"));
             setLoading(false);
         }
     }
@@ -79,47 +85,50 @@ export default function RegisterPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
+                        <label htmlFor="register-name" className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
                             {t("name")}
                         </label>
                         <input
+                            id="register-name"
                             type="text"
                             data-testid="input-name"
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Nama Lengkap"
+                            placeholder={t("placeholderName")}
                             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
 
                     <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
+                        <label htmlFor="register-email" className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
                             {t("email")}
                         </label>
                         <input
+                            id="register-email"
                             type="email"
                             data-testid="input-email"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="nama@email.com"
+                            placeholder={t("placeholderEmail")}
                             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
 
                     <div>
-                        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
+                        <label htmlFor="register-password" className="mb-1.5 block text-xs font-semibold text-muted-foreground uppercase">
                             {t("password")}
                         </label>
                         <input
+                            id="register-password"
                             type="password"
                             data-testid="input-password"
                             required
                             minLength={8}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Minimal 8 karakter"
+                            placeholder={t("placeholderPassword")}
                             className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground transition focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                     </div>
@@ -139,7 +148,7 @@ export default function RegisterPage() {
 
                 <div className="my-6 flex items-center gap-3">
                     <div className="h-px flex-1 bg-border" />
-                    <span className="text-xs text-muted-foreground uppercase">Atau</span>
+                    <span className="text-xs text-muted-foreground uppercase">{t("or")}</span>
                     <div className="h-px flex-1 bg-border" />
                 </div>
 

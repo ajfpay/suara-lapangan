@@ -727,6 +727,12 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(overRes.headers.get("X-Quota-Hard-Stop")).toBe("true");
         expect(await overRes.json()).toMatchObject({ error: "quota_exceeded" });
 
+        // Restore the seeded cap so later tests for the same user start clean.
+        await pool.query(
+            "delete from user_cost_limits where user_id = $1",
+            [overCap]
+        );
+
         vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue({
             jenis: "surat_penawaran",
             locale: "id",

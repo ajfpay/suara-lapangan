@@ -33,13 +33,13 @@ export default function VerifyEmailPage() {
                     if (res.ok) {
                         setVerified(true);
                     } else {
-                        setError("Tautan verifikasi tidak valid atau telah kedaluwarsa.");
+                        setError(t("verifyFailedBody"));
                     }
                     setVerifying(false);
                 }
             } catch {
                 if (active) {
-                    setError("Gagal memverifikasi email.");
+                    setError(t("verifyFailed"));
                     setVerifying(false);
                 }
             }
@@ -49,7 +49,7 @@ export default function VerifyEmailPage() {
         return () => {
             active = false;
         };
-    }, [token]);
+    }, [token, t]);
 
     return (
         <main className="container flex min-h-[calc(100vh-4rem)] items-center justify-center py-12">
@@ -57,7 +57,7 @@ export default function VerifyEmailPage() {
                 {verifying ? (
                     <div className="space-y-4 py-8">
                         <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-                        <p className="text-sm text-muted-foreground">Memverifikasi email Anda...</p>
+                        <p className="text-sm text-muted-foreground">{t("verifying")}</p>
                     </div>
                 ) : verified ? (
                     <div className="space-y-4">
@@ -84,7 +84,7 @@ export default function VerifyEmailPage() {
                             <AlertCircle className="h-8 w-8" />
                         </div>
                         <h1 className="text-xl font-bold tracking-tight text-foreground">
-                            Verifikasi Gagal
+                            {t("verifyFailedTitle")}
                         </h1>
                         <p className="text-sm text-muted-foreground">{error}</p>
                         <Link

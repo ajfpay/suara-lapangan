@@ -18,7 +18,7 @@ export type RecordUsageParams = {
 export const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 
 /**
- * The legacy "default" user: the system row `0005_auth_tables.sql` seeds, so
+ * The legacy "default" user: the system row `0007_auth_tables.sql` seeds, so
  * the `usage_meter.user_id` foreign key always holds.
  */
 export const DEFAULT_USER_ID = SYSTEM_USER_ID;
@@ -191,11 +191,16 @@ export class PostgresUsageStore implements UsageStore {
         }
 
         const row = result.rows[0];
+        const estCost = Number(row.est_cost);
+        const cap = await this.getCapForUser(userId);
         return {
             audioSeconds: Number(row.audio_seconds),
             tokens: Number(row.tokens),
-            estCost: Number(row.est_cost),
-            hardStop: Boolean(row.hard_stop),
+            estCost,
+            // The stored flag records a trip that happened while recording; a
+            // cap change (for example an admin setting a lower limit) must also
+            // take effect on the next read, so re-derive against the current cap.
+            hardStop: Boolean(row.hard_stop) || estCost >= cap,
         };
     }
 
@@ -245,16 +250,12 @@ export class PostgresUsageStore implements UsageStore {
         await this.pool.end();
     }
     async getCapForUser(userId: string): Promise<number> {
-        try {
-            const res = await this.pool.query<{ daily_cost_limit: string | number }>(
-                `select daily_cost_limit from user_cost_limits where user_id = $1`,
-                [userId]
-            );
-            if (res.rowCount && res.rowCount > 0) {
-                return Number(res.rows[0].daily_cost_limit);
-            }
-        } catch {
-            // Fall back to env/default cap
+        const res = await this.pool.query<{ daily_cost_limit: string | number }>(
+            `select daily_cost_limit from user_cost_limits where user_id = $1`,
+            [userId]
+        );
+        if (res.rowCount && res.rowCount > 0) {
+            return Number(res.rows[0].daily_cost_limit);
         }
         return getDailyCostCap();
     }

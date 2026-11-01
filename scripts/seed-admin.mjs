@@ -24,11 +24,17 @@ function parseArgs() {
     return parsed;
 }
 
-const { email, name = "Admin", password = "AdminPassword123!" } = parseArgs();
+const { email, name = "Admin", password } = parseArgs();
 
 if (!email) {
     console.error("Error: --email=... is required.");
-    console.error("Usage: npm run db:seed-admin -- --email=admin@example.com [--name=Admin] [--password=...]");
+    console.error("Usage: npm run db:seed-admin -- --email=admin@example.com --password=... [--name=Admin]");
+    process.exit(1);
+}
+
+if (!password || password.length < 8) {
+    console.error("Error: --password=... is required and must be at least 8 characters.");
+    console.error("Usage: npm run db:seed-admin -- --email=admin@example.com --password=... [--name=Admin]");
     process.exit(1);
 }
 

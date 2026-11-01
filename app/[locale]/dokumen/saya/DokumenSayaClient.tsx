@@ -46,12 +46,22 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                setSendError(errData?.message || "Gagal mengirim email dokumen.");
+                setSendError(errData?.message || t("sendError"));
                 setSending(false);
                 return;
             }
 
-            setSendSuccess(`Dokumen ${sendModalDoc.nomor} berhasil dikirim ke ${recipientEmail}`);
+            const data = await res.json().catch(() => ({}));
+            if (data?.status === "not_marked") {
+                // The document changed while the email was in flight; the server
+                // sent the version we viewed but did not mark it. Preserve the
+                // current document state instead of showing it as sent.
+                setSendError(data?.message || t("sendError"));
+                setSending(false);
+                return;
+            }
+
+            setSendSuccess(t("sendSuccess", { nomor: sendModalDoc.nomor, email: recipientEmail }));
             setDocs((prev) =>
                 prev.map((d) =>
                     d.id === sendModalDoc.id
@@ -65,7 +75,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                 setSendSuccess(null);
             }, 1800);
         } catch {
-            setSendError("Terjadi kesalahan jaringan.");
+            setSendError(t("networkError"));
         } finally {
             setSending(false);
         }
@@ -190,7 +200,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                                                             setSendError(null);
                                                             setSendSuccess(null);
                                                         }}
-                                                        disabled={isLocked}
+                                                        disabled={isLocked || doc.status === "terkirim"}
                                                         className={cn(
                                                             "inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-40"
                                                         )}
@@ -218,10 +228,10 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                 >
                     <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-foreground">
-                            Kirim Dokumen {sendModalDoc.nomor}
+                            {t("sendModalTitle", { nomor: sendModalDoc.nomor })}
                         </h3>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Surat Penawaran resmi dalam bentuk PDF akan dikirimkan ke alamat email tujuan.
+                            {t("sendModalBody")}
                         </p>
 
                         {sendSuccess ? (
@@ -239,10 +249,11 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                                 )}
 
                                 <div>
-                                    <label className="mb-1 block text-xs font-semibold uppercase text-muted-foreground">
-                                        Email Penerima
+                                    <label htmlFor="send-recipient-email" className="mb-1 block text-xs font-semibold uppercase text-muted-foreground">
+                                        {t("recipientEmail")}
                                     </label>
                                     <input
+                                        id="send-recipient-email"
                                         type="email"
                                         required
                                         autoFocus
@@ -261,7 +272,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                                         onClick={() => setSendModalDoc(null)}
                                         className="rounded-xl border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
                                     >
-                                        Batal
+                                        {t("cancel")}
                                     </button>
                                     <button
                                         type="submit"
@@ -270,7 +281,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                                         className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                     >
                                         {sending && <Loader2 className="h-4 w-4 animate-spin" />}
-                                        <span>{sending ? "Mengirim..." : "Kirim Sekarang"}</span>
+                                        <span>{sending ? t("sending") : t("sendNow")}</span>
                                     </button>
                                 </div>
                             </form>

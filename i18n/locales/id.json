@@ -130,7 +130,18 @@
         "emailNotVerified": "Email belum diverifikasi. Silakan periksa kotak masuk Anda.",
         "myDocuments": "Dokumen saya",
         "admin": "Admin",
-        "loginSuccess": "Berhasil masuk"
+        "loginSuccess": "Berhasil masuk",
+        "or": " atau ",
+        "googleFailed": "Gagal masuk dengan Google",
+        "verifying": "Memverifikasi email Anda...",
+        "verifyFailedTitle": "Verifikasi Gagal",
+        "verifyFailedBody": "Tautan verifikasi tidak valid atau telah kedaluwarsa.",
+        "verifyFailed": "Gagal memverifikasi email.",
+        "registrationFailed": "Pendaftaran gagal",
+        "backToLogin": "Kembali ke masuk",
+        "placeholderName": "Nama Lengkap",
+        "placeholderEmail": "nama@email.com",
+        "placeholderPassword": "Minimal 8 karakter"
     },
     "dokumenSaya": {
         "title": "Dokumen saya",
@@ -146,7 +157,16 @@
         "send": "Kirim",
         "statusPerluKonfirmasi": "Perlu konfirmasi",
         "statusSiap": "Siap",
-        "statusTerkirim": "Terkirim"
+        "statusTerkirim": "Terkirim",
+        "sendModalTitle": "Kirim Dokumen {nomor}",
+        "sendModalBody": "Surat Penawaran resmi dalam bentuk PDF akan dikirimkan ke alamat email tujuan.",
+        "recipientEmail": "Email Penerima",
+        "sendSuccess": "Dokumen {nomor} berhasil dikirim ke {email}",
+        "sendError": "Gagal mengirim email dokumen.",
+        "networkError": "Terjadi kesalahan jaringan.",
+        "cancel": "Batal",
+        "sending": "Mengirim...",
+        "sendNow": "Kirim Sekarang"
     },
     "admin": {
         "title": "Dasbor Admin",

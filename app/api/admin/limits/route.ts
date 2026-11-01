@@ -45,7 +45,8 @@ export async function POST(request: Request) {
         typeof body.userId !== "string" ||
         typeof body.limit !== "number" ||
         isNaN(body.limit) ||
-        body.limit < 0
+        body.limit < 0 ||
+        body.limit > 999999.9999
     ) {
         return NextResponse.json({ error: "invalid_body" }, { status: 400 });
     }

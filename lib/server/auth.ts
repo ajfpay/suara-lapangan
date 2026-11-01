@@ -21,11 +21,22 @@ function getAuthDbPool(): Pool {
 
 const pool = getAuthDbPool();
 
+const AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
+if (!AUTH_SECRET && process.env.NODE_ENV === "production") {
+    // A production deployment must set its own secret; using the shared
+    // development fallback would let anyone with repo access forge sessions.
+    // The deployment (ticket 08) is blocked, so this is a warning here rather
+    // than a build failure — `next build` runs with NODE_ENV=production and
+    // without the env var in CI.
+    console.warn(
+        "[auth] BETTER_AUTH_SECRET is not set; using the development fallback. " +
+            "Set a unique secret before deploying."
+    );
+}
+
 export const auth = betterAuth({
     database: pool,
-    secret:
-        process.env.BETTER_AUTH_SECRET ||
-        "suara-lapangan-secret-key-development-minimum-32-chars",
+    secret: AUTH_SECRET ?? "suara-lapangan-secret-key-development-minimum-32-chars",
     user: {
         modelName: "auth_user",
         fields: {
@@ -108,7 +119,7 @@ export const auth = betterAuth({
                         )
                     );
                 }
-            } else {
+            } else if (process.env.NODE_ENV !== "production") {
                 console.log(
                     `[auth] SMTP not configured. Verification URL for ${user.email}: ${url}`
                 );

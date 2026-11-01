@@ -72,6 +72,8 @@ export function UserMenu() {
             <button
                 type="button"
                 data-testid="user-menu-button"
+                aria-expanded={open}
+                aria-haspopup="menu"
                 onClick={() => setOpen((prev) => !prev)}
                 className={cn(
                     "flex items-center gap-2 rounded-full border border-border bg-card p-1 pr-3 text-sm font-medium text-foreground",

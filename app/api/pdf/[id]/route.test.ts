@@ -649,7 +649,9 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
-            "0005_auth_tables.sql",
+            "0004_email_sends.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
         ]) {
             const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
             await pool.query(sql);

@@ -130,7 +130,18 @@
         "emailNotVerified": "Email not verified. Please check your inbox.",
         "myDocuments": "My documents",
         "admin": "Admin",
-        "loginSuccess": "Logged in successfully"
+        "loginSuccess": "Logged in successfully",
+        "or": " or ",
+        "googleFailed": "Google login failed",
+        "verifying": "Verifying your email...",
+        "verifyFailedTitle": "Verification failed",
+        "verifyFailedBody": "The verification link is invalid or has expired.",
+        "verifyFailed": "Failed to verify email.",
+        "registrationFailed": "Registration failed",
+        "backToLogin": "Back to login",
+        "placeholderName": "Full name",
+        "placeholderEmail": "name@email.com",
+        "placeholderPassword": "At least 8 characters"
     },
     "dokumenSaya": {
         "title": "My documents",
@@ -146,7 +157,16 @@
         "send": "Send",
         "statusPerluKonfirmasi": "Needs confirmation",
         "statusSiap": "Ready",
-        "statusTerkirim": "Sent"
+        "statusTerkirim": "Sent",
+        "sendModalTitle": "Send document {nomor}",
+        "sendModalBody": "The official quotation PDF will be sent to the recipient email address.",
+        "recipientEmail": "Recipient email",
+        "sendSuccess": "Document {nomor} sent to {email}",
+        "sendError": "Failed to send document email.",
+        "networkError": "A network error occurred.",
+        "cancel": "Cancel",
+        "sending": "Sending...",
+        "sendNow": "Send now"
     },
     "admin": {
         "title": "Admin Dashboard",
