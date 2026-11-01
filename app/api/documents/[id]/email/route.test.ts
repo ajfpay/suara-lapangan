@@ -10,6 +10,7 @@ import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import { contentHashOf } from "@/lib/server/db/documentStore";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import { writePdfAtomic } from "@/lib/server/pdf/storage";
+import { getEmailSends } from "@/lib/server/quota/email-quota";
 
 const { sendMailMock } = vi.hoisted(() => ({
     sendMailMock: vi.fn(),
@@ -72,6 +73,8 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         pass: process.env.SMTP_PASS,
         from: process.env.SMTP_FROM,
         secure: process.env.SMTP_SECURE,
+        allowlist: process.env.EMAIL_ALLOWLIST,
+        dailyLimit: process.env.EMAIL_DAILY_SEND_LIMIT,
     };
 
     beforeAll(async () => {
@@ -80,6 +83,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
+            "0004_email_sends.sql",
         ]) {
             const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
             await pool.query(sql);
@@ -97,11 +101,13 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         process.env.SMTP_PASS = "test-secret-smtp-pass";
         process.env.SMTP_FROM = "sender@example.com";
         delete process.env.SMTP_SECURE;
+        delete process.env.EMAIL_ALLOWLIST;
+        delete process.env.EMAIL_DAILY_SEND_LIMIT;
 
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "suara-email-test-"));
         process.env.PDF_STORAGE_DIR = tempDir;
 
-        await pool.query("truncate documents, sessions cascade");
+        await pool.query("truncate documents, sessions cascade; truncate email_send_meter;");
         seededIds = [];
         await pool.query(
             "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
@@ -127,6 +133,10 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         else delete process.env.SMTP_FROM;
         if (origSmtpEnv.secure !== undefined) process.env.SMTP_SECURE = origSmtpEnv.secure;
         else delete process.env.SMTP_SECURE;
+        if (origSmtpEnv.allowlist !== undefined) process.env.EMAIL_ALLOWLIST = origSmtpEnv.allowlist;
+        else delete process.env.EMAIL_ALLOWLIST;
+        if (origSmtpEnv.dailyLimit !== undefined) process.env.EMAIL_DAILY_SEND_LIMIT = origSmtpEnv.dailyLimit;
+        else delete process.env.EMAIL_DAILY_SEND_LIMIT;
     });
 
     async function seedDocument(
@@ -364,6 +374,10 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const body = await res.json();
         expect(body.error).toBe("send_failure");
 
+        // The reserved quota slot must be released: the failed delivery does
+        // not consume today's send quota.
+        expect(await getEmailSends()).toBe(0);
+
         // Verify document is unchanged: status is still siap and sent_to is not set
         const getRes = await GET(new Request(`http://localhost/api/documents/${id}`), {
             params: Promise.resolve({ id }),
@@ -372,7 +386,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const getData = await getRes.json();
         expect(getData.status).toBe("siap");
         expect(getData.sent_to).toBeNull();
-    });
+        });
 
     it("returns 502 send_failure when PDF is not found on disk", async () => {
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0004", locale: "id" });
@@ -393,6 +407,9 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const body = await res.json();
         expect(body.error).toBe("send_failure");
         expect(sendMailMock).not.toHaveBeenCalled();
+        // The reserved slot is released when no PDF is available: the failed
+        // attempt does not consume today's send quota.
+        expect(await getEmailSends()).toBe(0);
     });
 
     it("rejects a stale PDF snapshot whose hash does not match the current document", async () => {
@@ -512,5 +529,196 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const getData = await getRes.json();
         expect(getData.status).toBe("terkirim");
         expect(getData.sent_to).toBe("first@example.com");
+    });
+
+    it("allowlist set and recipient not listed → 403, no send", async () => {
+        process.env.EMAIL_ALLOWLIST = "allowed@example.com, other@example.com";
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0010", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "forbidden@example.com" }),
+        });
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(403);
+        const body = await res.json();
+        expect(body.error).toBe("recipient_not_allowed");
+        expect(body.message).toBe("Penerima tidak ada dalam daftar izin");
+        expect(sendMailMock).not.toHaveBeenCalled();
+    });
+
+    it("allowlist set and recipient listed → 200 send", async () => {
+        process.env.EMAIL_ALLOWLIST = "allowed@example.com, other@example.com";
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0011", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: " ALLOWED@example.com " }),
+        });
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        expect(body.status).toBe("terkirim");
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("allowlist unset → arbitrary recipient still allowed (200)", async () => {
+        delete process.env.EMAIL_ALLOWLIST;
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0012", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "arbitrary-user@anywhere.org" }),
+        });
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        expect(body.status).toBe("terkirim");
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("daily quota exceeded → 429, no send", async () => {
+        process.env.EMAIL_DAILY_SEND_LIMIT = "1";
+        await pool.query(
+            "insert into email_send_meter (user_id, day, count) values ('default', (now() at time zone 'UTC')::date, 1)"
+        );
+
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0013", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        const req = new Request(
+            `http://localhost/api/documents/${id}/email?locale=en`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            }
+        );
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(429);
+        const body = await res.json();
+        expect(body.error).toBe("quota_exceeded");
+        expect(body.message).toBe(
+            "Daily email send limit reached. Try again tomorrow."
+        );
+        expect(res.headers.get("x-quota-hard-stop")).toBe("true");
+        expect(sendMailMock).not.toHaveBeenCalled();
+    });
+
+    it("404 and 409 (needs_confirmation / already_sent) do not consume quota", async () => {
+        process.env.EMAIL_DAILY_SEND_LIMIT = "1";
+
+        // Unknown document -> 404, no reservation, no send.
+        const unknownId = "00000000-0000-0000-0000-000000000099";
+        const unknownReq = new Request(
+            `http://localhost/api/documents/${unknownId}/email`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            }
+        );
+        const unknownRes = await POST(unknownReq, {
+            params: Promise.resolve({ id: unknownId }),
+        });
+        expect(unknownRes.status).toBe(404);
+
+        // needs_confirmation -> 409, no reservation, no send.
+        const confDoc = createTestDocument({
+            butuh_konfirmasi: [
+                {
+                    field: "pekerjaan[0].volume",
+                    alasan: "Volume tidak jelas",
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+        });
+        const conf = await seedDocument(confDoc);
+        const confReq = new Request(
+            `http://localhost/api/documents/${conf.id}/email`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            }
+        );
+        const confRes = await POST(confReq, {
+            params: Promise.resolve({ id: conf.id }),
+        });
+        expect(confRes.status).toBe(409);
+        expect(confRes.headers.get("x-quota-hard-stop")).toBeNull();
+
+        // None of the rejected attempts consumed a slot: with limit 1, a
+        // valid send must still succeed.
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0015", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "user@example.com" }),
+        });
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("after successful send, quota count incremented (assert via getEmailSends and direct DB query)", async () => {
+        const initialSends = await getEmailSends();
+        expect(initialSends).toBe(0);
+
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0014", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "user@example.com" }),
+        });
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(200);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
+
+        const sendsAfter = await getEmailSends();
+        expect(sendsAfter).toBe(1);
+
+        const dbResult = await pool.query<{ count: number }>(
+            "select count from email_send_meter where user_id = 'default' and day = (now() at time zone 'UTC')::date"
+        );
+        expect(dbResult.rows.length).toBe(1);
+        expect(Number(dbResult.rows[0].count)).toBe(1);
     });
 });
