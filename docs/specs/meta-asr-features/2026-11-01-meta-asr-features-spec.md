@@ -82,7 +82,7 @@ Without realtime in the browser, the honest progress signal is the transcript/au
 
 ### D5. Vocabulary-update surface (small)
 
-`lib/server/asr/vocabulary.ts` exports `buildKeywords(locale, spokenTerms?)`; `KEYWORDS` moves there. The route computes keywords from the session's _previous_ turns (the store's `findSession`) — so a second recording in the same session (or same sessionId re-upload) biases toward terms already spoken. Pure function; unit-tested.
+`lib/server/asr/vocabulary.ts` exports `buildKeywords(locale, spokenTerms?)`; `KEYWORDS` moves there. The route computes keywords from the session's _previous_ turns (the store's `findSession`) — so session terms reach Meta only on a same-id re-upload (or manual sessionId entry), not on an ordinary second recording (since `lib/client/use-recorder.ts` mints a fresh sessionId per recording). Pure function; unit-tested.
 
 ## Non-goals
 
