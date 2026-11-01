@@ -26,7 +26,7 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+      ASR_TEST_DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
       PDF_STORAGE_DIR: /home/runner/work/suara-lapangan/suara-lapangan/data/pdf-e2e
 
     steps:
@@ -34,7 +34,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 20 cannot load jsdom@30's undici@8.12 decompress
+          # interceptor (its zstd branch calls createZstdDecompress.bind, which
+          # does not exist in Node 20's zlib), which trips the jsdom
+          # environment tests in the vitest step. Node 22 is the current LTS.
+          node-version: 22
           cache: npm
 
       - run: npm ci
@@ -71,10 +75,23 @@ jobs:
       # The e2e suite seeds its session and asserts rows in a real Postgres,
       # so the schema must exist before the app boots.
       - name: Migrate test database
+        env:
+          DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
         run: node db/migrate.mjs
+
+      # Route-level tests (documentStore, PATCH, PDF, email) are gated on
+      # ASR_TEST_DATABASE_URL; point it at the service Postgres above so they
+      # actually run in CI instead of skipping. DATABASE_URL is deliberately
+      # not set here: it would make the in-memory usage-meter and eval tests
+      # fall back to the Postgres store, and every route test sets it itself
+      # from ASR_TEST_DATABASE_URL.
+      - name: Unit and route tests
+        run: npm test
 
       # Builds and serves the production bundle (see playwright.config.ts).
       - name: Smoke tests
+        env:
+          DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
         run: npm run test:e2e
 
       - uses: actions/upload-artifact@v4
