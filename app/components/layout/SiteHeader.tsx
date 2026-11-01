@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { LocaleSwitcher } from "@/app/components";
+import { UserMenu } from "./UserMenu";
 import { Link } from "@/i18n/navigation";
 
 /**
@@ -53,7 +54,10 @@ const SiteHeader = async () => {
                     </span>
                 </Link>
 
-                <LocaleSwitcher />
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <LocaleSwitcher />
+                    <UserMenu />
+                </div>
             </div>
         </header>
     );

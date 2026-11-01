@@ -21,6 +21,21 @@ export default defineConfig({
     use: {
         baseURL: "http://127.0.0.1:3000",
         trace: "on-first-retry",
+        storageState: {
+            cookies: [
+                {
+                    name: "better-auth.session_token",
+                    value: "e2e-session-token",
+                    domain: "127.0.0.1",
+                    path: "/",
+                    expires: 2147483647,
+                    httpOnly: false,
+                    secure: false,
+                    sameSite: "Lax",
+                },
+            ],
+            origins: [],
+        },
     },
 
     projects: [

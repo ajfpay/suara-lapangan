@@ -21,6 +21,7 @@ here, or listed but no longer installed. Regenerate the table with
 | --- | --- |
 | `@fontsource/ibm-plex-sans@5.1.0` | OFL-1.1 |
 | `@fontsource/source-serif-4@5.1.0` | OFL-1.1 |
+| `better-auth@1.2.9` | MIT |
 | `clsx@2.1.1` | MIT |
 | `lucide-react@0.279.0` | ISC |
 | `next@15.3.8` | MIT |
