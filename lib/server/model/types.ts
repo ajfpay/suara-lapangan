@@ -129,7 +129,8 @@ export type CallOptions = {
 
 /** Options for the Responses protocol specifically. */
 export type ResponsesOptions = CallOptions & {
-    input: string | Message[];
+    /** A string or a list of content parts (input_text, input_image, ...). */
+    input: string | ContentPart[];
     /** Chain onto a prior response so the server carries conversation state. */
     previousResponseId?: string;
     /** Enable web search grounding. */

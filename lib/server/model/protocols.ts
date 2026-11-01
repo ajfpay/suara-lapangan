@@ -13,7 +13,7 @@ import type {
     ResponsesOptions,
     StructuredFormat,
     ToolDefinition,
-} from "./types.js";
+} from "./types";
 
 /**
  * Serialize a structured-output format the way the Responses API wants it.

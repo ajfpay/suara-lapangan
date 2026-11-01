@@ -13,7 +13,7 @@
  * The walk tracks the `$ref` path and the object identity path, so both are
  * caught.
  */
-import type { JsonSchema } from "./types.js";
+import type { JsonSchema } from "./types";
 
 /**
  * Walk a schema and return the first path that repeats a name — the cycle.

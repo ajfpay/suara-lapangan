@@ -24,14 +24,14 @@ import type {
     ToolCall,
     ToolDefinition,
     Usage,
-} from "./types.js";
+} from "./types";
 import {
     chatBody,
     messagesBody,
     normalizeContentPart,
     responsesBody,
-} from "./protocols.js";
-import { validateSchema } from "./recursive.js";
+} from "./protocols";
+import { validateSchema } from "./recursive";
 
 /** Meta gate: `reasoning_effort` is model-dependent. */
 const REASONING_EFFORT_BY_MODEL: Record<string, ReasoningEffort[]> = {
@@ -131,6 +131,21 @@ export class ModelClient {
             tools: options.tools,
             timeoutMs: options.timeoutMs ?? 60_000,
         };
+    }
+
+    /** The base URL the client posts to, for callers that build their own fetch. */
+    get baseUrl(): string {
+        return this.options.baseUrl;
+    }
+
+    /** The API key the client uses, for callers that build their own fetch. */
+    get apiKey(): string {
+        return this.options.apiKey;
+    }
+
+    /** Send a raw request through the client's error handling. */
+    async request(url: string, init: RequestInit): Promise<Response> {
+        return this.fetch(url, init);
     }
 
     /**
@@ -406,6 +421,26 @@ export class ModelClient {
                                     .text as string | undefined;
                                 if (typeof text === "string" && text.trim().length > 0) {
                                     result.text = text;
+                                }
+                                const annotations = (part as Record<string, unknown>)
+                                    ?.annotations as unknown[] | undefined;
+                                if (Array.isArray(annotations)) {
+                                    for (const ann of annotations) {
+                                        if (
+                                            ann &&
+                                            typeof ann === "object" &&
+                                            (ann as Record<string, unknown>).type ===
+                                                "url_citation"
+                                        ) {
+                                            const a = ann as Record<string, unknown>;
+                                            result.citations.push({
+                                                url: String(a.url ?? ""),
+                                                title: String(a.title ?? ""),
+                                                startIndex: Number(a.start_index ?? 0),
+                                                endIndex: Number(a.end_index ?? 0),
+                                            });
+                                        }
+                                    }
                                 }
                             }
                         }
