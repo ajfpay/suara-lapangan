@@ -10,6 +10,7 @@ const DB_VERSION = 1;
 const STORE_NAME = "recordings";
 
 export type RecordingStatus = "pending" | "uploaded";
+export type AsrMode = "ENDPOINTING" | "DIARIZATION";
 
 export interface StoredRecording {
   id: string;
@@ -18,6 +19,7 @@ export interface StoredRecording {
   createdAt: number;
   status: RecordingStatus;
   uploadedAt?: number;
+  mode?: AsrMode;
 }
 
 export interface RecordQueueOptions {
@@ -84,7 +86,7 @@ export class RecordQueue {
    * @param sessionId - Unique session identifier (used for idempotency).
    * @returns The assigned id of the stored recording.
    */
-  async add(blob: Blob, sessionId: string): Promise<string> {
+  async add(blob: Blob, sessionId: string, mode: AsrMode = "ENDPOINTING"): Promise<string> {
     const all = (await this.tx("readonly", (store) => store.getAll())) as StoredRecording[];
     const existing = all.find((r) => r.sessionId === sessionId && r.status === "pending");
     if (existing) {
@@ -92,6 +94,7 @@ export class RecordQueue {
         ...existing,
         blob,
         createdAt: Date.now(),
+        mode,
       };
       await this.tx("readwrite", (store) => store.put(updated));
       return existing.id;
@@ -107,6 +110,7 @@ export class RecordQueue {
       blob,
       createdAt: Date.now(),
       status: "pending",
+      mode,
     };
     await this.tx("readwrite", (store) => store.add(record));
     return record.id;
@@ -157,7 +161,7 @@ export class RecordQueue {
       form.append("audio", record.blob, "recording.wav");
       form.append("sessionId", record.sessionId);
       form.append("locale", "id");
-
+      form.append("mode", record.mode ?? "ENDPOINTING");
       try {
         const res = await fetch(this.uploadUrl, { method: "POST", body: form });
         if (res.ok) {
@@ -199,4 +203,11 @@ export function getRecordQueue(): RecordQueue {
     _instance = new RecordQueue({ uploadUrl: "/api/asr/transcribe" });
   }
   return _instance;
+}
+
+/**
+ * Reset the singleton instance (for testing).
+ */
+export function resetRecordQueue(): void {
+  _instance = null;
 }

@@ -43,7 +43,10 @@
         "processing": "Memproses audio… {seconds} dtk",
         "processingHint": "Rekaman panjang membutuhkan waktu — biarkan tab ini terbuka.",
         "holdHint": "Sentuh dan tahan ≥0,3 dtk",
-        "recordingHint": "Tekan Selesai setelah selesai berbicara"
+        "recordingHint": "Tekan Selesai setelah selesai berbicara",
+        "modeLabel": "Pemisahan pembicara",
+        "modeEndpointing": "Satu pembicara",
+        "modeDiarization": "Pisahkan pembicara"
     },
     "susun": {
         "heading": "Susun",

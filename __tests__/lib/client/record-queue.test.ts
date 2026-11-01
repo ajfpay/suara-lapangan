@@ -248,6 +248,35 @@ describe("RecordQueue", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("uploadPending() appends default ENDPOINTING mode to FormData when omitted", async () => {
+    const q = new RecordQueue({ uploadUrl: "/api/asr/upload" });
+    const blob = makeBlob(1);
+    await q.add(blob, "session-default-mode");
+    const fetch = vi.mocked(global.fetch);
+    await q.uploadPending();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = fetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get("mode")).toBe("ENDPOINTING");
+  });
+
+  it("uploadPending() appends selected DIARIZATION mode to FormData", async () => {
+    const q = new RecordQueue({ uploadUrl: "/api/asr/upload" });
+    const blob = makeBlob(1);
+    await q.add(blob, "session-diarization", "DIARIZATION");
+    const fetch = vi.mocked(global.fetch);
+    await q.uploadPending();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = fetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get("mode")).toBe("DIARIZATION");
+  });
+
+  it("add() preserves specified mode on the stored recording", async () => {
+    const q = new RecordQueue({ uploadUrl: "/api/asr/upload" });
+    const blob = makeBlob(1);
+    await q.add(blob, "session-diarize-prop", "DIARIZATION");
+    const pending = await q.getPending();
+    expect(pending[0].mode).toBe("DIARIZATION");
+  });
   // ── Online/offline ──────────────────────────────────────────────────────────
 
   it("processQueue() skips upload when offline", async () => {

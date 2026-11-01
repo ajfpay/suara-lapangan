@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useRecorder } from "@/lib/client/use-recorder";
-import type { StoredRecording } from "@/lib/client/record-queue";
+import { resetRecordQueue, type StoredRecording } from "@/lib/client/record-queue";
 
 // ── Slot-based hook runtime for node environment ───────────────────────────────
 
@@ -188,8 +188,8 @@ class FakeMediaRecorder {
 describe("useRecorder / recorder logic", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    resetRecordQueue();
   });
-
   afterEach(() => {
     vi.clearAllTimers();
     vi.useRealTimers();
@@ -286,7 +286,8 @@ describe("useRecorder / recorder logic", () => {
     expect(session1).toBe(storedRecords[0].sessionId);
     expect(session2).toBe(storedRecords[1].sessionId);
     expect(session1).not.toBe(session2);
-
+    expect(firstCallBody.get("mode")).toBe("ENDPOINTING");
+    expect(secondCallBody.get("mode")).toBe("ENDPOINTING");
     const audio1 = firstCallBody.get("audio") as Blob;
     const audio2 = secondCallBody.get("audio") as Blob;
     expect(audio1.size).toBe(32044);
@@ -297,5 +298,126 @@ describe("useRecorder / recorder logic", () => {
     expect(pending).toHaveLength(0);
     expect(storedRecords[0].status).toBe("uploaded");
     expect(storedRecords[1].status).toBe("uploaded");
+    expect(storedRecords[0].mode).toBe("ENDPOINTING");
+    expect(storedRecords[1].mode).toBe("ENDPOINTING");
+  });
+
+  it("defaults mode to ENDPOINTING", () => {
+    hookSlots = [];
+    hookIndex = 0;
+    const recorder = useRecorder();
+    expect(recorder.mode).toBe("ENDPOINTING");
+  });
+
+  it("threads chosen DIARIZATION mode through useRecorder into queue and upload body", async () => {
+    decodeCount = 0;
+    hookSlots = [];
+    hookIndex = 0;
+
+    vi.stubGlobal("indexedDB", createSimpleMockIDB());
+    vi.stubGlobal("navigator", {
+      onLine: true,
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+      },
+    });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const fetchSpy = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      )
+    );
+    globalThis.fetch = fetchSpy;
+
+    const recorder = useRecorder();
+    expect(recorder.mode).toBe("ENDPOINTING");
+
+    recorder.setMode("DIARIZATION");
+    expect(recorder.mode).toBe("DIARIZATION");
+
+    await recorder.startRecording();
+    await recorder.stopRecording();
+
+    const storedRecords = Object.values(
+      (dbStore.get("recordings") ?? {}) as Record<string, StoredRecording>
+    );
+
+    expect(storedRecords).toHaveLength(1);
+    expect(storedRecords[0].mode).toBe("DIARIZATION");
+    expect(storedRecords[0].status).toBe("uploaded");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const callBody = fetchSpy.mock.calls[0][1]?.body as FormData;
+    expect(callBody.get("mode")).toBe("DIARIZATION");
+  });
+
+  it("updates mode between recordings so subsequent uploads reflect the new mode", async () => {
+    decodeCount = 0;
+    hookSlots = [];
+    hookIndex = 0;
+
+    vi.stubGlobal("indexedDB", createSimpleMockIDB());
+    vi.stubGlobal("navigator", {
+      onLine: true,
+      mediaDevices: {
+        getUserMedia: vi.fn().mockResolvedValue({
+          getTracks: () => [{ stop: vi.fn() }],
+        }),
+      },
+    });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const fetchSpy = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        })
+      )
+    );
+    globalThis.fetch = fetchSpy;
+
+    const recorder = useRecorder();
+
+    // First recording with default ENDPOINTING
+    await recorder.startRecording();
+    await recorder.stopRecording();
+
+    // Switch mode to DIARIZATION
+    recorder.setMode("DIARIZATION");
+    expect(recorder.mode).toBe("DIARIZATION");
+
+    // Second recording with DIARIZATION
+    await recorder.startRecording();
+    await recorder.stopRecording();
+
+    const storedRecords = Object.values(
+      (dbStore.get("recordings") ?? {}) as Record<string, StoredRecording>
+    );
+    expect(storedRecords).toHaveLength(2);
+    expect(storedRecords[0].mode).toBe("ENDPOINTING");
+    expect(storedRecords[1].mode).toBe("DIARIZATION");
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const firstBody = fetchSpy.mock.calls[0][1]?.body as FormData;
+    const secondBody = fetchSpy.mock.calls[1][1]?.body as FormData;
+    expect(firstBody.get("mode")).toBe("ENDPOINTING");
+    expect(secondBody.get("mode")).toBe("DIARIZATION");
   });
 });

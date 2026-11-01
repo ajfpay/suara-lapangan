@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toWav16k } from "@/lib/client/audio";
-import { getRecordQueue } from "@/lib/client/record-queue";
+import { getRecordQueue, type AsrMode } from "@/lib/client/record-queue";
+
+export type { AsrMode };
 
 export type RecorderStatus = "idle" | "recording" | "processing" | "error";
 
@@ -15,6 +17,8 @@ export interface UseRecorderOptions {
   sessionId?: string;
   onRecordingComplete?: (blob: Blob) => void;
   minPressDurationMs?: number;
+  mode?: AsrMode;
+  initialMode?: AsrMode;
 }
 
 export function useRecorder(options: UseRecorderOptions = {}) {
@@ -26,7 +30,14 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
+  const [mode, setModeState] = useState<AsrMode>(options.mode ?? options.initialMode ?? "ENDPOINTING");
+  const modeRef = useRef<AsrMode>(mode);
+  modeRef.current = mode;
 
+  const setMode = useCallback((newMode: AsrMode) => {
+    modeRef.current = newMode;
+    setModeState(newMode);
+  }, []);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -151,7 +162,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
         // Generating a fresh id per recording guarantees all audio is preserved and uploaded.
         const prefix = options.sessionId ?? "";
         const recordingSessionId = `${prefix}${crypto.randomUUID()}`;
-        await queue.add(wavBlob, recordingSessionId);
+        await queue.add(wavBlob, recordingSessionId, modeRef.current);
         await refreshPendingCount();
 
         if (navigator.onLine) {
@@ -182,7 +193,6 @@ export function useRecorder(options: UseRecorderOptions = {}) {
     recorder.stop();
     return promise;
   }, [onRecordingComplete, refreshPendingCount, options.sessionId]);
-
   const toggleRecording = useCallback(() => {
     if (status === "recording") {
       stopRecording();
@@ -220,6 +230,10 @@ export function useRecorder(options: UseRecorderOptions = {}) {
     error,
     isOnline,
     pendingCount,
+    get mode() {
+      return modeRef.current;
+    },
+    setMode,
     startRecording,
     stopRecording,
     toggleRecording,
