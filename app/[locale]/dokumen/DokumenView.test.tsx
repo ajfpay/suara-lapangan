@@ -110,7 +110,7 @@ describe("DokumenView", () => {
         ).toBeTruthy();
     });
 
-    it("3. ready + siap → nomor visible, pdf-frame iframe whose title contains the nomor, btn-unduh is a button whose click fetches the PDF route for the download, btn-kirim disabled with the coming-soon text, and clicking btn-kirim adds no fetch call", async () => {
+    it("3. ready + siap → nomor visible, pdf-frame iframe whose title contains the nomor, btn-unduh downloads, btn-kirim enabled, send flow succeeds with message and refetch, and send failure shows error", async () => {
         const docId = "doc-ready-123";
         const docNomor = "SL/QTN/2026/0001";
 
@@ -188,12 +188,80 @@ describe("DokumenView", () => {
         expect(createdAnchors.at(-1)?.download).toBe("SL-QTN-2026-0001.pdf");
 
         const sendBtn = screen.getByTestId("btn-kirim") as HTMLButtonElement;
-        expect(sendBtn.disabled).toBe(true);
-        expect(sendBtn.title).toBe(en.dokumen.sendComingSoon);
+        expect(sendBtn.disabled).toBe(false);
+        expect(sendBtn.title).toBe("");
 
-        const fetchCount = fetchMock.mock.calls.length;
+        const inputRecipient = screen.getByTestId("input-recipient") as HTMLInputElement;
+        expect(inputRecipient).toBeTruthy();
+
+        // Send failure flow
+        fetchMock.mockResolvedValueOnce({
+            ok: false,
+            status: 502,
+            json: async () => ({
+                error: "send_failure",
+                message: "Failed to send email",
+            }),
+        });
+
+        fireEvent.change(inputRecipient, {
+            target: { value: "client@example.com" },
+        });
         fireEvent.click(sendBtn);
-        expect(fetchMock.mock.calls.length).toBe(fetchCount);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("send-error-message")).toBeTruthy();
+        });
+        expect(screen.getByTestId("send-error-message").textContent).toContain(
+            "Failed to send email"
+        );
+
+        // Send success flow
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                status: "terkirim",
+                sent_to: "client@example.com",
+                sent_at: new Date().toISOString(),
+            }),
+        });
+
+        // Refetch of document after send success
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: docNomor,
+                    status: "terkirim",
+                    butuh_konfirmasi: [],
+                },
+                butuh_konfirmasi: [],
+                status: "terkirim",
+            }),
+        });
+
+        fireEvent.click(sendBtn);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("send-success-message")).toBeTruthy();
+        });
+        expect(screen.getByTestId("send-success-message").textContent).toContain(
+            en.dokumen.sendSuccess
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-status").textContent).toBe(
+                en.dokumen.statusTerkirim
+            );
+        });
+
+        const docFetches = fetchMock.mock.calls.filter(
+            (call) => call[0] === `/api/documents/${docId}`
+        );
+        expect(docFetches.length).toBe(2);
     });
 
     it("3b. a superseded document response never replaces the document now shown", async () => {

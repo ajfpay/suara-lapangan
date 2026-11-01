@@ -1,0 +1,256 @@
+import path from "node:path";
+import { NextResponse } from "next/server";
+import {
+    getPostgresDocumentStore,
+    type StoredDocument,
+} from "@/lib/server/db/documentStore";
+import { redactSecrets } from "@/lib/server/asr/log";
+import {
+    documentIdSchema,
+    formatZodError,
+} from "@/lib/server/validation/document";
+import {
+    withRateLimitFlat,
+    detectRequestLocale,
+} from "@/lib/server/quota/rate-limit";
+import {
+    getSmtpConfig,
+    sendEmail,
+    buildDocumentEmail,
+    sendEmailBodySchema,
+} from "@/lib/server/email";
+import {
+    resolvePdfStorageDir,
+    relativePdfPathFor,
+    isSafeStoredPdfPath,
+    readPdfSnapshot,
+} from "@/lib/server/pdf/storage";
+type RouteContext = {
+    params: Promise<{ id: string }>;
+};
+
+async function handlePost(
+    request: Request,
+    context?: RouteContext
+): Promise<Response> {
+    const reqLocale = detectRequestLocale(request);
+
+    const parsedId = documentIdSchema.safeParse(
+        (await context?.params)?.id
+    );
+    if (!parsedId.success) {
+        return NextResponse.json(
+            {
+                error: "invalid_request",
+                message: formatZodError(parsedId.error),
+            },
+            { status: 400 }
+        );
+    }
+    const id = parsedId.data;
+
+    const smtpConfig = getSmtpConfig();
+    if (!smtpConfig) {
+        return NextResponse.json(
+            {
+                error: "email_not_configured",
+                message:
+                    reqLocale === "en"
+                        ? "Email service is not configured"
+                        : "Layanan email belum dikonfigurasi",
+            },
+            { status: 503 }
+        );
+    }
+
+    let rawBody: unknown;
+    try {
+        rawBody = await request.json();
+    } catch {
+        return NextResponse.json(
+            {
+                error: "invalid_request",
+                message:
+                    reqLocale === "en"
+                        ? "Invalid JSON body"
+                        : "Format JSON tidak valid",
+            },
+            { status: 400 }
+        );
+    }
+
+    const parsedBody = sendEmailBodySchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+        return NextResponse.json(
+            {
+                error: "invalid_request",
+                message: formatZodError(parsedBody.error),
+            },
+            { status: 400 }
+        );
+    }
+
+    const store = getPostgresDocumentStore();
+    let stored: StoredDocument | null;
+    try {
+        stored = await store.get(id);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[email] document store access failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message:
+                    reqLocale === "en"
+                        ? "Failed to access document database"
+                        : "Gagal mengakses basis data dokumen",
+            },
+            { status: 500 }
+        );
+    }
+
+    if (!stored) {
+        return NextResponse.json(
+            {
+                error: "not_found",
+                message: `Document '${id}' not found`,
+            },
+            { status: 404 }
+        );
+    }
+
+    if (
+        stored.status === "perlu_konfirmasi" ||
+        stored.document.butuh_konfirmasi.length > 0
+    ) {
+        return NextResponse.json(
+            {
+                error: "needs_confirmation",
+                message:
+                    reqLocale === "en"
+                        ? "Document requires confirmation before it can be sent. Resolve butuh_konfirmasi via PATCH /api/documents/{id} first."
+                        : "Dokumen memerlukan konfirmasi sebelum dapat dikirim. Selesaikan butuh_konfirmasi melalui PATCH /api/documents/{id} terlebih dahulu.",
+            },
+            { status: 409 }
+        );
+    }
+
+    const storageDir = resolvePdfStorageDir();
+    let pdfBuffer: Buffer | null = null;
+
+    if (stored.pdfPath && isSafeStoredPdfPath(stored.pdfPath)) {
+        const diskPath = path.resolve(storageDir, stored.pdfPath);
+        try {
+            const snapshot = await readPdfSnapshot(diskPath);
+            if (snapshot) {
+                pdfBuffer = snapshot.pdf;
+            }
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[email] disk read failed: ${String(cause)}`)
+            );
+        }
+    }
+
+    if (!pdfBuffer) {
+        const idPath = relativePdfPathFor(id);
+        const idDiskPath = path.resolve(storageDir, idPath);
+        try {
+            const snapshot = await readPdfSnapshot(idDiskPath);
+            if (snapshot) {
+                pdfBuffer = snapshot.pdf;
+            }
+        } catch (cause) {
+            console.error(
+                redactSecrets(`[email] disk read failed: ${String(cause)}`)
+            );
+        }
+    }
+
+    if (!pdfBuffer) {
+        return NextResponse.json(
+            {
+                error: "send_failure",
+                message:
+                    reqLocale === "en"
+                        ? "Document PDF is not available on disk"
+                        : "PDF dokumen tidak ditemukan di penyimpanan",
+            },
+            { status: 502 }
+        );
+    }
+
+    const docLocale = stored.document.locale === "en" ? "en" : "id";
+    const emailContent = buildDocumentEmail(stored.document.nomor, docLocale);
+
+    try {
+        await sendEmail(smtpConfig, {
+            to: parsedBody.data.to,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            attachments: [
+                {
+                    filename: emailContent.filename,
+                    content: pdfBuffer,
+                    contentType: "application/pdf",
+                },
+            ],
+        });
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[email] delivery failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            {
+                error: "send_failure",
+                message:
+                    reqLocale === "en"
+                        ? "Failed to deliver email"
+                        : "Gagal mengirim email",
+            },
+            { status: 502 }
+        );
+    }
+
+    const sentAt = new Date();
+    try {
+        const updated = await store.markSent(id, parsedBody.data.to);
+        if (!updated) {
+            return NextResponse.json(
+                {
+                    error: "not_found",
+                    message: `Document '${id}' not found`,
+                },
+                { status: 404 }
+            );
+        }
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[email] update store failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message:
+                    reqLocale === "en"
+                        ? "Failed to record sent status"
+                        : "Gagal memperbarui status dokumen",
+            },
+            { status: 500 }
+        );
+    }
+
+    return NextResponse.json(
+        {
+            status: "terkirim",
+            sent_to: parsedBody.data.to,
+            sent_at: sentAt.toISOString(),
+        },
+        { status: 200 }
+    );
+}
+
+export const POST = withRateLimitFlat(handlePost, {
+    route: "/api/documents",
+}) as (request: Request, context: RouteContext) => Promise<Response>;

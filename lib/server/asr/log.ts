@@ -14,6 +14,10 @@ export function redactSecrets(text: string): string {
     if (key && key.length >= 8) {
         scrubbed = scrubbed.split(key).join("[redacted]");
     }
+    const smtpPass = process.env.SMTP_PASS;
+    if (smtpPass && smtpPass.length > 0) {
+        scrubbed = scrubbed.split(smtpPass).join("[redacted]");
+    }
 
     // Scrub Bearer tokens: Bearer <secret>
     scrubbed = scrubbed.replace(

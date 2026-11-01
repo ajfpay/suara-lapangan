@@ -247,6 +247,8 @@ async function handleGet(
             }),
             butuh_konfirmasi: stored.document.butuh_konfirmasi,
             status: stored.status,
+            sent_to: stored.sentTo ?? null,
+            sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,
         },
         { status: 200 }
     );
