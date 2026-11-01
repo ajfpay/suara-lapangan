@@ -26,6 +26,12 @@ import {
     isSafeStoredPdfPath,
     readPdfSnapshot,
 } from "@/lib/server/pdf/storage";
+import {
+    assertEmailQuotaAvailable,
+    recordEmailSend,
+    EmailQuotaExceededError,
+    isRecipientAllowed,
+} from "@/lib/server/quota/email-quota";
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
@@ -89,6 +95,34 @@ async function handlePost(
             },
             { status: 503 }
         );
+    }
+
+    if (!isRecipientAllowed(parsedBody.data.to)) {
+        return NextResponse.json(
+            {
+                error: "recipient_not_allowed",
+                message:
+                    reqLocale === "en"
+                        ? "Recipient is not in the allowlist"
+                        : "Penerima tidak ada dalam daftar izin",
+            },
+            { status: 403 }
+        );
+    }
+
+    try {
+        await assertEmailQuotaAvailable({ locale: reqLocale });
+    } catch (cause) {
+        if (cause instanceof EmailQuotaExceededError) {
+            return NextResponse.json(
+                {
+                    error: cause.code,
+                    message: cause.message,
+                },
+                { status: 429 }
+            );
+        }
+        throw cause;
     }
 
     const store = getPostgresDocumentStore();
@@ -247,6 +281,14 @@ async function handlePost(
                         : "Gagal mengirim email",
             },
             { status: 502 }
+        );
+    }
+
+    try {
+        await recordEmailSend();
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[email] failed to record quota send: ${String(cause)}`)
         );
     }
 
