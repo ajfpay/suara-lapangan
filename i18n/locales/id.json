@@ -145,7 +145,7 @@
     },
     "dokumenSaya": {
         "title": "Dokumen saya",
-        "subtitle": "Daftar dokumen penawaran yang telah Anda terbitkan",
+        "subtitle": "Daftar dokumen penawaran di akun Anda.",
         "empty": "Belum ada dokumen yang dibuat.",
         "emptyAction": "Buat surat penawaran",
         "tableNomor": "Nomor",

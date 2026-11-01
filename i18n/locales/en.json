@@ -145,7 +145,7 @@
     },
     "dokumenSaya": {
         "title": "My documents",
-        "subtitle": "Quotation documents associated with your account",
+        "subtitle": "Quotation documents in your account.",
         "empty": "No documents created yet.",
         "emptyAction": "Create quotation",
         "tableNomor": "Nomor",
