@@ -30,9 +30,30 @@ describe("usage-meter (in-memory)", () => {
         expect(usage).toEqual({
             audioSeconds: 0,
             tokens: 0,
+            cachedTokens: 0,
             estCost: 0,
             hardStop: false,
         });
+    });
+
+    it("accumulates cached tokens distinctly from input tokens", async () => {
+        await recordUsage({
+            date: "2026-10-29",
+            tokens: 120,
+            cachedTokens: 80,
+            estCost: 0.05,
+        });
+
+        await recordUsage({
+            date: "2026-10-29",
+            tokens: 100,
+            cachedTokens: 60,
+            estCost: 0.03,
+        });
+
+        const usage = await getUsage("2026-10-29");
+        expect(usage.tokens).toBe(220);
+        expect(usage.cachedTokens).toBe(140);
     });
 
     it("accumulates audio seconds, tokens, and estimated cost", async () => {
@@ -208,6 +229,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
             "utf8"
         );
         await pool.query(migration2);
+        const migration3 = readFileSync(
+            join(__dirname, "../../../db/migrations/0003_usage_meter_cached_tokens.sql"),
+            "utf8"
+        );
+        await pool.query(migration3);
         postgresStore = new PostgresUsageStore(pool);
     });
 

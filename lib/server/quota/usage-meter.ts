@@ -3,6 +3,8 @@ import { Pool } from "pg";
 export type UsageSummary = {
     audioSeconds: number;
     tokens: number;
+    /** Prefix tokens served from the model prompt cache, counted distinctly. */
+    cachedTokens: number;
     estCost: number;
     hardStop: boolean;
 };
@@ -12,6 +14,7 @@ export type RecordUsageParams = {
     date?: string | Date;
     audioSeconds?: number;
     tokens?: number;
+    cachedTokens?: number;
     estCost?: number;
 };
 
@@ -63,6 +66,7 @@ export class QuotaExceededError extends Error {
         usage: UsageSummary = {
             audioSeconds: 0,
             tokens: 0,
+            cachedTokens: 0,
             estCost: 0,
             hardStop: true,
         }
@@ -96,6 +100,7 @@ class MemoryUsageStore implements UsageStore {
             return {
                 audioSeconds: 0,
                 tokens: 0,
+                cachedTokens: 0,
                 estCost: 0,
                 hardStop: false,
             };
@@ -108,6 +113,7 @@ class MemoryUsageStore implements UsageStore {
         const dayStr = formatDay(params.date);
         const audioSeconds = Math.max(0, params.audioSeconds ?? 0);
         const tokens = Math.max(0, params.tokens ?? 0);
+        const cachedTokens = Math.max(0, params.cachedTokens ?? 0);
         const estCost =
             params.estCost !== undefined
                 ? Math.max(0, params.estCost)
@@ -118,6 +124,7 @@ class MemoryUsageStore implements UsageStore {
             (existing.audioSeconds + audioSeconds).toFixed(2)
         );
         const newTokens = existing.tokens + tokens;
+        const newCachedTokens = existing.cachedTokens + cachedTokens;
         const newEstCost = Number((existing.estCost + estCost).toFixed(4));
         const hardStop =
             existing.hardStop || newEstCost >= getDailyCostCap();
@@ -125,6 +132,7 @@ class MemoryUsageStore implements UsageStore {
         const updated: UsageSummary = {
             audioSeconds: newAudioSeconds,
             tokens: newTokens,
+            cachedTokens: newCachedTokens,
             estCost: newEstCost,
             hardStop,
         };
@@ -157,10 +165,11 @@ export class PostgresUsageStore implements UsageStore {
         const result = await this.pool.query<{
             audio_seconds: string | number;
             tokens: string | number;
+            cached_tokens: string | number;
             est_cost: string | number;
             hard_stop: boolean;
         }>(
-            `select audio_seconds, tokens, est_cost, hard_stop
+            `select audio_seconds, tokens, cached_tokens, est_cost, hard_stop
              from usage_meter
              where user_id = $1 and day = $2`,
             [userId, dayStr]
@@ -170,6 +179,7 @@ export class PostgresUsageStore implements UsageStore {
             return {
                 audioSeconds: 0,
                 tokens: 0,
+                cachedTokens: 0,
                 estCost: 0,
                 hardStop: false,
             };
@@ -179,6 +189,7 @@ export class PostgresUsageStore implements UsageStore {
         return {
             audioSeconds: Number(row.audio_seconds),
             tokens: Number(row.tokens),
+            cachedTokens: Number(row.cached_tokens ?? 0),
             estCost: Number(row.est_cost),
             hardStop: Boolean(row.hard_stop),
         };
@@ -189,6 +200,7 @@ export class PostgresUsageStore implements UsageStore {
         const dayStr = formatDay(params.date);
         const audioSeconds = Math.max(0, params.audioSeconds ?? 0);
         const tokens = Math.max(0, params.tokens ?? 0);
+        const cachedTokens = Math.max(0, params.cachedTokens ?? 0);
         const estCost =
             params.estCost !== undefined
                 ? Math.max(0, params.estCost)
@@ -198,25 +210,28 @@ export class PostgresUsageStore implements UsageStore {
         const result = await this.pool.query<{
             audio_seconds: string | number;
             tokens: string | number;
+            cached_tokens: string | number;
             est_cost: string | number;
             hard_stop: boolean;
         }>(
-            `insert into usage_meter (user_id, day, audio_seconds, tokens, est_cost, hard_stop, updated_at)
-             values ($1, $2, $3, $4, $5, ($5::numeric >= $6::numeric), now())
+            `insert into usage_meter (user_id, day, audio_seconds, tokens, cached_tokens, est_cost, hard_stop, updated_at)
+             values ($1, $2, $3, $4, $5, $6, ($6::numeric >= $7::numeric), now())
              on conflict (user_id, day) do update set
                  audio_seconds = usage_meter.audio_seconds + excluded.audio_seconds,
                  tokens = usage_meter.tokens + excluded.tokens,
+                 cached_tokens = usage_meter.cached_tokens + excluded.cached_tokens,
                  est_cost = usage_meter.est_cost + excluded.est_cost,
-                 hard_stop = usage_meter.hard_stop or (usage_meter.est_cost + excluded.est_cost >= $6::numeric),
+                 hard_stop = usage_meter.hard_stop or (usage_meter.est_cost + excluded.est_cost >= $7::numeric),
                  updated_at = now()
-             returning audio_seconds, tokens, est_cost, hard_stop`,
-            [userId, dayStr, audioSeconds, tokens, estCost, cap]
+             returning audio_seconds, tokens, cached_tokens, est_cost, hard_stop`,
+            [userId, dayStr, audioSeconds, tokens, cachedTokens, estCost, cap]
         );
 
         const row = result.rows[0];
         return {
             audioSeconds: Number(row.audio_seconds),
             tokens: Number(row.tokens),
+            cachedTokens: Number(row.cached_tokens ?? 0),
             estCost: Number(row.est_cost),
             hardStop: Boolean(row.hard_stop),
         };

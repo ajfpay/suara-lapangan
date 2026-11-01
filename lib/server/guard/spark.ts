@@ -1,5 +1,8 @@
 import quotationSchema from "@/contracts/quotation.schema.json";
 import type { CandidateDocument, Locale, Turn } from "./types";
+import { ModelClient, ModelError, parseUsage } from "../model/client";
+import { responsesFormat } from "../model/protocols";
+import { isRecursiveSchema } from "../model/recursive";
 
 export const META_RESPONSES_URL = "https://api.meta.ai/v1/responses";
 export const META_SPARK_MODEL = "muse-spark-1.3";
@@ -31,7 +34,72 @@ export type CallSparkOptions = {
 };
 
 /**
+ * Maps a ModelError onto the SparkError codes the document route already
+ * understands. The route branches on these codes, so the mapping must cover
+ * every failure the client can produce.
+ */
+function asSparkError(err: unknown): SparkError {
+    if (err instanceof ModelError) {
+        switch (err.code) {
+            case "recursive_schema_rejected":
+                return new SparkError("schema_rejected", 400, err.message, {
+                    cause: err,
+                });
+            case "upstream_unreachable":
+                return new SparkError("upstream_unreachable", 504, err.message, {
+                    cause: err,
+                });
+            case "upstream_failure":
+                // A 400 from Meta means the request (usually the schema) was
+                // rejected; that is the route's fallback trigger.
+                if (err.status === 400) {
+                    return new SparkError("schema_rejected", 400, err.message, {
+                        cause: err,
+                        body: err.body,
+                    });
+                }
+                if (err.status === 401 || err.status === 403) {
+                    return new SparkError("upstream_auth", 502, err.message, {
+                        cause: err,
+                        body: err.body,
+                    });
+                }
+                if (err.status === 429) {
+                    return new SparkError("rate_limited", 429, err.message, {
+                        cause: err,
+                        body: err.body,
+                    });
+                }
+                return new SparkError(
+                    "upstream_failure",
+                    502,
+                    err.message,
+                    { cause: err, body: err.body }
+                );
+            case "invalid_response":
+                return new SparkError("invalid_response", 502, err.message, {
+                    cause: err,
+                });
+            default:
+                return new SparkError(
+                    "upstream_failure",
+                    502,
+                    err.message,
+                    { cause: err, body: err.body }
+                );
+        }
+    }
+    return new SparkError("upstream_failure", 502, "Failed to call model", {
+        cause: err,
+    });
+}
+
+/**
  * Calls Muse Spark 1.3 inline via Meta's Responses API using text.format with quotation schema.
+ *
+ * This is the client's Responses protocol with the quotation schema baked in.
+ * The recursion guard, reasoning validation and cached-token parsing all run
+ * in the client, so the behaviour of the route is unchanged.
  */
 export async function callMuseSpark({
     turns,
@@ -63,105 +131,50 @@ export async function callMuseSpark({
 
     const input = `${developerInstruction}\n\nSpeech Turns:\n${turnsPrompt}`;
 
-    const requestBody = {
-        model: META_SPARK_MODEL,
-        input,
-        text: {
-            format: {
-                type: "json_schema",
-                name: "quotation",
-                strict: true,
-                schema: quotationSchema,
-            },
-        },
-    };
+    const format = responsesFormat({
+        name: "quotation",
+        schema: quotationSchema as unknown as import("../model/types").JsonSchema,
+        strict: true,
+    });
 
-    let response: Response;
+    const client = new ModelClient({
+        baseUrl: META_RESPONSES_URL.replace("/v1/responses", "/v1"),
+        apiKey,
+        model: META_SPARK_MODEL,
+        format,
+        timeoutMs: 60_000,
+    });
+
+    if (isRecursiveSchema(quotationSchema as unknown as import("../model/types").JsonSchema)) {
+        throw new SparkError("schema_rejected", 400, "recursive schema rejected", {
+            cause: new Error("recursive schema rejected"),
+        });
+    }
+
+    let result: Awaited<ReturnType<typeof client.responses>>;
     try {
-        response = await fetch(META_RESPONSES_URL, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
-            signal: signal ?? AbortSignal.timeout(60_000),
+        result = await client.responses({
+            model: META_SPARK_MODEL,
+            input,
+            format,
+            signal,
         });
     } catch (cause) {
-        throw new SparkError(
-            "upstream_unreachable",
-            504,
-            "Failed to connect to Meta Model API",
-            { cause }
-        );
+        throw asSparkError(cause);
     }
 
-    const text = await response.text();
-    if (!response.ok) {
-        if (response.status === 400) {
-            throw new SparkError(
-                "schema_rejected",
-                400,
-                "Model API rejected the request schema (HTTP 400)",
-                { body: text.slice(0, 200) }
-            );
-        }
-        if (response.status === 401 || response.status === 403) {
-            throw new SparkError(
-                "upstream_auth",
-                502,
-                "Model API authentication failed"
-            );
-        }
-        if (response.status === 429) {
-            throw new SparkError(
-                "rate_limited",
-                429,
-                "Model API rate limit exceeded"
-            );
-        }
-        const snippet = text.slice(0, 200);
+    if (!result.text) {
         throw new SparkError(
-            "upstream_failure",
+            "invalid_response",
             502,
-            `Model API returned HTTP ${response.status}`,
-            { body: snippet }
+            "No output text in Responses API response",
+            { cause: new Error("No output text in Responses API response") }
         );
     }
 
+    let candidate: CandidateDocument;
     try {
-        const data = JSON.parse(text);
-        let outputText: string =
-            typeof data.output_text === "string" ? data.output_text : "";
-        if (!outputText && Array.isArray(data.output)) {
-            for (const item of data.output) {
-                if (Array.isArray(item.content)) {
-                    for (const part of item.content) {
-                        if (
-                            (part.type === "output_text" || part.type === "text") &&
-                            typeof part.text === "string" &&
-                            part.text.trim().length > 0
-                        ) {
-                            outputText = part.text;
-                            break;
-                        }
-                    }
-                }
-                if (outputText) break;
-                if (typeof item.text === "string") {
-                    outputText = item.text;
-                    break;
-                }
-            }
-        }
-
-        if (!outputText) {
-            throw new Error("No output text in Responses API response");
-        }
-
-        const candidate = JSON.parse(outputText) as CandidateDocument;
-        candidate._spark_path = true;
-        return candidate;
+        candidate = JSON.parse(result.text) as CandidateDocument;
     } catch (cause) {
         throw new SparkError(
             "invalid_response",
@@ -170,4 +183,29 @@ export async function callMuseSpark({
             { cause }
         );
     }
+    candidate._spark_path = true;
+    return candidate;
+}
+
+/**
+ * Extract the usage the cost meter needs from a Spark result.
+ *
+ * Cached tokens are reported at `usage.input_tokens_details.cached_tokens`
+ * on the Responses API and at `usage.prompt_tokens_details.cached_tokens` on
+ * Chat Completions, so both locations are read. The cost meter counts them
+ * distinctly from the total input tokens.
+ */
+export function sparkUsage(result: { raw?: unknown }): {
+    inputTokens: number;
+    outputTokens: number;
+    cachedTokens: number;
+    totalTokens: number;
+} {
+    const usage = parseUsage(result.raw);
+    return {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        cachedTokens: usage.cachedTokens,
+        totalTokens: usage.totalTokens,
+    };
 }
