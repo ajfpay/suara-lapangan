@@ -221,7 +221,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
 
     it("records and retrieves usage in postgres with atomic upsert", async () => {
         await postgresStore.recordUsage({
-            userId: "user-pg",
+            userId: "00000000-0000-0000-0000-000000000001",
             date: "2026-10-29",
             audioSeconds: 120,
             tokens: 300,
@@ -229,14 +229,14 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
         });
 
         await postgresStore.recordUsage({
-            userId: "user-pg",
+            userId: "00000000-0000-0000-0000-000000000001",
             date: "2026-10-29",
             audioSeconds: 80,
             tokens: 200,
             estCost: 0.15,
         });
 
-        const usage = await postgresStore.getUsage("2026-10-29", "user-pg");
+        const usage = await postgresStore.getUsage("2026-10-29", "00000000-0000-0000-0000-000000000001");
         expect(usage.audioSeconds).toBe(200);
         expect(usage.tokens).toBe(500);
         expect(usage.estCost).toBeCloseTo(0.4, 4);
@@ -245,12 +245,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
 
     it("activates hard_stop flag in postgres when cap is exceeded", async () => {
         await postgresStore.recordUsage({
-            userId: "user-cap",
+            userId: "00000000-0000-0000-0000-000000000002",
             date: "2026-10-29",
             estCost: 5.5,
         });
 
-        const usage = await postgresStore.getUsage("2026-10-29", "user-cap");
+        const usage = await postgresStore.getUsage("2026-10-29", "00000000-0000-0000-0000-000000000002");
         expect(usage.hardStop).toBe(true);
     });
 });

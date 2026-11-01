@@ -15,6 +15,12 @@ export type StoredDocument = {
     pdfPath?: string | null;
     sentTo?: string | null;
     sentAt?: Date | null;
+    userId?: string | null;
+};
+
+export type AdminDocument = StoredDocument & {
+    userEmail?: string | null;
+    userName?: string | null;
 };
 
 export type MarkSentResult =
@@ -36,6 +42,7 @@ export type CreateDocumentInput = {
     nomor: string;
     turnsHash: string;
     document: QuotationDocument;
+    userId?: string | null;
 };
 
 export interface DocumentStore {
@@ -68,6 +75,8 @@ export interface DocumentStore {
         sentTo: string,
         contentHash: string
     ): Promise<MarkSentResult>;
+    listByUser(userId: string): Promise<StoredDocument[]>;
+    listAll(): Promise<AdminDocument[]>;
 }
 
 export function turnsHashOf(
@@ -112,6 +121,7 @@ export function createPostgresDocumentStore(
         sent_to?: string | null;
         sent_at?: Date | null;
         created_at: Date;
+        user_id?: string | null;
     }): StoredDocument {
         return {
             id: row.id,
@@ -127,13 +137,14 @@ export function createPostgresDocumentStore(
                     ? row.sent_at
                     : new Date(row.sent_at)
                 : null,
+            userId: row.user_id ?? null,
         };
     }
 
     return {
         async findByIdempotencyKey(sessionId, turnsHash) {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
                  from documents
                  where session_id = $1
                    and turns_hash = $2
@@ -160,7 +171,7 @@ export function createPostgresDocumentStore(
                     input.sessionId,
                 ]);
                 const existing = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
                      from documents
                      where session_id = $1
                        and turns_hash = $2
@@ -174,9 +185,9 @@ export function createPostgresDocumentStore(
                     return toStored(existing.rows[0]);
                 }
                 const result = await client.query(
-                    `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
-                     values ($1, $2, $3, $4, $5, $6)
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
+                    `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
+                     values ($1, $2, $3, $4, $5, $6, $7)
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
                     [
                         input.sessionId,
                         input.locale,
@@ -186,6 +197,7 @@ export function createPostgresDocumentStore(
                             : "siap",
                         input.turnsHash,
                         JSON.stringify(input.document),
+                        input.userId ?? null,
                     ]
                 );
                 await client.query("commit");
@@ -208,7 +220,7 @@ export function createPostgresDocumentStore(
         async get(id) {
             if (!UUID_RE.test(id)) return null;
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
                  from documents where id = $1::uuid`,
                 [id]
             );
@@ -226,7 +238,7 @@ export function createPostgresDocumentStore(
                 // one reads the first one's committed payload, so its recomputed
                 // totals build on the corrected numbers instead of overwriting.
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -252,7 +264,7 @@ export function createPostgresDocumentStore(
                          sent_at = $5,
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
                     [
                         id,
                         JSON.stringify(updated),
@@ -287,7 +299,7 @@ export function createPostgresDocumentStore(
             try {
                 await client.query("begin");
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -307,7 +319,7 @@ export function createPostgresDocumentStore(
                          sent_at = now(),
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
                     [id, sentTo]
                 );
                 await client.query("commit");
@@ -321,6 +333,32 @@ export function createPostgresDocumentStore(
             } finally {
                 if (!clientReleased) client.release();
             }
+        },
+
+        async listByUser(userId: string): Promise<StoredDocument[]> {
+            const result = await pool.query(
+                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                 from documents
+                 where user_id = $1
+                 order by created_at desc`,
+                [userId]
+            );
+            return result.rows.map(toStored);
+        },
+
+        async listAll(): Promise<AdminDocument[]> {
+            const result = await pool.query(
+                `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id,
+                        u.email as user_email, u.name as user_name
+                 from documents d
+                 left join auth_user u on d.user_id = u.id
+                 order by d.created_at desc`
+            );
+            return result.rows.map((row) => ({
+                ...toStored(row),
+                userEmail: row.user_email ?? null,
+                userName: row.user_name ?? null,
+            }));
         },
     };
 }

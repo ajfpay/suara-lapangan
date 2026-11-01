@@ -290,39 +290,39 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
 
     it("records and retrieves email sends in postgres with atomic upsert", async () => {
         await postgresStore.recordEmailSend({
-            userId: "user-pg",
+            userId: "00000000-0000-0000-0000-000000000001",
             day: "2026-11-01",
             count: 1,
         });
 
         await postgresStore.recordEmailSend({
-            userId: "user-pg",
+            userId: "00000000-0000-0000-0000-000000000001",
             day: "2026-11-01",
             count: 2,
         });
 
-        const sends = await postgresStore.getEmailSends("2026-11-01", "user-pg");
+        const sends = await postgresStore.getEmailSends("2026-11-01", "00000000-0000-0000-0000-000000000001");
         expect(sends).toBe(3);
     });
 
     it("isolates send counts per user and day in postgres", async () => {
         await postgresStore.recordEmailSend({
-            userId: "user-1",
+            userId: "00000000-0000-0000-0000-000000000001",
             day: "2026-11-01",
         });
         await postgresStore.recordEmailSend({
-            userId: "user-2",
+            userId: "00000000-0000-0000-0000-000000000002",
             day: "2026-11-01",
         });
         await postgresStore.recordEmailSend({
-            userId: "user-1",
+            userId: "00000000-0000-0000-0000-000000000001",
             day: "2026-11-02",
         });
 
-        expect(await postgresStore.getEmailSends("2026-11-01", "user-1")).toBe(1);
-        expect(await postgresStore.getEmailSends("2026-11-01", "user-2")).toBe(1);
-        expect(await postgresStore.getEmailSends("2026-11-02", "user-1")).toBe(1);
-        expect(await postgresStore.getEmailSends("2026-11-02", "user-2")).toBe(0);
+        expect(await postgresStore.getEmailSends("2026-11-01", "00000000-0000-0000-0000-000000000001")).toBe(1);
+        expect(await postgresStore.getEmailSends("2026-11-01", "00000000-0000-0000-0000-000000000002")).toBe(1);
+        expect(await postgresStore.getEmailSends("2026-11-02", "00000000-0000-0000-0000-000000000001")).toBe(1);
+        expect(await postgresStore.getEmailSends("2026-11-02", "00000000-0000-0000-0000-000000000002")).toBe(0);
     });
 
     it("enforces reserveEmailSend when backed by postgres store", async () => {
@@ -345,14 +345,14 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
     it("reserve/release round-trips atomically in postgres", async () => {
         const limit = 2;
         const first = await postgresStore.reserveEmailSend(limit, {
-            userId: "user-atomic",
+            userId: "00000000-0000-0000-0000-000000000002",
             day: "2026-11-01",
         });
         expect(first.ok).toBe(true);
         expect(first.count).toBe(1);
 
         const second = await postgresStore.reserveEmailSend(limit, {
-            userId: "user-atomic",
+            userId: "00000000-0000-0000-0000-000000000002",
             day: "2026-11-01",
         });
         expect(second.ok).toBe(true);
@@ -360,25 +360,25 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
 
         // Third reservation must fail without consuming a slot.
         const third = await postgresStore.reserveEmailSend(limit, {
-            userId: "user-atomic",
+            userId: "00000000-0000-0000-0000-000000000002",
             day: "2026-11-01",
         });
         expect(third.ok).toBe(false);
         expect(third.count).toBe(2);
-        expect(await postgresStore.getEmailSends("2026-11-01", "user-atomic")).toBe(2);
+        expect(await postgresStore.getEmailSends("2026-11-01", "00000000-0000-0000-0000-000000000002")).toBe(2);
 
         // Release refunds one slot.
         await postgresStore.releaseEmailSend({
-            userId: "user-atomic",
+            userId: "00000000-0000-0000-0000-000000000002",
             day: "2026-11-01",
         });
         expect(
-            await postgresStore.getEmailSends("2026-11-01", "user-atomic")
+            await postgresStore.getEmailSends("2026-11-01", "00000000-0000-0000-0000-000000000002")
         ).toBe(1);
     });
 
     it("reserveEmailSend is race-safe under concurrent reservations in postgres", async () => {
-        const userId = "user-race";
+        const userId = "00000000-0000-0000-0000-000000000002";
         const day = "2026-11-01";
         const limit = 5;
         const attempts = 12;

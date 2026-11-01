@@ -26,6 +26,7 @@ import {
     postDocumentBodySchema,
     formatZodError,
 } from "@/lib/server/validation/document";
+import { auth } from "@/lib/server/auth";
 import type {
     DocumentStatus,
     Locale,
@@ -209,12 +210,24 @@ async function handlePost(request: Request): Promise<Response> {
     ): Promise<Response> {
         let stored: StoredDocument;
         try {
+            let userId: string | null = null;
+            try {
+                const session = await auth.api.getSession({
+                    headers: request.headers,
+                });
+                if (session?.user?.id) {
+                    userId = session.user.id;
+                }
+            } catch {
+                // Optional session resolution
+            }
             stored = await docStore.create({
                 sessionId,
                 locale: document.locale,
                 nomor: document.nomor,
                 turnsHash: fingerprint,
                 document,
+                userId,
             });
         } catch (cause) {
             console.error(

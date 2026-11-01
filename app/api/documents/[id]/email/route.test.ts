@@ -601,7 +601,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
     it("daily quota exceeded → 429, no send", async () => {
         process.env.EMAIL_DAILY_SEND_LIMIT = "1";
         await pool.query(
-            "insert into email_send_meter (user_id, day, count) values ('default', (now() at time zone 'UTC')::date, 1)"
+            "insert into email_send_meter (user_id, day, count) values ('00000000-0000-0000-0000-000000000000', (now() at time zone 'UTC')::date, 1)"
         );
 
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0013", locale: "id" });
@@ -716,7 +716,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         expect(sendsAfter).toBe(1);
 
         const dbResult = await pool.query<{ count: number }>(
-            "select count from email_send_meter where user_id = 'default' and day = (now() at time zone 'UTC')::date"
+            "select count from email_send_meter where user_id = '00000000-0000-0000-0000-000000000000' and day = (now() at time zone 'UTC')::date"
         );
         expect(dbResult.rows.length).toBe(1);
         expect(Number(dbResult.rows[0].count)).toBe(1);
