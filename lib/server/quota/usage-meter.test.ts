@@ -2,7 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from "vitest";
 
 import {
     assertQuotaAvailable,
@@ -230,7 +238,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
         );
         await pool.query(migration2);
         const migration3 = readFileSync(
-            join(__dirname, "../../../db/migrations/0003_usage_meter_cached_tokens.sql"),
+            join(
+                __dirname,
+                "../../../db/migrations/0003_usage_meter_cached_tokens.sql"
+            ),
             "utf8"
         );
         await pool.query(migration3);

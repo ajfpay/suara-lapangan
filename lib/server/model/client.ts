@@ -56,10 +56,16 @@ export function parseUsage(raw: unknown): Usage {
         outputTokens: Number(usage.output_tokens ?? 0),
         cachedTokens: Number(details.cached_tokens ?? 0),
         reasoningTokens: Number(
-            (usage.completion_tokens_details as Record<string, unknown> | undefined)
-                ?.reasoning_tokens ??
-                (usage.output_tokens_details as Record<string, unknown> | undefined)
-                    ?.reasoning_tokens ??
+            (
+                usage.completion_tokens_details as
+                    | Record<string, unknown>
+                    | undefined
+            )?.reasoning_tokens ??
+                (
+                    usage.output_tokens_details as
+                        | Record<string, unknown>
+                        | undefined
+                )?.reasoning_tokens ??
                 0
         ),
         totalTokens: Number(usage.total_tokens ?? 0),
@@ -152,9 +158,7 @@ export class ModelClient {
      * The Responses protocol — what Muse Spark and Muse Image use.
      * `input` is a string or a list of content parts.
      */
-    async responses(
-        options: ResponsesOptions
-    ): Promise<ModelResult> {
+    async responses(options: ResponsesOptions): Promise<ModelResult> {
         const body = responsesBody({
             ...this.options,
             ...options,
@@ -392,7 +396,9 @@ export class ModelClient {
             citations: [],
             usage: parseUsage((data as Record<string, unknown>)?.usage),
             raw: data,
-            responseId: (data as Record<string, unknown>)?.id as string | undefined,
+            responseId: (data as Record<string, unknown>)?.id as
+                | string
+                | undefined,
         };
 
         const output = (data as Record<string, unknown>)?.output as
@@ -406,8 +412,9 @@ export class ModelClient {
                     | undefined;
                 // Content arrays appear on `message` items, but a bare item
                 // with `content` is also valid; read both.
-                const content = (item as Record<string, unknown>)
-                    ?.content as unknown[] | undefined;
+                const content = (item as Record<string, unknown>)?.content as
+                    | unknown[]
+                    | undefined;
                 if (Array.isArray(content)) {
                     for (const part of content) {
                         if (part && typeof part === "object") {
@@ -419,25 +426,36 @@ export class ModelClient {
                             ) {
                                 const text = (part as Record<string, unknown>)
                                     .text as string | undefined;
-                                if (typeof text === "string" && text.trim().length > 0) {
+                                if (
+                                    typeof text === "string" &&
+                                    text.trim().length > 0
+                                ) {
                                     result.text = text;
                                 }
-                                const annotations = (part as Record<string, unknown>)
-                                    ?.annotations as unknown[] | undefined;
+                                const annotations = (
+                                    part as Record<string, unknown>
+                                )?.annotations as unknown[] | undefined;
                                 if (Array.isArray(annotations)) {
                                     for (const ann of annotations) {
                                         if (
                                             ann &&
                                             typeof ann === "object" &&
-                                            (ann as Record<string, unknown>).type ===
-                                                "url_citation"
+                                            (ann as Record<string, unknown>)
+                                                .type === "url_citation"
                                         ) {
-                                            const a = ann as Record<string, unknown>;
+                                            const a = ann as Record<
+                                                string,
+                                                unknown
+                                            >;
                                             result.citations.push({
                                                 url: String(a.url ?? ""),
                                                 title: String(a.title ?? ""),
-                                                startIndex: Number(a.start_index ?? 0),
-                                                endIndex: Number(a.end_index ?? 0),
+                                                startIndex: Number(
+                                                    a.start_index ?? 0
+                                                ),
+                                                endIndex: Number(
+                                                    a.end_index ?? 0
+                                                ),
                                             });
                                         }
                                     }
@@ -453,14 +471,17 @@ export class ModelClient {
                         for (const call of calls) {
                             if (call && typeof call === "object") {
                                 const fn = (call as Record<string, unknown>)
-                                    .function as Record<string, unknown> | undefined;
+                                    .function as
+                                    | Record<string, unknown>
+                                    | undefined;
                                 result.toolCalls.push({
                                     id: (call as Record<string, unknown>)
                                         .id as string,
                                     type: "function",
                                     function: {
                                         name: (fn?.name as string) ?? "",
-                                        arguments: (fn?.arguments as string) ?? "",
+                                        arguments:
+                                            (fn?.arguments as string) ?? "",
                                     },
                                 });
                             }
@@ -476,7 +497,9 @@ export class ModelClient {
             | undefined;
         if (Array.isArray(choices) && choices.length > 0) {
             const choice = choices[0] as Record<string, unknown>;
-            const message = choice?.message as Record<string, unknown> | undefined;
+            const message = choice?.message as
+                | Record<string, unknown>
+                | undefined;
             if (message) {
                 const content = message.content as string | undefined;
                 if (typeof content === "string") result.text += content;
@@ -485,9 +508,12 @@ export class ModelClient {
                     for (const call of toolCalls) {
                         if (call && typeof call === "object") {
                             const fn = (call as Record<string, unknown>)
-                                .function as Record<string, unknown> | undefined;
+                                .function as
+                                | Record<string, unknown>
+                                | undefined;
                             result.toolCalls.push({
-                                id: (call as Record<string, unknown>).id as string,
+                                id: (call as Record<string, unknown>)
+                                    .id as string,
                                 type: "function",
                                 function: {
                                     name: (fn?.name as string) ?? "",
@@ -501,8 +527,9 @@ export class ModelClient {
         }
 
         // `output_text` is the flat Responses shape.
-        const outputText = (data as Record<string, unknown>)
-            ?.output_text as string | undefined;
+        const outputText = (data as Record<string, unknown>)?.output_text as
+            | string
+            | undefined;
         if (typeof outputText === "string") result.text = outputText;
 
         if (options.format) {
@@ -535,15 +562,24 @@ export class ModelClient {
                 inputTokens: Number(usage.input_tokens ?? 0),
                 outputTokens: Number(usage.output_tokens ?? 0),
                 cachedTokens: Number(
-                    (usage.input_tokens_details as Record<string, unknown> | undefined)
-                        ?.cached_tokens ??
-                        (usage.prompt_tokens_details as Record<string, unknown> | undefined)
-                            ?.cached_tokens ??
+                    (
+                        usage.input_tokens_details as
+                            | Record<string, unknown>
+                            | undefined
+                    )?.cached_tokens ??
+                        (
+                            usage.prompt_tokens_details as
+                                | Record<string, unknown>
+                                | undefined
+                        )?.cached_tokens ??
                         0
                 ),
                 reasoningTokens: Number(
-                    (usage.completion_tokens_details as Record<string, unknown> | undefined)
-                        ?.reasoning_tokens ?? 0
+                    (
+                        usage.completion_tokens_details as
+                            | Record<string, unknown>
+                            | undefined
+                    )?.reasoning_tokens ?? 0
                 ),
                 totalTokens: Number(usage.total_tokens ?? 0),
             };
@@ -552,7 +588,9 @@ export class ModelClient {
         const choices = p.choices as unknown[] | undefined;
         if (Array.isArray(choices) && choices.length > 0) {
             const choice = choices[0] as Record<string, unknown>;
-            const deltaContent = choice?.delta as Record<string, unknown> | undefined;
+            const deltaContent = choice?.delta as
+                | Record<string, unknown>
+                | undefined;
             if (deltaContent) {
                 const text = deltaContent.content as string | undefined;
                 if (typeof text === "string") delta.text = text;
@@ -613,7 +651,9 @@ export class ModelError extends Error {
  * The Responses API rejects recursive schemas with a 400, so the client
  * refuses to send them.
  */
-export function validateFormat(format: CallOptions["format"]): string | undefined {
+export function validateFormat(
+    format: CallOptions["format"]
+): string | undefined {
     if (!format?.schema) return undefined;
     return validateSchema(format);
 }
@@ -642,8 +682,7 @@ export async function runToolLoop(
     const maxTurns = 10;
     let turns = 0;
     let result: ModelResult | undefined;
-    const messages =
-        "messages" in options ? options.messages : undefined;
+    const messages = "messages" in options ? options.messages : undefined;
 
     while (turns < maxTurns) {
         turns += 1;

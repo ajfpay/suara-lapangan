@@ -113,7 +113,9 @@ describe("runToolCalls", () => {
         ];
         global.fetch = vi
             .fn()
-            .mockImplementation(async () => calls.shift() ?? jsonResponse({})) as unknown as typeof fetch;
+            .mockImplementation(
+                async () => calls.shift() ?? jsonResponse({})
+            ) as unknown as typeof fetch;
 
         const client = new ModelClient({ baseUrl: BASE, apiKey: "k" });
         const executed: string[] = [];
@@ -183,7 +185,10 @@ describe("searchGrounding", () => {
         ) as unknown as typeof fetch;
 
         const client = new ModelClient({ baseUrl: BASE, apiKey: "k" });
-        const { text, sources, citations } = await searchGrounding(client, "capital of France?");
+        const { text, sources, citations } = await searchGrounding(
+            client,
+            "capital of France?"
+        );
         expect(text).toContain("[1]");
         expect(citations).toHaveLength(1);
         expect(sources[0]).toContain("example.com");

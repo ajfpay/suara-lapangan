@@ -111,7 +111,10 @@ export function citationsToFootnotes(
         (a, b) => b.endIndex - a.endIndex
     )) {
         const marker = ` [${numbers[citation.url]}]`;
-        marked = marked.slice(0, citation.endIndex) + marker + marked.slice(citation.endIndex);
+        marked =
+            marked.slice(0, citation.endIndex) +
+            marker +
+            marked.slice(citation.endIndex);
     }
 
     const sources = order.map(
@@ -142,19 +145,19 @@ export async function uploadFile(
     );
     formData.set(new TextEncoder().encode(body));
     formData.set(bytes, new TextEncoder().encode(body).length);
-    formData.set(new TextEncoder().encode(tail), new TextEncoder().encode(body).length + bytes.length);
-
-    const response = await client.request(
-        `${client.baseUrl}/v1/files`,
-        {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${client.apiKey}`,
-                "Content-Type": `multipart/form-data; boundary=${boundary}`,
-            },
-            body: formData,
-        }
+    formData.set(
+        new TextEncoder().encode(tail),
+        new TextEncoder().encode(body).length + bytes.length
     );
+
+    const response = await client.request(`${client.baseUrl}/v1/files`, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${client.apiKey}`,
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: formData,
+    });
 
     const text = await response.text();
     if (!response.ok) {
@@ -174,11 +177,9 @@ export async function uploadFile(
  * `input_image` with a data URL or a URL string; Chat Completions takes
  * `image_url` with `{ url }`. The client normalises both.
  */
-export function imagePart(
-    value: string,
-    kind: "url" | "base64"
-): ContentPart {
-    const image_url = kind === "base64" ? `data:image/png;base64,${value}` : value;
+export function imagePart(value: string, kind: "url" | "base64"): ContentPart {
+    const image_url =
+        kind === "base64" ? `data:image/png;base64,${value}` : value;
     return {
         type: "input_image",
         image_url,
@@ -201,7 +202,8 @@ export async function generateImage(
     const call = result.raw as Record<string, unknown>;
     const output = (call.output as unknown[]) ?? [];
     const generation = output.find(
-        (item) => (item as Record<string, unknown>).type === "image_generation_call"
+        (item) =>
+            (item as Record<string, unknown>).type === "image_generation_call"
     ) as Record<string, unknown> | undefined;
     const image = (generation?.result as string) ?? "";
     return { image, usage: result.usage };

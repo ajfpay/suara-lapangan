@@ -126,8 +126,7 @@ class MemoryUsageStore implements UsageStore {
         const newTokens = existing.tokens + tokens;
         const newCachedTokens = existing.cachedTokens + cachedTokens;
         const newEstCost = Number((existing.estCost + estCost).toFixed(4));
-        const hardStop =
-            existing.hardStop || newEstCost >= getDailyCostCap();
+        const hardStop = existing.hardStop || newEstCost >= getDailyCostCap();
 
         const updated: UsageSummary = {
             audioSeconds: newAudioSeconds,

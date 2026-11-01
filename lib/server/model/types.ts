@@ -11,7 +11,13 @@
 export type Protocol = "responses" | "chat" | "messages";
 
 /** Reasoning effort values Meta accepts. `none` and `max` are model-gated. */
-export type ReasoningEffort = "minimal" | "low" | "medium" | "high" | "max" | "none";
+export type ReasoningEffort =
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "max"
+    | "none";
 
 /** A JSON Schema object, as accepted by `text.format` / `response_format`. */
 export type JsonSchema = {

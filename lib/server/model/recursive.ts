@@ -38,7 +38,9 @@ export function findRecursivePath(
 
     seen.add(schema);
 
-    const properties = schema.properties as Record<string, JsonSchema> | undefined;
+    const properties = schema.properties as
+        | Record<string, JsonSchema>
+        | undefined;
     if (properties) {
         for (const [name, child] of Object.entries(properties)) {
             const path = findRecursivePath(child, seen, refs, root);

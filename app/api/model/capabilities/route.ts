@@ -92,12 +92,18 @@ export async function POST(request: Request): Promise<Response> {
                     client,
                     query || "What is the capital of France?"
                 );
-                return NextResponse.json({ capability, text, sources, citations });
+                return NextResponse.json({
+                    capability,
+                    text,
+                    sources,
+                    citations,
+                });
             }
             case "image": {
                 const { image: generated, usage } = await generateImage(
                     client,
-                    prompt || "a watercolor painting of a red fox in a snowy forest"
+                    prompt ||
+                        "a watercolor painting of a red fox in a snowy forest"
                 );
                 return NextResponse.json({
                     capability,

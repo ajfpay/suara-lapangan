@@ -105,10 +105,12 @@ export function chatBody(options: ChatOptions) {
     };
     if (options.format) body.response_format = chatFormat(options.format);
     if (options.tools) body.tools = normalizeTools(options.tools);
-    if (options.reasoningEffort) body.reasoning_effort = options.reasoningEffort;
+    if (options.reasoningEffort)
+        body.reasoning_effort = options.reasoningEffort;
     if (options.promptCacheKey) body.prompt_cache_key = options.promptCacheKey;
     if (options.maxOutputTokens) body.max_tokens = options.maxOutputTokens;
-    if (options.temperature !== undefined) body.temperature = options.temperature;
+    if (options.temperature !== undefined)
+        body.temperature = options.temperature;
     return body;
 }
 
@@ -125,10 +127,12 @@ export function messagesBody(options: MessagesOptions) {
     if (options.system) body.system = options.system;
     if (options.format) body.response_format = messagesFormat(options.format);
     if (options.tools) body.tools = normalizeTools(options.tools);
-    if (options.reasoningEffort) body.reasoning_effort = options.reasoningEffort;
+    if (options.reasoningEffort)
+        body.reasoning_effort = options.reasoningEffort;
     if (options.promptCacheKey) body.prompt_cache_key = options.promptCacheKey;
     if (options.maxOutputTokens) body.max_tokens = options.maxOutputTokens;
-    if (options.temperature !== undefined) body.temperature = options.temperature;
+    if (options.temperature !== undefined)
+        body.temperature = options.temperature;
     return body;
 }
 
@@ -147,18 +151,24 @@ export function responsesBody(options: ResponsesOptions) {
     };
     if (options.format) body.text = { format: responsesFormat(options.format) };
     if (options.tools) body.tools = normalizeTools(options.tools);
-    if (options.reasoningEffort) body.reasoning = { effort: options.reasoningEffort };
+    if (options.reasoningEffort)
+        body.reasoning = { effort: options.reasoningEffort };
     if (options.promptCacheKey) body.prompt_cache_key = options.promptCacheKey;
     if (options.maxOutputTokens) body.max_tokens = options.maxOutputTokens;
-    if (options.temperature !== undefined) body.temperature = options.temperature;
-    if (options.previousResponseId) body.previous_response_id = options.previousResponseId;
+    if (options.temperature !== undefined)
+        body.temperature = options.temperature;
+    if (options.previousResponseId)
+        body.previous_response_id = options.previousResponseId;
     if (options.webSearch) {
         body.tools = [
             ...((body.tools as unknown[]) ?? []),
             {
                 type: "web_search",
                 ...(typeof options.webSearch === "object"
-                    ? { search_context_size: options.webSearch.searchContextSize }
+                    ? {
+                          search_context_size:
+                              options.webSearch.searchContextSize,
+                      }
                     : {}),
             },
         ];

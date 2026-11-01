@@ -46,9 +46,14 @@ function asSparkError(err: unknown): SparkError {
                     cause: err,
                 });
             case "upstream_unreachable":
-                return new SparkError("upstream_unreachable", 504, err.message, {
-                    cause: err,
-                });
+                return new SparkError(
+                    "upstream_unreachable",
+                    504,
+                    err.message,
+                    {
+                        cause: err,
+                    }
+                );
             case "upstream_failure":
                 // A 400 from Meta means the request (usually the schema) was
                 // rejected; that is the route's fallback trigger.
@@ -70,23 +75,19 @@ function asSparkError(err: unknown): SparkError {
                         body: err.body,
                     });
                 }
-                return new SparkError(
-                    "upstream_failure",
-                    502,
-                    err.message,
-                    { cause: err, body: err.body }
-                );
+                return new SparkError("upstream_failure", 502, err.message, {
+                    cause: err,
+                    body: err.body,
+                });
             case "invalid_response":
                 return new SparkError("invalid_response", 502, err.message, {
                     cause: err,
                 });
             default:
-                return new SparkError(
-                    "upstream_failure",
-                    502,
-                    err.message,
-                    { cause: err, body: err.body }
-                );
+                return new SparkError("upstream_failure", 502, err.message, {
+                    cause: err,
+                    body: err.body,
+                });
         }
     }
     return new SparkError("upstream_failure", 502, "Failed to call model", {
@@ -145,10 +146,19 @@ export async function callMuseSpark({
         timeoutMs: 60_000,
     });
 
-    if (isRecursiveSchema(quotationSchema as unknown as import("../model/types").JsonSchema)) {
-        throw new SparkError("schema_rejected", 400, "recursive schema rejected", {
-            cause: new Error("recursive schema rejected"),
-        });
+    if (
+        isRecursiveSchema(
+            quotationSchema as unknown as import("../model/types").JsonSchema
+        )
+    ) {
+        throw new SparkError(
+            "schema_rejected",
+            400,
+            "recursive schema rejected",
+            {
+                cause: new Error("recursive schema rejected"),
+            }
+        );
     }
 
     let result: Awaited<ReturnType<typeof client.responses>>;

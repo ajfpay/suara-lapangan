@@ -72,9 +72,9 @@ describe("validateReasoningEffort", () => {
     });
 
     it("rejects none on Muse Spark and Muse Wonder", () => {
-        expect(() =>
-            validateReasoningEffort("muse-spark-1.3", "none")
-        ).toThrow(ModelError);
+        expect(() => validateReasoningEffort("muse-spark-1.3", "none")).toThrow(
+            ModelError
+        );
         expect(() =>
             validateReasoningEffort("muse-wonder-1.0", "none")
         ).toThrow(ModelError);
@@ -87,7 +87,9 @@ describe("validateReasoningEffort", () => {
     });
 
     it("returns undefined when effort is undefined", () => {
-        expect(validateReasoningEffort("muse-spark-1.3", undefined)).toBeUndefined();
+        expect(
+            validateReasoningEffort("muse-spark-1.3", undefined)
+        ).toBeUndefined();
     });
 });
 
@@ -342,9 +344,11 @@ describe("ModelClient", () => {
     });
 
     it("throws ModelError on a non-ok response", async () => {
-        global.fetch = vi.fn().mockResolvedValue(
-            jsonResponse({ error: "bad" }, 400)
-        ) as unknown as typeof fetch;
+        global.fetch = vi
+            .fn()
+            .mockResolvedValue(
+                jsonResponse({ error: "bad" }, 400)
+            ) as unknown as typeof fetch;
 
         await expect(
             client.chat({
@@ -359,9 +363,11 @@ describe("ModelClient", () => {
     });
 
     it("counts input tokens via POST /responses/input_tokens", async () => {
-        global.fetch = vi.fn().mockResolvedValue(
-            jsonResponse({ input_tokens: 42 })
-        ) as unknown as typeof fetch;
+        global.fetch = vi
+            .fn()
+            .mockResolvedValue(
+                jsonResponse({ input_tokens: 42 })
+            ) as unknown as typeof fetch;
 
         const count = await client.countInputTokens("hello", "muse-spark-1.3");
         expect(count).toBe(42);
@@ -381,9 +387,11 @@ describe("ModelClient", () => {
             'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}',
             "data: [DONE]",
         ].join("\n");
-        global.fetch = vi.fn().mockResolvedValue(
-            new Response(lines, { status: 200 })
-        ) as unknown as typeof fetch;
+        global.fetch = vi
+            .fn()
+            .mockResolvedValue(
+                new Response(lines, { status: 200 })
+            ) as unknown as typeof fetch;
 
         const deltas = [];
         for await (const delta of client.streamChat({
@@ -439,7 +447,9 @@ describe("runToolLoop", () => {
         ];
         global.fetch = vi
             .fn()
-            .mockImplementation(async () => calls.shift() ?? jsonResponse({})) as unknown as typeof fetch;
+            .mockImplementation(
+                async () => calls.shift() ?? jsonResponse({})
+            ) as unknown as typeof fetch;
 
         const executed: string[] = [];
         const result = await runToolLoop(
