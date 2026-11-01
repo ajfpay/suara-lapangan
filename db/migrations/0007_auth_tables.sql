@@ -63,10 +63,8 @@ create index if not exists auth_session_user_id_idx on auth_session (user_id);
 create index if not exists auth_account_user_id_idx on auth_account (user_id);
 create index if not exists auth_verification_identifier_idx on auth_verification (identifier);
 
--- Default system and test accounts for legacy ownerless rows and quota test fixtures.
+-- Default system account for legacy ownerless rows.
 insert into auth_user (id, email, email_verified, name, role)
 values
-    ('00000000-0000-0000-0000-000000000000', 'system@suara-lapangan.local', true, 'System', 'admin'),
-    ('00000000-0000-0000-0000-000000000001', 'test1@suara-lapangan.local', true, 'Test User 1', 'user'),
-    ('00000000-0000-0000-0000-000000000002', 'test2@suara-lapangan.local', true, 'Test User 2', 'user')
+    ('00000000-0000-0000-0000-000000000000', 'system@suara-lapangan.local', true, 'System', 'admin')
 on conflict (id) do nothing;

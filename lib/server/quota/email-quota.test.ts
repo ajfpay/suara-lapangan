@@ -269,6 +269,13 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
         );
         // Safe and idempotent to run migration
         await pool.query(migration4);
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
+               ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
+             on conflict (id) do nothing`
+        );
         postgresStore = new PostgresEmailSendQuotaStore(pool);
     });
 

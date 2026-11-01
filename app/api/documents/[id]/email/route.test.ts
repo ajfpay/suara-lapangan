@@ -84,10 +84,19 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
             "0002_usage_meter.sql",
             "0003_documents.sql",
             "0004_email_sends.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
         ]) {
             const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
             await pool.query(sql);
         }
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
+               ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
+             on conflict (id) do nothing`
+        );
     });
 
     beforeEach(async () => {

@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { sanitizeCallbackUrl } from "@/lib/client/sanitizeCallbackUrl";
 
 export default function LoginPage() {
     const t = useTranslations("auth");
@@ -15,13 +16,7 @@ export default function LoginPage() {
     const locale = String(params.locale ?? "id");
 
     const rawCallbackUrl = searchParams.get("callbackUrl") || `/${locale}/dokumen/saya`;
-    // Only same-origin destinations are trusted as post-login targets; anything
-    // else (for example an absolute URL from a crafted query) falls back to the
-    // default Dokumen saya page.
-    const callbackUrl =
-        rawCallbackUrl.startsWith("/") && !rawCallbackUrl.startsWith("//")
-            ? rawCallbackUrl
-            : `/${locale}/dokumen/saya`;
+    const callbackUrl = sanitizeCallbackUrl(rawCallbackUrl, locale);
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");

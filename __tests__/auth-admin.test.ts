@@ -18,6 +18,13 @@ describe("Better Auth & Admin Dashboard core contracts", () => {
     beforeAll(async () => {
         process.env.DATABASE_URL = TEST_DATABASE_URL;
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
+               ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
+             on conflict (id) do nothing`
+        );
         // `auth` builds its pool from DATABASE_URL at module scope, so it must
         // be imported after the test URL is set — otherwise auth requests and
         // the verification updates would target different databases.

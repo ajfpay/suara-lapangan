@@ -65,6 +65,13 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         for (const sql of migrations) {
             await pool.query(sql);
         }
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
+               ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
+             on conflict (id) do nothing`
+        );
         store = createPostgresDocumentStore(TEST_DATABASE_URL!);
         await pool.query("truncate documents, sessions cascade");
     });

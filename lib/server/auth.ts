@@ -21,22 +21,30 @@ function getAuthDbPool(): Pool {
 
 const pool = getAuthDbPool();
 
-const AUTH_SECRET = process.env.BETTER_AUTH_SECRET;
-if (!AUTH_SECRET && process.env.NODE_ENV === "production") {
-    // A production deployment must set its own secret; using the shared
-    // development fallback would let anyone with repo access forge sessions.
-    // The deployment (ticket 08) is blocked, so this is a warning here rather
-    // than a build failure — `next build` runs with NODE_ENV=production and
-    // without the env var in CI.
-    console.warn(
-        "[auth] BETTER_AUTH_SECRET is not set; using the development fallback. " +
-            "Set a unique secret before deploying."
-    );
+const DEV_FALLBACK_SECRET =
+    "suara-lapangan-secret-key-development-minimum-32-chars";
+
+export function resolveAuthSecret(): string {
+    const env = process.env.BETTER_AUTH_SECRET;
+    if (env) return env;
+    if (process.env.NODE_ENV === "production") {
+        console.error(
+            "[auth] BETTER_AUTH_SECRET is not set in production; " +
+                "generating a random per-boot secret. Set BETTER_AUTH_SECRET " +
+                "for stable sessions."
+        );
+        return crypto.randomBytes(32).toString("hex");
+    }
+    return DEV_FALLBACK_SECRET;
 }
+
+export const AUTH_SECRET = resolveAuthSecret();
+export const resolvedAuthSecret = AUTH_SECRET;
+export const authSecret = AUTH_SECRET;
 
 export const auth = betterAuth({
     database: pool,
-    secret: AUTH_SECRET ?? "suara-lapangan-secret-key-development-minimum-32-chars",
+    secret: AUTH_SECRET,
     user: {
         modelName: "auth_user",
         fields: {
