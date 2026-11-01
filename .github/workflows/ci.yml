@@ -55,6 +55,19 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      # The PDF route renders through puppeteer-core, which needs an explicit
+      # executable path. Point it at the Chromium just installed — the app's
+      # built-in fallback is a developer-machine path that does not exist on
+      # this runner.
+      - name: Locate Chromium for PDF rendering
+        run: |
+          CHROME_BIN=$(find "$HOME/.cache/ms-playwright" -type f -name chrome -path "*chrome-linux*" | head -n 1)
+          if [ -z "$CHROME_BIN" ]; then
+            echo "::error::Chromium binary not found under $HOME/.cache/ms-playwright"
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
+
       # The e2e suite seeds its session and asserts rows in a real Postgres,
       # so the schema must exist before the app boots.
       - name: Migrate test database
