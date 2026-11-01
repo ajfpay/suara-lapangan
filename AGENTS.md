@@ -29,7 +29,7 @@ ini). Untuk jalur yang disentuh seri ini: tiket 01 (`agent/doc-01-postgres`) mem
 `lib/server/pdf/**`. Tiket Batch 2 di bawah (03 ASR) tetap memiliki `app/api/asr/**` dan
 `lib/server/asr/**` + `lib/server/quota/**`, tidak termasuk `lib/server/db/**`. Nomor tiket MVP
 lama di atas (05, 07, 08) tidak lagi mengatur jalur-jalur ini untuk seri ini; pemetaan lama tetap
-berlaku untuk tiket MVP lama itu sendiri.
+berlaku untuk tiket MVP lama itu sendiri. For this series, ticket 05 (`agent/doc-05-dokumen-screen`) owns `app/[locale]/dokumen/**`, and other tickets must not edit that path without coordinating with it.
 
 Batasan lain yang sudah berlaku: pekerja tidak menyentuh worktree tiket lain, tidak merge, tidak
 menghapus cabang/worktree, dan tidak membuat repo publik atau deploy (butuh persetujuan tertulis
