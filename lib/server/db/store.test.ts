@@ -24,6 +24,10 @@ const migration0005 = readFileSync(
     join(__dirname, "../../../db/migrations/0005_asr_speaker.sql"),
     "utf8"
 );
+const migration0006 = readFileSync(
+    join(__dirname, "../../../db/migrations/0006_asr_mode.sql"),
+    "utf8"
+);
 
 const record: TranscriptionRecord = {
     sessionId: "sess-round-trip",
@@ -60,10 +64,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
         await pool.query(migration0001);
         await pool.query(migration0005);
+        await pool.query(migration0006);
         // The demo and CI both re-run the migration on a database that already
         // has the tables.
         await pool.query(migration0001);
         await pool.query(migration0005);
+        await pool.query(migration0006);
     });
 
     beforeEach(async () => {
@@ -83,6 +89,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
             sessionId: "sess-round-trip",
             locale: "id",
             audioSha256: "9f2c1a",
+            mode: "ENDPOINTING",
             turns: record.turns,
         });
     });
@@ -179,5 +186,33 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         const retrieved = await store.findSession("sess-diarization-db");
         expect(retrieved).not.toBeNull();
         expect(retrieved?.turns).toEqual(sessionWithMixedSpeakers.turns);
+    });
+
+    it("persists and reads back mode (ENDPOINTING and DIARIZATION)", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-mode-diar",
+            mode: "DIARIZATION",
+        });
+        const diar = await store.findSession("sess-mode-diar");
+        expect(diar?.mode).toBe("DIARIZATION");
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-mode-endpoint",
+            mode: "ENDPOINTING",
+        });
+        const endp = await store.findSession("sess-mode-endpoint");
+        expect(endp?.mode).toBe("ENDPOINTING");
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-mode-default",
+            mode: undefined,
+        });
+        const def = await store.findSession("sess-mode-default");
+        expect(def?.mode).toBe("ENDPOINTING");
     });
 });

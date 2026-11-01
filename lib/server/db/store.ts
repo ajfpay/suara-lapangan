@@ -12,6 +12,8 @@ export type TranscriptionRecord = {
     metaSessionId: string | null;
     transcript: string;
     audioDurationMs: number | null;
+    /** Defaults to ENDPOINTING in the column when a caller omits it. */
+    mode?: string;
     turns: Turn[];
 };
 
@@ -19,6 +21,12 @@ export type StoredSession = {
     sessionId: string;
     locale: Locale;
     audioSha256: string;
+    /**
+     * The mode the turns were transcribed with. Optional because stores that
+     * predate the column (and test doubles) do not report it; the cache check
+     * treats a missing mode as ENDPOINTING.
+     */
+    mode?: string;
     turns: Turn[];
 };
 
@@ -35,7 +43,8 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             const session = await pool.query<{
                 locale: Locale;
                 audio_sha256: string;
-            }>("select locale, audio_sha256 from sessions where id = $1", [
+                mode: string;
+            }>("select locale, audio_sha256, mode from sessions where id = $1", [
                 sessionId,
             ]);
             if (session.rowCount === 0) return null;
@@ -55,6 +64,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 sessionId,
                 locale: session.rows[0].locale,
                 audioSha256: session.rows[0].audio_sha256,
+                mode: session.rows[0].mode,
                 turns: stored.rows.map((row) => ({
                     turn_id: `turn_${row.turn_index}`,
                     startMs: row.start_ms,
@@ -72,8 +82,8 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 await client.query("begin");
                 await client.query(
                     `insert into sessions
-                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, updated_at)
-                     values ($1, $2, $3, $4, $5, $6, $7, now())
+                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, updated_at)
+                     values ($1, $2, $3, $4, $5, $6, $7, $8, now())
                      on conflict (id) do update set
                         locale = excluded.locale,
                         audio_sha256 = excluded.audio_sha256,
@@ -81,6 +91,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         meta_session_id = excluded.meta_session_id,
                         transcript = excluded.transcript,
                         audio_duration_ms = excluded.audio_duration_ms,
+                        mode = excluded.mode,
                         updated_at = now()`,
                     [
                         record.sessionId,
@@ -90,6 +101,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         record.metaSessionId,
                         record.transcript,
                         record.audioDurationMs,
+                        record.mode ?? "ENDPOINTING",
                     ]
                 );
 
