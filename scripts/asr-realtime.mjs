@@ -145,7 +145,7 @@ function extractPcmFromWav(buffer) {
             break;
         }
 
-        offset = chunkDataOffset + chunkSize;
+        offset = chunkDataOffset + chunkSize + (chunkSize % 2);
     }
 
     if (dataOffset === -1) {
@@ -153,8 +153,8 @@ function extractPcmFromWav(buffer) {
     }
 
     if (sampleRate !== 16000 || channels !== 1 || bitsPerSample !== 16) {
-        console.warn(
-            `Warning: audio format is ${sampleRate}Hz, ${channels} ch, ${bitsPerSample}-bit (expected 16000Hz mono 16-bit PCM).`
+        throw new Error(
+            `Unsupported audio format: ${sampleRate}Hz, ${channels} ch, ${bitsPerSample}-bit (expected 16000Hz mono 16-bit PCM).`
         );
     }
 
@@ -198,9 +198,10 @@ async function main() {
         console.log(`[config] Keywords: ${options.keywords.join(", ")}`);
     }
 
-    if (typeof WebSocket === "undefined") {
+    const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
+    if (typeof WebSocket === "undefined" || nodeMajor < 22) {
         console.error(
-            "Error: global WebSocket is not available. Please run with Node.js >= 20."
+            "Error: global WebSocket is not available. Please run with Node.js >= 22."
         );
         process.exit(1);
     }
