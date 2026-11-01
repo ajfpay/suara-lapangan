@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { GET, PATCH } from "./route";
+import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 
 /**
@@ -273,6 +274,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
         expect(nonNumRes.status).toBe(400);
         const nonNumData = await nonNumRes.json();
         expect(nonNumData.error).toBe("invalid_request");
+        expect(nonNumData.message).toContain("nilai");
 
         const negReq = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
@@ -556,6 +558,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
 
 describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () => {
     let pool: Pool;
+    let seededIds: string[] = [];
 
     beforeAll(async () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -572,31 +575,36 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
     });
 
     beforeEach(async () => {
+        resetRateLimits();
         await pool.query("truncate documents, sessions cascade");
+        seededIds = [];
         await pool.query(
             "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
         );
+        await seedDocument(createTestDocument());
     });
 
     afterAll(async () => {
         await pool.end();
     });
 
-    async function seedDocument(document: QuotationDocument, hash: string) {
+    async function seedDocument(document: QuotationDocument): Promise<string> {
         const result = await pool.query<{ id: string }>(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
              values ('seed-session', $1, $2, $3, $4, $5) returning id`,
             [
                 document.locale,
-                document.nomor,
+                document.nomor + "#" + seededIds.length,
                 document.butuh_konfirmasi.length > 0
                     ? "perlu_konfirmasi"
                     : "siap",
-                hash,
+                "hash-" + seededIds.length,
                 JSON.stringify(document),
             ]
         );
-        return result.rows[0].id;
+        const id = result.rows[0].id;
+        seededIds.push(id);
+        return id;
     }
 
     it("answers the same envelope as PATCH's 200", async () => {
@@ -609,7 +617,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
                 },
             ],
         });
-        const id = await seedDocument(doc, "get-hash-1");
+        const id = await seedDocument(doc);
 
         const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
             params: Promise.resolve({ id }),
@@ -637,5 +645,72 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
         expect(res.status).toBe(404);
         const data = await res.json();
         expect(data.error).toBe("not_found");
+    });
+
+    it("returns 400 for a malformed id", async () => {
+        const res = await GET(
+            new Request("http://localhost/api/documents/../etc/passwd"),
+            {
+                params: Promise.resolve({
+                    id: "../etc/passwd",
+                }),
+            }
+        );
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+
+    it("returns 400 for a non-UUID id", async () => {
+        const res = await GET(
+            new Request("http://localhost/api/documents/not-a-uuid"),
+            {
+                params: Promise.resolve({
+                    id: "not-a-uuid",
+                }),
+            }
+        );
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+
+    it("rate limits PATCH to 30 per minute; the 31st is 429", async () => {
+        const id = seededIds[0];
+        let lastRes: Response | null = null;
+        for (let i = 0; i < 31; i++) {
+            lastRes = await PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].volume",
+                        nilai: 1,
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+        }
+        expect(lastRes).not.toBeNull();
+        expect(lastRes!.status).toBe(429);
+        const body = await lastRes!.json();
+        expect(body.error).toBe("rate_limited");
+        expect(lastRes!.headers.get("Retry-After")).toBeTruthy();
+    });
+
+    it("rate limits GET to 30 per minute; the 31st is 429", async () => {
+        const id = seededIds[0];
+        let lastRes: Response | null = null;
+        for (let i = 0; i < 31; i++) {
+            lastRes = await GET(
+                new Request(`http://localhost/api/documents/${id}`),
+                { params: Promise.resolve({ id }) }
+            );
+        }
+        expect(lastRes).not.toBeNull();
+        expect(lastRes!.status).toBe(429);
+        const body = await lastRes!.json();
+        expect(body.error).toBe("rate_limited");
+        expect(lastRes!.headers.get("Retry-After")).toBeTruthy();
     });
 });

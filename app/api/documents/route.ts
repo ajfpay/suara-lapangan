@@ -17,26 +17,26 @@ import {
     toResponseDocument,
 } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
+import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
+import {
+    recordUsage,
+    SPARK_DOCUMENT_EST_COST,
+} from "@/lib/server/quota/usage-meter";
+import {
+    postDocumentBodySchema,
+    formatZodError,
+} from "@/lib/server/validation/document";
 import type {
     DocumentStatus,
     Locale,
-    Proyek,
     QuotationDocument,
 } from "@/lib/server/guard/types";
+import type { Turn } from "@/lib/server/asr/turns";
 
-const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
-
-type PostDocumentBody = {
-    sessionId?: unknown;
-    locale?: unknown;
-    project?: unknown;
-    turns?: unknown;
-};
-
-export async function POST(request: Request): Promise<Response> {
-    let body: PostDocumentBody;
+async function handlePost(request: Request): Promise<Response> {
+    let body: unknown;
     try {
-        body = (await request.json()) as PostDocumentBody;
+        body = await request.json();
     } catch {
         return NextResponse.json(
             { error: "invalid_request", message: "Request body must be JSON" },
@@ -44,65 +44,28 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 
-    const rawSessionId = body?.sessionId;
-    if (typeof rawSessionId !== "string" || !SESSION_ID.test(rawSessionId)) {
+    const parsed = postDocumentBodySchema.safeParse(body);
+    if (!parsed.success) {
         return NextResponse.json(
-            {
-                error: "invalid_request",
-                message: "sessionId is required and must match ^[A-Za-z0-9_-]{1,64}$",
-            },
+            { error: "invalid_request", message: formatZodError(parsed.error) },
             { status: 400 }
         );
     }
 
-    const sessionId = rawSessionId;
-
-    let locale: Locale | undefined;
-    if (body.locale !== undefined) {
-        if (body.locale !== "en" && body.locale !== "id") {
-            return NextResponse.json(
-                {
-                    error: "invalid_request",
-                    message: "locale must be 'en' or 'id'",
-                },
-                { status: 400 }
-            );
-        }
-        locale = body.locale;
-    }
-
-    // Validate project fields as non-empty strings, ignore anything else
-    let project: Proyek | undefined;
-    if (body.project && typeof body.project === "object") {
-        const rawProj = body.project as Record<string, unknown>;
-        if (
-            typeof rawProj.nama === "string" &&
-            rawProj.nama.trim().length > 0 &&
-            typeof rawProj.lokasi === "string" &&
-            rawProj.lokasi.trim().length > 0 &&
-            typeof rawProj.klien === "string" &&
-            rawProj.klien.trim().length > 0
-        ) {
-            project = {
-                nama: rawProj.nama.trim(),
-                lokasi: rawProj.lokasi.trim(),
-                klien: rawProj.klien.trim(),
-            };
-        }
-    }
-
-    // DEMO-ONLY: This endpoint is a hackathon prototype demonstration.
-    // In production, enforce authentication, tenant rate limiting, and quota checks.
+    const { sessionId, locale, project, turns } = parsed.data;
     // Idempotent reuse check: if document for same session exists, return it without calling the model
     // Catch store init and lookup failures, map to JSON status
     let session;
     let turnsStore: TurnsStore | undefined;
-    if (Array.isArray(body.turns) && body.turns.length > 0) {
+    if (turns && turns.length > 0) {
         session = {
             sessionId,
             locale: (locale ?? "id") as Locale,
             audioSha256: "inline",
-            turns: body.turns as import("@/lib/server/asr/turns").Turn[],
+            turns: turns.map((t) => ({
+                ...t,
+                final: t.final ?? true,
+            })) as Turn[],
         };
     } else {
         try {
@@ -333,6 +296,24 @@ export async function POST(request: Request): Promise<Response> {
         );
     }
 
+    // Meter the Spark call: tokens show up in the report and the documented
+    // per-document cost keeps the daily quota hard-stop honest.
+    const usage = candidate._usage;
+    if (usage && usage.totalTokens > 0) {
+        try {
+            await recordUsage({
+                tokens: usage.totalTokens,
+                estCost: SPARK_DOCUMENT_EST_COST,
+            });
+        } catch (cause) {
+            console.error(
+                redactSecrets(
+                    `[documents] usage record failed: ${String(cause)}`
+                )
+            );
+        }
+    }
+
     // Run Guard deterministically
     const result = applyGuard(candidate, session.turns, {
         locale: resolvedLocale,
@@ -347,3 +328,8 @@ export async function POST(request: Request): Promise<Response> {
     }
     return persistAndRespond(result.document, candidate._spark_path === true);
 }
+
+export const POST = withRateLimitFlat(handlePost, {
+    route: "/api/documents",
+    checkDailyQuota: true,
+});

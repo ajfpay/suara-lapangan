@@ -77,6 +77,101 @@ export function resetRateLimits(): void {
 }
 
 /**
+ * Same as `withRateLimit`, but answers 429 with the routes' flat
+ * `{error, message}` envelope instead of the ASR route's nested
+ * `{error: {code, message}}` shape. The document routes answer the UI's
+ * `data.error && data.message` read, so the message must not be nested.
+ */
+export function withRateLimitFlat<TContext = unknown>(
+    handler: RouteHandler<TContext>,
+    options: RateLimitOptions
+): RouteHandler<TContext> {
+    const defaultRouteConfig = DEFAULT_ROUTE_LIMITS[options.route] ?? {
+        limit: 30,
+        windowMs: 60_000,
+    };
+
+    const effectiveLimit = options.limit ?? defaultRouteConfig.limit;
+    const effectiveWindowMs = options.windowMs ?? defaultRouteConfig.windowMs;
+    const limiter = options.limiter ?? globalLimiter;
+    const getIdentifier = options.getIdentifier ?? getClientIdentifier;
+
+    return async (
+        request: Request,
+        context?: TContext
+    ): Promise<Response> => {
+        const identifier = getIdentifier(request);
+        const rateLimitKey = `${options.route}:${identifier}`;
+
+        const rateResult = limiter.check(
+            rateLimitKey,
+            effectiveLimit,
+            effectiveWindowMs
+        );
+
+        if (!rateResult.allowed) {
+            const locale = detectRequestLocale(request);
+            const message =
+                locale === "en"
+                    ? "Too many requests. Wait a moment and try again."
+                    : "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.";
+
+            return Response.json(
+                { error: "rate_limited", message },
+                {
+                    status: 429,
+                    headers: {
+                        "Retry-After": String(rateResult.retryAfterSeconds),
+                        "X-RateLimit-Limit": String(rateResult.limit),
+                        "X-RateLimit-Remaining": "0",
+                        "X-RateLimit-Reset": String(
+                            Math.ceil((Date.now() + rateResult.resetMs) / 1000)
+                        ),
+                    },
+                }
+            );
+        }
+
+        if (options.checkDailyQuota) {
+            try {
+                const locale = detectRequestLocale(request);
+                await assertQuotaAvailable({ locale });
+            } catch (error) {
+                if (error instanceof QuotaExceededError) {
+                    return Response.json(
+                        {
+                            error: error.code,
+                            message: error.message,
+                        },
+                        {
+                            status: 429,
+                            headers: {
+                                "X-Quota-Hard-Stop": "true",
+                            },
+                        }
+                    );
+                }
+                throw error;
+            }
+        }
+
+        const response = await handler(request, context);
+
+        try {
+            response.headers.set("X-RateLimit-Limit", String(rateResult.limit));
+            response.headers.set(
+                "X-RateLimit-Remaining",
+                String(rateResult.remaining)
+            );
+        } catch {
+            // Immutable response headers can safely be left untouched
+        }
+
+        return response;
+    };
+}
+
+/**
  * Derives the rate-limit client identifier from a server-trusted source.
  *
  * Trusted Reverse Proxy Assumption:

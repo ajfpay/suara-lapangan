@@ -29,6 +29,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
 | `tailwind-merge@1.14.0` | MIT |
+| `zod@3.25.76` | MIT |
 | `@playwright/test@1.62.1` | Apache-2.0 |
 | `@testing-library/react@16.3.3` | MIT |
 | `@types/node@20.19.43` | MIT |

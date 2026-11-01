@@ -1,6 +1,14 @@
 import quotationSchema from "@/contracts/quotation.schema.json";
 import type { CandidateDocument, Locale, Turn } from "./types";
 
+export type SparkUsage = {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+};
+
+export type SparkCandidate = CandidateDocument & { _usage?: SparkUsage };
+
 export const META_RESPONSES_URL = "https://api.meta.ai/v1/responses";
 export const META_SPARK_MODEL = "muse-spark-1.3";
 
@@ -38,7 +46,7 @@ export async function callMuseSpark({
     locale,
     apiKey = process.env.MODEL_API_KEY,
     signal,
-}: CallSparkOptions): Promise<CandidateDocument> {
+}: CallSparkOptions): Promise<SparkCandidate> {
     if (!apiKey) {
         throw new SparkError(
             "not_configured",
@@ -159,8 +167,36 @@ export async function callMuseSpark({
             throw new Error("No output text in Responses API response");
         }
 
-        const candidate = JSON.parse(outputText) as CandidateDocument;
+        const candidate = JSON.parse(outputText) as SparkCandidate;
         candidate._spark_path = true;
+
+        if (data?.usage && typeof data.usage === "object") {
+            const rawUsage = data.usage as Record<string, unknown>;
+            const inputTokens =
+                typeof rawUsage.input_tokens === "number" &&
+                Number.isFinite(rawUsage.input_tokens)
+                    ? rawUsage.input_tokens
+                    : 0;
+            const outputTokens =
+                typeof rawUsage.output_tokens === "number" &&
+                Number.isFinite(rawUsage.output_tokens)
+                    ? rawUsage.output_tokens
+                    : 0;
+            const totalTokens =
+                typeof rawUsage.total_tokens === "number" &&
+                Number.isFinite(rawUsage.total_tokens)
+                    ? rawUsage.total_tokens
+                    : inputTokens + outputTokens;
+
+            if (Number.isFinite(totalTokens) && totalTokens > 0) {
+                candidate._usage = {
+                    inputTokens,
+                    outputTokens,
+                    totalTokens,
+                };
+            }
+        }
+
         return candidate;
     } catch (cause) {
         throw new SparkError(
