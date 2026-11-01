@@ -18,7 +18,7 @@ export function getSmtpConfig(): SmtpConfig | null {
         return null;
     }
 
-    if (pass.trim() === "") {
+    if (pass.trim() === "" || pass.trim().length < 8) {
         return null;
     }
 

@@ -17,6 +17,19 @@ export type StoredDocument = {
     sentAt?: Date | null;
 };
 
+export type MarkSentResult =
+    | { ok: true; document: StoredDocument }
+    | { ok: false; reason: "not_found" | "changed" };
+
+/**
+ * Fingerprints the stored document payload. The PDF route writes this hash
+ * beside a rendered PDF, and markSent uses it to prove the version that was
+ * emailed is still the version on disk.
+ */
+export function contentHashOf(document: QuotationDocument): string {
+    return createHash("sha256").update(JSON.stringify(document)).digest("hex");
+}
+
 export type CreateDocumentInput = {
     sessionId: string;
     locale: QuotationDocument["locale"];
@@ -44,11 +57,17 @@ export interface DocumentStore {
     ): Promise<StoredDocument | null>;
     /**
      * Records a successful email send: sets status `terkirim` and persists
-     * `sent_to` / `sent_at` inside the same row lock as update(). Nothing else
-     * about the document changes, so a retry never disturbs the payload.
-     * Null when the id is unknown or malformed.
+     * `sent_to` / `sent_at` inside the same row lock as update(). The send is
+     * bound to the content hash of the document that was emailed; if the
+     * payload changed concurrently (PATCH) the document is NOT marked sent and
+     * `{ok: false, reason: "changed"}` is returned so the caller can retry
+     * with a fresh PDF.
      */
-    markSent(id: string, sentTo: string): Promise<StoredDocument | null>;
+    markSent(
+        id: string,
+        sentTo: string,
+        contentHash: string
+    ): Promise<MarkSentResult>;
 }
 
 export function turnsHashOf(
@@ -220,9 +239,7 @@ export function createPostgresDocumentStore(
                 const nextStatus: DocumentStatus =
                     updated.butuh_konfirmasi.length > 0
                         ? "perlu_konfirmasi"
-                        : stored.status === "terkirim"
-                          ? "terkirim"
-                          : "siap";
+                        : "siap";
 
                 const result = await client.query(
                     `update documents
@@ -258,8 +275,10 @@ export function createPostgresDocumentStore(
             }
         },
 
-        async markSent(id, sentTo) {
-            if (!UUID_RE.test(id)) return null;
+        async markSent(id, sentTo, contentHash) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
             const client = await pool.connect();
             let clientReleased = false;
             try {
@@ -271,7 +290,12 @@ export function createPostgresDocumentStore(
                 );
                 if (locked.rowCount === 0) {
                     await client.query("rollback");
-                    return null;
+                    return { ok: false, reason: "not_found" };
+                }
+                const stored = toStored(locked.rows[0]);
+                if (contentHashOf(stored.document) !== contentHash) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "changed" };
                 }
                 const result = await client.query(
                     `update documents
@@ -284,7 +308,7 @@ export function createPostgresDocumentStore(
                     [id, sentTo]
                 );
                 await client.query("commit");
-                return toStored(result.rows[0]);
+                return { ok: true, document: toStored(result.rows[0]) };
             } catch (cause) {
                 await client.query("rollback").catch(() => {
                     client.release(cause instanceof Error ? cause : undefined);

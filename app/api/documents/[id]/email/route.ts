@@ -2,6 +2,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import {
     getPostgresDocumentStore,
+    contentHashOf,
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
@@ -137,14 +138,33 @@ async function handlePost(
     }
 
     const storageDir = resolvePdfStorageDir();
+    const contentHash = contentHashOf(stored.document);
     let pdfBuffer: Buffer | null = null;
+
+    /**
+     * Reads a hash-verified PDF snapshot and accepts it only when the sidecar
+     * hash matches the current document content. A snapshot whose hash differs
+     * is stale (the document was PATCHed after the PDF was rendered) and must
+     * not be emailed, mirroring the PDF route's stale-snapshot rejection.
+     */
+    const acceptSnapshot = (snapshot: { pdf: Buffer; hash: string }): void => {
+        if (snapshot.hash !== contentHash) {
+            console.warn(
+                redactSecrets(
+                    `[email] stale pdf snapshot for ${id}: hash mismatch`
+                )
+            );
+            return;
+        }
+        pdfBuffer = snapshot.pdf;
+    };
 
     if (stored.pdfPath && isSafeStoredPdfPath(stored.pdfPath)) {
         const diskPath = path.resolve(storageDir, stored.pdfPath);
         try {
             const snapshot = await readPdfSnapshot(diskPath);
             if (snapshot) {
-                pdfBuffer = snapshot.pdf;
+                acceptSnapshot(snapshot);
             }
         } catch (cause) {
             console.error(
@@ -159,7 +179,7 @@ async function handlePost(
         try {
             const snapshot = await readPdfSnapshot(idDiskPath);
             if (snapshot) {
-                pdfBuffer = snapshot.pdf;
+                acceptSnapshot(snapshot);
             }
         } catch (cause) {
             console.error(
@@ -215,14 +235,26 @@ async function handlePost(
 
     const sentAt = new Date();
     try {
-        const updated = await store.markSent(id, parsedBody.data.to);
-        if (!updated) {
+        const result = await store.markSent(id, parsedBody.data.to, contentHash);
+        if (!result.ok && result.reason === "not_found") {
             return NextResponse.json(
                 {
                     error: "not_found",
                     message: `Document '${id}' not found`,
                 },
                 { status: 404 }
+            );
+        }
+        if (!result.ok && result.reason === "changed") {
+            return NextResponse.json(
+                {
+                    error: "send_failure",
+                    message:
+                        reqLocale === "en"
+                            ? "Document changed while sending; please try again"
+                            : "Dokumen berubah saat pengiriman; silakan coba lagi",
+                },
+                { status: 409 }
             );
         }
     } catch (cause) {

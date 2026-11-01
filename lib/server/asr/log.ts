@@ -15,7 +15,9 @@ export function redactSecrets(text: string): string {
         scrubbed = scrubbed.split(key).join("[redacted]");
     }
     const smtpPass = process.env.SMTP_PASS;
-    if (smtpPass && smtpPass.length > 0) {
+    // Same guard as MODEL_API_KEY: a very short value (e.g. "a") would match
+    // inside ordinary words and corrupt every log line routed through here.
+    if (smtpPass && smtpPass.length >= 8) {
         scrubbed = scrubbed.split(smtpPass).join("[redacted]");
     }
 

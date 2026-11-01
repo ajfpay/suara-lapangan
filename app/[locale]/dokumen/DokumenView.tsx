@@ -313,12 +313,17 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
             return;
         }
 
+        // The send is bound to the document that is on screen when it starts.
+        // If the user navigates to another document while the request is in
+        // flight, the completion must not update the newly displayed document.
+        const sentDocId = doc.id;
+
         setSendState("sending");
         setSendErrorMessage(null);
 
         try {
             const res = await fetch(
-                `/api/documents/${encodeURIComponent(doc.id)}/email`,
+                `/api/documents/${encodeURIComponent(sentDocId)}/email`,
                 {
                     method: "POST",
                     headers: {
@@ -327,6 +332,8 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
                     body: JSON.stringify({ to: trimmed }),
                 }
             );
+
+            if (prevDocIdRef.current !== sentDocId) return;
 
             if (!res.ok) {
                 let errorMsg = copy.sendError || "Failed to send document.";
@@ -352,6 +359,7 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
             setSendErrorMessage(null);
             setAttempt((c) => c + 1);
         } catch {
+            if (prevDocIdRef.current !== sentDocId) return;
             setSendState("error");
             setSendErrorMessage(copy.sendError || "Failed to send document.");
         }
