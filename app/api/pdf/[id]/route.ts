@@ -105,20 +105,16 @@ async function handleGet(
     _request: Request,
     context?: RouteContext
 ): Promise<Response> {
-    const { id } = (await context?.params) ?? {};
-    const parsedId = documentIdSchema.safeParse(id);
+    const parsedId = documentIdSchema.safeParse(
+        (await context?.params)?.id
+    );
     if (!parsedId.success) {
         return NextResponse.json(
             { error: "invalid_request", message: formatZodError(parsedId.error) },
             { status: 400 }
         );
     }
-    if (!id || id.trim() === "") {
-        return NextResponse.json(
-            { error: "not_found", message: "Document id is required" },
-            { status: 404 }
-        );
-    }
+    const id = parsedId.data;
     let doc: QuotationDocument | undefined;
     let storedPdfPath: string | null = null;
     try {
