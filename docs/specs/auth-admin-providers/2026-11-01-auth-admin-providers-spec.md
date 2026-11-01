@@ -1,6 +1,6 @@
 # SPEC — Phase 3: Auth, Admin Dashboard, Provider Settings, Full Meta Model API, Deployment
 
-- **Date:** 1 Nov 2026 · **Status:** DRAFT — awaiting Gate 1 approval
+- **Date:** 1 Nov 2026 · **Status:** APPROVED — Gate 1, Gate 2, Gate 3 approved by the owner on 1 Nov 2026; ticket 08 remains blocked pending written approval for the public repository and the deployment
 - **Decision owner:** Product Owner (decisions recorded in the orchestration thread, 1 Nov 2026)
 - **Scope:** customer login, an admin dashboard at `/admin`, configurable LLM providers, full use of Meta's Model API, the Meta ASR feature set (DIARIZATION, vocabulary biasing, en+id language hint, progress feedback, realtime WebSocket client), and the public-repo + live-deployment work needed for the Meta Global AI Developer Hackathon (submission deadline Wed 4 Nov 2026, 9:00 PM ET / Thu 5 Nov 2026, 09:00 WIB).
 - **Authoritative sources:** `docs/specs/suara-lapangan-mvp/2026-10-28-suara-lapangan-mvp-spec.md` (D1–D12, still binding where not superseded); `docs/specs/document-pipeline/2026-10-31-document-pipeline-spec.md`; `docs/specs/meta-asr-features/2026-11-01-meta-asr-features-spec.md` (folded in here); `AGENTS.md`; `contracts/quotation.schema.json`; the Meta Model API cookbook at `.scratch/suara-lapangan-starters/meta-model-cookbook`.
