@@ -128,3 +128,40 @@ export const auth = betterAuth({
 });
 
 export type Auth = typeof auth;
+
+export type AuthUser = {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+};
+
+export type AuthSession = {
+    user: AuthUser;
+};
+
+/**
+ * Resolves the session carried by a request's cookies. Answers `null` when the
+ * request is unauthenticated, so callers decide the status code.
+ */
+export async function getSession(request: Request): Promise<AuthSession | null> {
+    let session: Awaited<ReturnType<typeof auth.api.getSession>>;
+    try {
+        session = await auth.api.getSession({ headers: request.headers });
+    } catch {
+        return null;
+    }
+    if (!session?.user) return null;
+    return {
+        user: {
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            role: (session.user as { role?: string }).role ?? "user",
+        },
+    };
+}
+
+export function isAdmin(session: AuthSession | null): boolean {
+    return session?.user.role === "admin";
+}

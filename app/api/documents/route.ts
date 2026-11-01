@@ -26,7 +26,11 @@ import {
     postDocumentBodySchema,
     formatZodError,
 } from "@/lib/server/validation/document";
-import { auth } from "@/lib/server/auth";
+import { getSession } from "@/lib/server/auth";
+import {
+    assertQuotaAvailable,
+    QuotaExceededError,
+} from "@/lib/server/quota/usage-meter";
 import type {
     DocumentStatus,
     Locale,
@@ -54,6 +58,8 @@ async function handlePost(request: Request): Promise<Response> {
     }
 
     const { sessionId, locale, project, turns } = parsed.data;
+    const authSession = await getSession(request);
+    const userId = authSession?.user.id ?? null;
     // Idempotent reuse check: if document for same session exists, return it without calling the model
     // Catch store init and lookup failures, map to JSON status
     let session;
@@ -186,6 +192,25 @@ async function handlePost(request: Request): Promise<Response> {
         }
     }
 
+    // Per-user quota hard-stop. Runs after the idempotency check so a reuse
+    // hit never burns a slot, and before the nomor allocation so a 429 does
+    // not waste a number. Unauthenticated requests fall back to the system
+    // user (DEFAULT_USER_ID) so legacy callers without cookies keep working.
+    try {
+        await assertQuotaAvailable({
+            locale: resolvedLocale === "en" ? "en" : "id",
+            userId: userId ?? undefined,
+        });
+    } catch (error) {
+        if (error instanceof QuotaExceededError) {
+            return NextResponse.json(
+                { error: error.code, message: error.message },
+                { status: 429, headers: { "X-Quota-Hard-Stop": "true" } }
+            );
+        }
+        throw error;
+    }
+
     // One number per created document, allocated after the idempotency check so
     // a reuse hit never burns a number. The allocation commits independently of
     // the document insert, so a failed create burns its number (never reused);
@@ -210,17 +235,6 @@ async function handlePost(request: Request): Promise<Response> {
     ): Promise<Response> {
         let stored: StoredDocument;
         try {
-            let userId: string | null = null;
-            try {
-                const session = await auth.api.getSession({
-                    headers: request.headers,
-                });
-                if (session?.user?.id) {
-                    userId = session.user.id;
-                }
-            } catch {
-                // Optional session resolution
-            }
             stored = await docStore.create({
                 sessionId,
                 locale: document.locale,
@@ -315,6 +329,7 @@ async function handlePost(request: Request): Promise<Response> {
     if (usage && usage.totalTokens > 0) {
         try {
             await recordUsage({
+                userId: userId ?? undefined,
                 tokens: usage.totalTokens,
                 estCost: SPARK_DOCUMENT_EST_COST,
             });
@@ -344,5 +359,4 @@ async function handlePost(request: Request): Promise<Response> {
 
 export const POST = withRateLimitFlat(handlePost, {
     route: "/api/documents",
-    checkDailyQuota: true,
 });

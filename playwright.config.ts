@@ -10,6 +10,7 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
     testDir: "./e2e",
+    globalSetup: "./e2e/auth-setup.ts",
     // The suite is small; running it serially keeps one server sane and makes
     // failures readable.
     workers: 1,
@@ -21,21 +22,9 @@ export default defineConfig({
     use: {
         baseURL: "http://127.0.0.1:3000",
         trace: "on-first-retry",
-        storageState: {
-            cookies: [
-                {
-                    name: "better-auth.session_token",
-                    value: "e2e-session-token",
-                    domain: "127.0.0.1",
-                    path: "/",
-                    expires: 2147483647,
-                    httpOnly: false,
-                    secure: false,
-                    sameSite: "Lax",
-                },
-            ],
-            origins: [],
-        },
+        // A real signed session, seeded by `e2e/auth-setup.ts`. The protected
+        // routes and the document API validate it against the database.
+        storageState: "e2e/.auth/state.json",
     },
 
     projects: [

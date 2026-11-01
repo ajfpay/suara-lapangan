@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import * as authModule from "@/lib/server/auth";
 import * as dbStore from "@/lib/server/db/store";
 import * as sparkModule from "@/lib/server/guard/spark";
 import type { StoredSession, TurnsStore } from "@/lib/server/db/store";
@@ -675,6 +676,86 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         const body = await res.json();
         expect(body.error).toBe("quota_exceeded");
         expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("honours the per-user cost limit: 429 for the user over their own cap, 200 for another user", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const overCap = "00000000-0000-0000-0000-000000000001";
+        const underCap = "00000000-0000-0000-0000-000000000002";
+
+        // The cap is read from `user_cost_limits` for the session user.
+        await pool.query(
+            `insert into user_cost_limits (user_id, daily_cost_limit) values ($1, 1.0) on conflict (user_id) do update set daily_cost_limit = excluded.daily_cost_limit`,
+            [overCap]
+        );
+        // The user's usage reaches the cap.
+        await recordUsage({ userId: overCap, estCost: 6.0 });
+
+        const turns = [
+            {
+                turn_id: "turn_1",
+                startMs: 0,
+                endMs: 1000,
+                transcript: "testing quota",
+            },
+        ];
+
+        async function withSession(userId: string | null): Promise<Response> {
+            const session = userId
+                ? { user: { id: userId, email: "a@example.com", name: "A", role: "user" } }
+                : null;
+            const spy = vi.spyOn(authModule, "getSession");
+            spy.mockResolvedValue(session);
+            try {
+                return await POST(
+                    new Request("http://localhost/api/documents", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: `sess-${userId}`,
+                            turns,
+                        }),
+                    })
+                );
+            } finally {
+                spy.mockRestore();
+            }
+        }
+
+        const overRes = await withSession(overCap);
+        expect(overRes.status).toBe(429);
+        expect(overRes.headers.get("X-Quota-Hard-Stop")).toBe("true");
+        expect(await overRes.json()).toMatchObject({ error: "quota_exceeded" });
+
+        vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue({
+            jenis: "surat_penawaran",
+            locale: "id",
+            mata_uang: "IDR",
+            nomor: "SL/QTN/2099/0001",
+            tanggal: "2026-10-31",
+            proyek: {
+                nama: "Renovasi Rumah",
+                lokasi: "Jl. Kaliurang km 5",
+                klien: "Pak Bambang",
+            },
+            pekerjaan: [
+                {
+                    uraian: "Pemasangan hebel",
+                    volume: 10,
+                    satuan: "m2",
+                    harga_satuan: 50000,
+                    jumlah: 500000,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 500000,
+            terbilang: "Lima ratus ribu rupiah",
+            butuh_konfirmasi: [],
+            _spark_path: true,
+            _usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+        });
+        const underRes = await withSession(underCap);
+        expect(underRes.status).toBe(200);
     });
 
     it("trips the daily cap with Spark-only token spend", async () => {

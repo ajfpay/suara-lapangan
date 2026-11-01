@@ -6,7 +6,7 @@ test.describe("Ticket 11: Auth & Admin flows", () => {
     }) => {
         // Create an unauthenticated context with no cookies
         const context = await browser.newContext({
-            extraHTTPHeaders: {},
+            storageState: { cookies: [], origins: [] },
         });
         const page = await context.newPage();
 
@@ -52,7 +52,7 @@ test.describe("Ticket 11: Auth & Admin flows", () => {
 
     test("unauthenticated site header shows Log in link", async ({ browser }) => {
         const context = await browser.newContext({
-            extraHTTPHeaders: {},
+            storageState: { cookies: [], origins: [] },
         });
         const page = await context.newPage();
 
