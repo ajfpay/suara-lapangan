@@ -1,4 +1,269 @@
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
+
+// `pg` is the app's own PostgreSQL driver; using it keeps row reads typed
+// instead of parsing psql's text output.
+import { Pool, type PoolClient } from "pg";
+
+/**
+ * A session id for one run, matching the app's `^[A-Za-z0-9_-]{1,64}$`.
+ *
+ * Unique per run on purpose: a fixed id would let a row seeded by hand satisfy
+ * the route's store lookup, which is exactly the hidden dependency the full
+ * chain must not have. Every run creates its own session, document and PDF,
+ * so two runs never share a document number.
+ */
+export function uniqueSessionId(prefix: string): string {
+    const run = `${Date.now().toString(36)}${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+    return `${prefix}-${run}`;
+}
+
+function sqlLiteral(value: string): string {
+    return `'${value.replace(/'/g, "''")}'`;
+}
+
+/**
+ * Runs one SQL statement through `psql` against the app's own database.
+ *
+ * The connection string is split into `PG*` variables rather than passed as an
+ * argument, so it never reaches an argument list, a log line, or an error
+ * message.
+ */
+export function runSql(sql: string): void {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error(
+            "DATABASE_URL is required: the full-chain test seeds its session through the app's own store"
+        );
+    }
+
+    const url = new URL(connectionString);
+    execFileSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", sql], {
+        env: {
+            ...process.env,
+            PGHOST: url.hostname,
+            PGPORT: url.port || "5432",
+            PGUSER: decodeURIComponent(url.username),
+            PGPASSWORD: decodeURIComponent(url.password),
+            PGDATABASE: decodeURIComponent(url.pathname.replace(/^\//, "")),
+            PGSSLMODE:
+                url.searchParams.get("sslmode") ??
+                process.env.PGSSLMODE ??
+                "prefer",
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+    });
+}
+
+/**
+ * A session whose turns are deterministic and contain exactly one defective
+ * value: the first turn is clean, the second omits the quantity ("square
+ * feet") so the guard flags `pekerjaan[1].volume` for confirmation. This is
+ * the shape the pipeline relies on: creation returns one confirmation, which
+ * the test resolves, after which the document is `siap` and downloadable.
+ */
+export const SEEDED_TURNS = [
+    {
+        startMs: 0,
+        endMs: 5200,
+        transcript:
+            "Drywall for the living room, twenty-four square feet at twenty-five dollars a square foot.",
+    },
+    {
+        startMs: 5400,
+        endMs: 8200,
+        transcript:
+            "Drywall for the living room, square feet at twenty-five dollars per square foot.",
+    },
+] as const;
+
+/**
+ * Creates one session and its turns the way `saveTranscription` in
+ * `lib/server/db/store.ts` writes them: one session row plus one row per turn,
+ * `turn_index` counting from 1, because `turn_N` is what a document cites.
+ * The session row is all the POST /api/documents route reads (`findSession`),
+ * so the rest of the chain runs against the real routes.
+ */
+export function seedSession(sessionId: string): void {
+    const transcript = SEEDED_TURNS.map((turn) => turn.transcript).join(" ");
+    const turns = SEEDED_TURNS.map(
+        (turn, index) =>
+            `(${sqlLiteral(sessionId)}, ${index + 1}, ${turn.startMs}, ${turn.endMs}, ${sqlLiteral(turn.transcript)}, true)`
+    ).join(",\n            ");
+
+    runSql(`
+        insert into sessions
+            (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, updated_at)
+        values
+            (${sqlLiteral(sessionId)}, 'en', ${sqlLiteral(`e2e-${sessionId}`)}, 32044, 'e2e-seeded', ${sqlLiteral(transcript)}, 8200, now());
+
+        insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final)
+        values
+            ${turns};
+    `);
+}
+
+/** Removes the seeded session; its turns and documents go with it (cascade). */
+export function deleteSession(sessionId: string): void {
+    runSql(`delete from sessions where id = ${sqlLiteral(sessionId)};`);
+}
+
+/**
+ * Runs one query and returns its rows. A single shared pool is created lazily
+ * so the helper can be used by every test without opening a connection per
+ * call.
+ */
+let dbPool: Pool | null = null;
+
+export function withDb<T>(fn: (pool: Pool) => Promise<T>): Promise<T> {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error("DATABASE_URL is required for DB assertions");
+    }
+    if (!dbPool) {
+        dbPool = new Pool({ connectionString });
+    }
+    return fn(dbPool);
+}
+
+export async function query<T extends Record<string, unknown>>(
+    sql: string,
+    params: unknown[] = []
+): Promise<T[]> {
+    return withDb(async (pool) => {
+        const result = await pool.query<T>(sql, params);
+        return result.rows;
+    });
+}
+
+/** Safer concurrency: borrows a client so transaction-scoped reads are possible. */
+export async function withClient<T>(
+    fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+    return withDb(async (pool) => {
+        const client = await pool.connect();
+        try {
+            return await fn(client);
+        } finally {
+            client.release();
+        }
+    });
+}
+
+/**
+ * Validates the stored document row for a session against the document-pipeline
+ * contract (ticket 01–06) at the database level.
+ *
+ * Checks:
+ * - exactly one `documents` row for the session;
+ * - status is one of the allowed set;
+ * - locale is `en` or `id`;
+ * - `nomor` matches `SL/QTN/YYYY/NNNN`;
+ * - `turns_hash` is non-empty;
+ * - `data_json` is a complete Quotation document: `nomor` equals the row's
+ *   `nomor`, `total_nominal` is a non-negative number, `pekerjaan` is
+ *   non-empty; when `expectConfirmed` is true, `butuh_konfirmasi` must be
+ *   empty (a freshly created document still holds its unconfirmed fields);
+ * - `pdf_path` is set and the file exists on disk (only when `expectPdf` is
+ *   true — a document that was created but never rendered has no PDF yet, and
+ *   `pdf_path` NULL is then the valid state);
+ * - the document's `session_id` references the session row, and the session's
+ *   turns exist (each `turn_N` cited by the document resolves).
+ *
+ * Returns the row and parsed `data_json` so the caller can assert on specifics.
+ */
+export async function assertStoredDocument(
+    sessionId: string,
+    options: { expectPdf?: boolean; expectConfirmed?: boolean } = {}
+) {
+    const docRows = await query<
+        Record<string, unknown> & {
+            id: string;
+            session_id: string;
+            locale: string;
+            nomor: string;
+            status: string;
+            turns_hash: string;
+            pdf_path: string | null;
+            data_json: string;
+            created_at: string;
+        }
+    >("select * from documents where session_id = $1", [sessionId]);
+
+    expect(docRows, "exactly one stored document per session").toHaveLength(1);
+    const doc = docRows[0]!;
+
+    expect(doc.status).toMatch(/^(perlu_konfirmasi|siap|terkirim)$/);
+    expect(doc.locale).toMatch(/^(en|id)$/);
+    expect(doc.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+    expect(doc.turns_hash).toBeTruthy();
+    if (options.expectPdf) {
+        expect(doc.pdf_path).toBeTruthy();
+
+        const storageDir = process.env.PDF_STORAGE_DIR;
+        expect(
+            storageDir,
+            "PDF_STORAGE_DIR must be set for disk checks"
+        ).toBeTruthy();
+        const resolved = `${storageDir}/${doc.pdf_path}`;
+        expect(
+            existsSync(resolved),
+            `pdf_path '${doc.pdf_path}' must exist on disk at ${resolved}`
+        ).toBe(true);
+    }
+
+    // `pg` returns jsonb columns already parsed; guard for a string payload
+    // (psql-style reads) as well.
+    const data = (typeof doc.data_json === "string"
+        ? JSON.parse(doc.data_json)
+        : doc.data_json) as {
+        nomor: string;
+        locale: string;
+        butuh_konfirmasi: unknown[];
+        total_nominal: number;
+        pekerjaan: unknown[];
+        tanggal: string;
+        proyek: { nama: string; lokasi: string; klien: string };
+    };
+    expect(data.nomor).toBe(doc.nomor);
+    expect(data.locale).toBe(doc.locale);
+    if (options.expectConfirmed) {
+        expect(data.butuh_konfirmasi).toEqual([]);
+    }
+    expect(typeof data.total_nominal).toBe("number");
+    expect(data.total_nominal).toBeGreaterThanOrEqual(0);
+    expect(data.pekerjaan.length).toBeGreaterThan(0);
+    expect(data.tanggal).toBeTruthy();
+    expect(data.proyek.nama).toBeTruthy();
+    expect(data.proyek.lokasi).toBeTruthy();
+    expect(data.proyek.klien).toBeTruthy();
+
+    // Every cited turn_N must resolve to a stored turn for the session.
+    for (const item of data.pekerjaan as { sumber_kutipan?: string }[]) {
+        if (!item.sumber_kutipan) continue;
+        const match = item.sumber_kutipan.match(/turn_(\d+)/);
+        if (!match) continue;
+        const turnRows = await query(
+            "select 1 from turns where session_id = $1 and turn_index = $2",
+            [sessionId, Number(match[1])]
+        );
+        expect(turnRows, `cited ${item.sumber_kutipan} must exist`).toHaveLength(
+            1
+        );
+    }
+
+    // The session row itself must exist and carry the turns the document cites.
+    const sessionRows = await query(
+        "select id from sessions where id = $1",
+        [sessionId]
+    );
+    expect(sessionRows, "session row must exist").toHaveLength(1);
+
+    return { row: doc, data };
+}
 
 /**
  * Shared tripwires for the smoke suite.
