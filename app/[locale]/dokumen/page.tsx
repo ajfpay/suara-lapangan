@@ -5,6 +5,8 @@ import { StepScreen } from "@/app/components";
 import { STEPS } from "@/lib/seo";
 
 import { stepPage, type LocaleParams } from "../step-page";
+import { docIdFrom } from "./doc-param";
+import { DokumenView } from "./DokumenView";
 
 export const dynamicParams = false;
 
@@ -18,8 +20,17 @@ export async function generateMetadata({
     return stepPage.metadata(params, 2);
 }
 
-export default async function DokumenPage({ params }: LocaleParams) {
+type DokumenPageProps = LocaleParams & {
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function DokumenPage({
+    params,
+    searchParams,
+}: DokumenPageProps) {
     const { locale } = await params;
+    const resolvedSearchParams = searchParams ? await searchParams : undefined;
+    const docId = docIdFrom(resolvedSearchParams?.doc);
     const { app, nav, steps, messages } = await stepPage.copy(locale);
     const key = "dokumen";
     const step = messages[key] as Record<string, string>;
@@ -39,7 +50,7 @@ export default async function DokumenPage({ params }: LocaleParams) {
                 </>
             }
         >
-            {stepPage.workList(step)}
+            <DokumenView locale={locale} docId={docId} copy={step} />
         </StepScreen>
     );
 }
