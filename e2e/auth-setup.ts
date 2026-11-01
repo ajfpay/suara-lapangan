@@ -25,9 +25,14 @@ export default async function globalSetup(): Promise<void> {
             "DATABASE_URL is required for the e2e auth session"
         );
     }
-    const secret =
-        process.env.BETTER_AUTH_SECRET ||
-        "suara-lapangan-secret-key-development-minimum-32-chars";
+    const secret = process.env.BETTER_AUTH_SECRET;
+    if (!secret) {
+        throw new Error(
+            "BETTER_AUTH_SECRET is required for the e2e session: the server " +
+                "signs sessions with it, and production never falls back to a " +
+                "known constant. playwright.config.ts sets it for both sides."
+        );
+    }
 
     const pool = new Pool({ connectionString });
     try {

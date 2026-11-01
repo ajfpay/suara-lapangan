@@ -1,6 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
+ * The e2e server and `e2e/auth-setup.ts` both sign the seeded session with
+ * BETTER_AUTH_SECRET. In production the app refuses to fall back to a known
+ * constant, so the two sides must be given the same value explicitly: resolve
+ * it once here, hand it to the server below, and let the setup read it from the
+ * environment. A shell value wins so a developer can reuse one secret.
+ */
+const E2E_AUTH_SECRET =
+    process.env.BETTER_AUTH_SECRET ??
+    "suara-lapangan-e2e-test-secret-minimum-32-chars";
+
+process.env.BETTER_AUTH_SECRET = E2E_AUTH_SECRET;
+
+/**
  * Smoke configuration.
  *
  * These tests are a tripwire, not coverage: the app still renders, no console
@@ -57,6 +70,8 @@ export default defineConfig({
         command: "npm run build && npm run start",
         url: "http://127.0.0.1:3000/en",
         reuseExistingServer: !process.env.CI,
+        // Same secret the global setup signs the seeded session with.
+        env: { BETTER_AUTH_SECRET: E2E_AUTH_SECRET },
         // A cold build is slow on a cold cache.
         timeout: 5 * 60 * 1000,
         stdout: "pipe",
