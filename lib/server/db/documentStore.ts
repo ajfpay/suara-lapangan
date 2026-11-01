@@ -12,7 +12,23 @@ export type StoredDocument = {
     status: DocumentStatus;
     createdAt: Date;
     document: QuotationDocument;
+    pdfPath?: string | null;
+    sentTo?: string | null;
+    sentAt?: Date | null;
 };
+
+export type MarkSentResult =
+    | { ok: true; document: StoredDocument }
+    | { ok: false; reason: "not_found" | "changed" };
+
+/**
+ * Fingerprints the stored document payload. The PDF route writes this hash
+ * beside a rendered PDF, and markSent uses it to prove the version that was
+ * emailed is still the version on disk.
+ */
+export function contentHashOf(document: QuotationDocument): string {
+    return createHash("sha256").update(JSON.stringify(document)).digest("hex");
+}
 
 export type CreateDocumentInput = {
     sessionId: string;
@@ -39,6 +55,19 @@ export interface DocumentStore {
         id: string,
         transform: (document: QuotationDocument) => QuotationDocument
     ): Promise<StoredDocument | null>;
+    /**
+     * Records a successful email send: sets status `terkirim` and persists
+     * `sent_to` / `sent_at` inside the same row lock as update(). The send is
+     * bound to the content hash of the document that was emailed; if the
+     * payload changed concurrently (PATCH) the document is NOT marked sent and
+     * `{ok: false, reason: "changed"}` is returned so the caller can retry
+     * with a fresh PDF.
+     */
+    markSent(
+        id: string,
+        sentTo: string,
+        contentHash: string
+    ): Promise<MarkSentResult>;
 }
 
 export function turnsHashOf(
@@ -79,6 +108,9 @@ export function createPostgresDocumentStore(
         nomor: string;
         status: DocumentStatus;
         data_json: QuotationDocument;
+        pdf_path?: string | null;
+        sent_to?: string | null;
+        sent_at?: Date | null;
         created_at: Date;
     }): StoredDocument {
         return {
@@ -88,13 +120,20 @@ export function createPostgresDocumentStore(
             status: row.status,
             createdAt: row.created_at,
             document: row.data_json,
+            pdfPath: row.pdf_path ?? null,
+            sentTo: row.sent_to ?? null,
+            sentAt: row.sent_at
+                ? row.sent_at instanceof Date
+                    ? row.sent_at
+                    : new Date(row.sent_at)
+                : null,
         };
     }
 
     return {
         async findByIdempotencyKey(sessionId, turnsHash) {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, created_at
+                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
                  from documents
                  where session_id = $1
                    and turns_hash = $2
@@ -121,7 +160,7 @@ export function createPostgresDocumentStore(
                     input.sessionId,
                 ]);
                 const existing = await client.query(
-                    `select id, session_id, nomor, status, data_json, created_at
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
                      from documents
                      where session_id = $1
                        and turns_hash = $2
@@ -137,7 +176,7 @@ export function createPostgresDocumentStore(
                 const result = await client.query(
                     `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
                      values ($1, $2, $3, $4, $5, $6)
-                     returning id, session_id, nomor, status, data_json, created_at`,
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
                     [
                         input.sessionId,
                         input.locale,
@@ -169,7 +208,7 @@ export function createPostgresDocumentStore(
         async get(id) {
             if (!UUID_RE.test(id)) return null;
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, created_at
+                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
                  from documents where id = $1::uuid`,
                 [id]
             );
@@ -187,7 +226,7 @@ export function createPostgresDocumentStore(
                 // one reads the first one's committed payload, so its recomputed
                 // totals build on the corrected numbers instead of overwriting.
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, created_at
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -197,19 +236,29 @@ export function createPostgresDocumentStore(
                 }
                 const stored = toStored(locked.rows[0]);
                 const updated = transform(stored.document);
+                const nextStatus: DocumentStatus =
+                    updated.butuh_konfirmasi.length > 0
+                        ? "perlu_konfirmasi"
+                        : "siap";
+                // A PATCH edits the payload, so any previously sent version no
+                // longer exists. The send record is cleared so a document never
+                // carries a sent record for a version that was never sent; a
+                // fresh send (via markSent) sets it again.
                 const result = await client.query(
                     `update documents
                      set data_json = $2,
                          status = $3,
+                         sent_to = $4,
+                         sent_at = $5,
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, created_at`,
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
                     [
                         id,
                         JSON.stringify(updated),
-                        updated.butuh_konfirmasi.length > 0
-                            ? "perlu_konfirmasi"
-                            : "siap",
+                        nextStatus,
+                        null,
+                        null,
                     ]
                 );
                 await client.query("commit");
@@ -219,6 +268,51 @@ export function createPostgresDocumentStore(
                 // rollback that fails leaves the client in an unknown state, so
                 // it is destroyed instead of released back to the pool: a later
                 // borrower could inherit an aborted transaction or its locks.
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
+                throw cause;
+            } finally {
+                if (!clientReleased) client.release();
+            }
+        },
+
+        async markSent(id, sentTo, contentHash) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
+            const client = await pool.connect();
+            let clientReleased = false;
+            try {
+                await client.query("begin");
+                const locked = await client.query(
+                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "not_found" };
+                }
+                const stored = toStored(locked.rows[0]);
+                if (contentHashOf(stored.document) !== contentHash) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "changed" };
+                }
+                const result = await client.query(
+                    `update documents
+                     set status = 'terkirim',
+                         sent_to = $2,
+                         sent_at = now(),
+                         updated_at = now()
+                     where id = $1::uuid
+                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at`,
+                    [id, sentTo]
+                );
+                await client.query("commit");
+                return { ok: true, document: toStored(result.rows[0]) };
+            } catch (cause) {
                 await client.query("rollback").catch(() => {
                     client.release(cause instanceof Error ? cause : undefined);
                     clientReleased = true;

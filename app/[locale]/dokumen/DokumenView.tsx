@@ -83,6 +83,12 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
     const [downloadState, setDownloadState] = useState<
         "idle" | "loading" | "error"
     >("idle");
+    const [recipientEmail, setRecipientEmail] = useState("");
+    const [sendState, setSendState] = useState<
+        "idle" | "sending" | "success" | "error"
+    >("idle");
+    const [sendErrorMessage, setSendErrorMessage] = useState<string | null>(null);
+    const prevDocIdRef = useRef<string | null>(docId);
     const [viewState, setViewState] = useState<ViewState>(() =>
         docId === null
             ? { kind: "empty", reason: "missing" }
@@ -112,6 +118,16 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
             revokeDownloadUrl();
         };
     }, []);
+    useEffect(() => {
+        if (prevDocIdRef.current !== docId) {
+            prevDocIdRef.current = docId;
+            setRecipientEmail("");
+            setSendState("idle");
+            setSendErrorMessage(null);
+            setDownloadState("idle");
+        }
+    }, [docId]);
+
 
     useEffect(() => {
         revokeBlobUrl();
@@ -286,6 +302,75 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
             setDownloadState("error");
         }
     };
+    const sendEmail = async () => {
+        if (viewState.kind !== "ready" || sendState === "sending") return;
+        const doc = viewState.document;
+        const trimmed = recipientEmail.trim();
+        if (!trimmed || !trimmed.includes("@")) {
+            setSendState("error");
+            setSendErrorMessage(
+                copy.sendInvalidEmail || "Enter a valid email address."
+            );
+            return;
+        }
+
+        // The send is bound to the document that is on screen when it starts.
+        // If the user navigates to another document while the request is in
+        // flight, the completion must not update the newly displayed document.
+        const sentDocId = doc.id;
+
+        setSendState("sending");
+        setSendErrorMessage(null);
+
+        try {
+            const res = await fetch(
+                `/api/documents/${encodeURIComponent(sentDocId)}/email`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ to: trimmed }),
+                }
+            );
+
+            if (prevDocIdRef.current !== sentDocId) return;
+
+            if (!res.ok) {
+                let errorMsg = copy.sendError || "Failed to send document.";
+                try {
+                    const errJson = await res.json();
+                    if (errJson?.error === "email_not_configured") {
+                        errorMsg = copy.sendNotConfigured || copy.sendError;
+                    } else if (
+                        errJson?.message &&
+                        typeof errJson.message === "string"
+                    ) {
+                        errorMsg = errJson.message;
+                    }
+                } catch {
+                    // Ignore json parse error
+                }
+                setSendState("error");
+                setSendErrorMessage(errorMsg);
+                // The server may have refused because the document state
+                // changed (e.g. it became perlu_konfirmasi or was already
+                // sent). Refetch so the displayed status chip and button
+                // state match the server.
+                setAttempt((c) => c + 1);
+                return;
+            }
+
+            setSendState("success");
+            setSendErrorMessage(null);
+            setAttempt((c) => c + 1);
+        } catch {
+            if (prevDocIdRef.current !== sentDocId) return;
+            setSendState("error");
+            setSendErrorMessage(copy.sendError || "Failed to send document.");
+        }
+    };
+
 
     const statusLabels: Record<Summary["status"], string> = {
         perlu_konfirmasi: copy.statusPerluKonfirmasi,
@@ -491,19 +576,44 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
                                         ? copy.loading
                                         : copy.download}
                                 </button>
-                                <button
-                                    type="button"
-                                    disabled
-                                    title={
-                                        locked
-                                            ? copy.lockedReason
-                                            : copy.sendComingSoon
-                                    }
-                                    className="min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground disabled:opacity-50"
-                                    data-testid="btn-kirim"
-                                >
-                                    {copy.send}
-                                </button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="email"
+                                        value={recipientEmail}
+                                        onChange={(e) =>
+                                            setRecipientEmail(e.target.value)
+                                        }
+                                        disabled={
+                                            locked || sendState === "sending"
+                                        }
+                                        placeholder={
+                                            copy.sendRecipientPlaceholder
+                                        }
+                                        className="min-h-[48px] rounded-xl border border-border bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                                        data-testid="input-recipient"
+                                        aria-label={
+                                            copy.sendRecipientPlaceholder
+                                        }
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={sendEmail}
+                                        disabled={
+                                            locked || sendState === "sending"
+                                        }
+                                        title={
+                                            locked
+                                                ? copy.lockedReason
+                                                : undefined
+                                        }
+                                        className="min-h-[48px] rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground transition-transform duration-150 ease-out active:[transform:scale(0.97)] disabled:opacity-50"
+                                        data-testid="btn-kirim"
+                                    >
+                                        {sendState === "sending"
+                                            ? copy.sendSending
+                                            : copy.send}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="space-y-2 text-sm">
@@ -532,9 +642,27 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
                                         <span>{copy.downloadError}</span>
                                     </p>
                                 )}
-                                <p className="text-muted-foreground">
-                                    {copy.sendComingSoon}
-                                </p>
+                                {sendState === "success" && (
+                                    <p
+                                        role="status"
+                                        className="flex items-start gap-2 font-medium text-emerald-600 dark:text-emerald-400"
+                                        data-testid="send-success-message"
+                                    >
+                                        <span>{copy.sendSuccess}</span>
+                                    </p>
+                                )}
+                                {sendState === "error" && (
+                                    <p
+                                        role="alert"
+                                        className="flex items-start gap-2 text-destructive"
+                                        data-testid="send-error-message"
+                                    >
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                                        <span>
+                                            {sendErrorMessage || copy.sendError}
+                                        </span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                     );

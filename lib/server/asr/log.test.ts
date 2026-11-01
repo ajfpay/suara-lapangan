@@ -46,6 +46,24 @@ describe("log redaction & secrets scrubbing", () => {
         expect(result).toBe("Connecting to Meta with key [redacted] now");
     });
 
+    it("redacts SMTP_PASS from arbitrary log strings", () => {
+        const originalPass = process.env.SMTP_PASS;
+        const secretPass = "super_secret_smtp_password_xyz";
+        try {
+            process.env.SMTP_PASS = secretPass;
+            const line = `SMTP connection failed with password ${secretPass} on port 587`;
+            const result = redactSecrets(line);
+            expect(result).not.toContain(secretPass);
+            expect(result).toBe("SMTP connection failed with password [redacted] on port 587");
+        } finally {
+            if (originalPass !== undefined) {
+                process.env.SMTP_PASS = originalPass;
+            } else {
+                delete process.env.SMTP_PASS;
+            }
+        }
+    });
+
     it("redacts Bearer tokens from authorization strings", () => {
         const raw = "Headers: Authorization: Bearer some-other-random-token-xyz123";
         const result = redactSecrets(raw);

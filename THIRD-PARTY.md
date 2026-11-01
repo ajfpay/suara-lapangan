@@ -25,6 +25,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `lucide-react@0.279.0` | ISC |
 | `next@15.3.8` | MIT |
 | `next-intl@4.3.9` | MIT |
+| `nodemailer@10.3.1` | MIT-0 |
 | `pg@8.23.1` | MIT |
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
@@ -33,6 +34,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `@playwright/test@1.62.1` | Apache-2.0 |
 | `@testing-library/react@16.3.3` | MIT |
 | `@types/node@20.19.43` | MIT |
+| `@types/nodemailer@8.0.2` | MIT |
 | `@types/pg@8.23.1` | MIT |
 | `@types/react@18.3.31` | MIT |
 | `@types/react-dom@18.3.7` | MIT |

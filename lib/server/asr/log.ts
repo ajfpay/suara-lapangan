@@ -14,6 +14,12 @@ export function redactSecrets(text: string): string {
     if (key && key.length >= 8) {
         scrubbed = scrubbed.split(key).join("[redacted]");
     }
+    const smtpPass = process.env.SMTP_PASS;
+    // Same guard as MODEL_API_KEY: a very short value (e.g. "a") would match
+    // inside ordinary words and corrupt every log line routed through here.
+    if (smtpPass && smtpPass.length >= 8) {
+        scrubbed = scrubbed.split(smtpPass).join("[redacted]");
+    }
 
     // Scrub Bearer tokens: Bearer <secret>
     scrubbed = scrubbed.replace(
