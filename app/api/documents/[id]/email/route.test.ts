@@ -478,4 +478,39 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         expect(body.error).toBe("email_not_configured");
         expect(sendMailMock).not.toHaveBeenCalled();
     });
+
+    it("already-sent document → 409 and no email is sent", async () => {
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0008", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+
+        // Mark it sent first.
+        await pool.query(
+            `update documents set status = 'terkirim', sent_to = 'first@example.com', sent_at = now() where id = $1::uuid`,
+            [id]
+        );
+
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "second@example.com" }),
+        });
+
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.error).toBe("already_sent");
+        expect(sendMailMock).not.toHaveBeenCalled();
+
+        // The original send record is untouched.
+        const getRes = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        const getData = await getRes.json();
+        expect(getData.status).toBe("terkirim");
+        expect(getData.sent_to).toBe("first@example.com");
+    });
 });

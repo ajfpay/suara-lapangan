@@ -50,20 +50,6 @@ async function handlePost(
     }
     const id = parsedId.data;
 
-    const smtpConfig = getSmtpConfig();
-    if (!smtpConfig) {
-        return NextResponse.json(
-            {
-                error: "email_not_configured",
-                message:
-                    reqLocale === "en"
-                        ? "Email service is not configured"
-                        : "Layanan email belum dikonfigurasi",
-            },
-            { status: 503 }
-        );
-    }
-
     let rawBody: unknown;
     try {
         rawBody = await request.json();
@@ -88,6 +74,20 @@ async function handlePost(
                 message: formatZodError(parsedBody.error),
             },
             { status: 400 }
+        );
+    }
+
+    const smtpConfig = getSmtpConfig();
+    if (!smtpConfig) {
+        return NextResponse.json(
+            {
+                error: "email_not_configured",
+                message:
+                    reqLocale === "en"
+                        ? "Email service is not configured"
+                        : "Layanan email belum dikonfigurasi",
+            },
+            { status: 503 }
         );
     }
 
@@ -132,6 +132,23 @@ async function handlePost(
                     reqLocale === "en"
                         ? "Document requires confirmation before it can be sent. Resolve butuh_konfirmasi via PATCH /api/documents/{id} first."
                         : "Dokumen memerlukan konfirmasi sebelum dapat dikirim. Selesaikan butuh_konfirmasi melalui PATCH /api/documents/{id} terlebih dahulu.",
+            },
+            { status: 409 }
+        );
+    }
+
+    // Resend policy: a document that is already `terkirim` cannot be sent
+    // again. The owner edits it (PATCH) to return it to `siap`, which clears
+    // the send record, before a fresh send is allowed. This prevents silently
+    // overwriting sent_to/sent_at of an earlier delivery.
+    if (stored.status === "terkirim") {
+        return NextResponse.json(
+            {
+                error: "already_sent",
+                message:
+                    reqLocale === "en"
+                        ? "This document has already been sent. Edit it first to send a new version."
+                        : "Dokumen ini sudah terkirim. Ubah dokumen terlebih dahulu untuk mengirim versi baru.",
             },
             { status: 409 }
         );
@@ -246,15 +263,22 @@ async function handlePost(
             );
         }
         if (!result.ok && result.reason === "changed") {
+            // The email was already delivered for the version read above. A
+            // concurrent PATCH changed the document while the send was in
+            // flight, so the current version is not marked sent. This is not
+            // an error the user should retry (that would send a duplicate);
+            // report the delivery and leave the document as-is.
             return NextResponse.json(
                 {
-                    error: "send_failure",
+                    status: "not_marked",
+                    sent_to: parsedBody.data.to,
+                    sent_at: sentAt.toISOString(),
                     message:
                         reqLocale === "en"
-                            ? "Document changed while sending; please try again"
-                            : "Dokumen berubah saat pengiriman; silakan coba lagi",
+                            ? "The email was sent for the version you viewed. The document changed while sending, so it was not marked as sent."
+                            : "Email terkirim untuk versi yang Anda lihat. Dokumen berubah saat pengiriman, sehingga tidak ditandai sebagai terkirim.",
                 },
-                { status: 409 }
+                { status: 200 }
             );
         }
     } catch (cause) {
@@ -284,5 +308,7 @@ async function handlePost(
 }
 
 export const POST = withRateLimitFlat(handlePost, {
-    route: "/api/documents",
+    route: "/api/documents/email",
+    limit: 10,
+    windowMs: 60_000,
 }) as (request: Request, context: RouteContext) => Promise<Response>;

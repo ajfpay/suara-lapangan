@@ -5,6 +5,7 @@ export type SmtpConfig = {
     pass: string;
     from: string;
     secure: boolean;
+    requireTls: boolean;
 };
 
 export function getSmtpConfig(): SmtpConfig | null {
@@ -27,8 +28,22 @@ export function getSmtpConfig(): SmtpConfig | null {
         return null;
     }
 
+    // Port 465 is the implicit-TLS port; only explicit SMTP_SECURE=true
+    // elsewhere turns it on.
     const secure =
-        process.env.SMTP_SECURE === "true" || process.env.SMTP_SECURE === "1";
+        process.env.SMTP_SECURE === "true" ||
+        process.env.SMTP_SECURE === "1" ||
+        port === 465;
+
+    // When not using implicit TLS, the connection must still upgrade via
+    // STARTTLS (requireTLS) rather than falling back to plaintext. Set
+    // SMTP_REQUIRE_TLS=false only for local test relays that do not support
+    // STARTTLS (e.g. Mailpit).
+    const requireTls =
+        process.env.SMTP_REQUIRE_TLS === "false" ||
+        process.env.SMTP_REQUIRE_TLS === "0"
+            ? false
+            : !secure;
 
     return {
         host,
@@ -37,5 +52,6 @@ export function getSmtpConfig(): SmtpConfig | null {
         pass,
         from,
         secure,
+        requireTls,
     };
 }

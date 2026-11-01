@@ -21,6 +21,12 @@ export function createEmailTransport(config: SmtpConfig): Transporter {
         host: config.host,
         port: config.port,
         secure: config.secure,
+        requireTLS: config.requireTls,
+        // Bounded timeouts so a hung SMTP peer cannot hold the send (and the
+        // UI's "Sending…" state) open indefinitely.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 30_000,
         auth: {
             user: config.user,
             pass: config.pass,

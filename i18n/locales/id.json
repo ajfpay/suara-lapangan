@@ -82,7 +82,6 @@
         "sendError": "Gagal mengirim dokumen.",
         "sendNotConfigured": "Layanan email belum dikonfigurasi.",
         "sendInvalidEmail": "Masukkan alamat email yang valid.",
-        "sendTryAgain": "Coba lagi",
         "lockedReason": "Selesaikan semua konfirmasi dulu",
         "lockedNote": "Masih ada {count} field yang perlu dikonfirmasi sebelum dokumen siap.",
         "pdfLocked": "PDF muncul setelah semua field dikonfirmasi.",

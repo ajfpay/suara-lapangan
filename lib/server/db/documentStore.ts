@@ -240,7 +240,10 @@ export function createPostgresDocumentStore(
                     updated.butuh_konfirmasi.length > 0
                         ? "perlu_konfirmasi"
                         : "siap";
-
+                // A PATCH edits the payload, so any previously sent version no
+                // longer exists. The send record is cleared so a document never
+                // carries a sent record for a version that was never sent; a
+                // fresh send (via markSent) sets it again.
                 const result = await client.query(
                     `update documents
                      set data_json = $2,
@@ -254,8 +257,8 @@ export function createPostgresDocumentStore(
                         id,
                         JSON.stringify(updated),
                         nextStatus,
-                        stored.sentTo ?? null,
-                        stored.sentAt ?? null,
+                        null,
+                        null,
                     ]
                 );
                 await client.query("commit");

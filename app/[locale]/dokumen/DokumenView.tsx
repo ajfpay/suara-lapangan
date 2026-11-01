@@ -124,6 +124,7 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
             setRecipientEmail("");
             setSendState("idle");
             setSendErrorMessage(null);
+            setDownloadState("idle");
         }
     }, [docId]);
 
@@ -352,6 +353,11 @@ export function DokumenView({ locale, docId, copy }: DokumenViewProps) {
                 }
                 setSendState("error");
                 setSendErrorMessage(errorMsg);
+                // The server may have refused because the document state
+                // changed (e.g. it became perlu_konfirmasi or was already
+                // sent). Refetch so the displayed status chip and button
+                // state match the server.
+                setAttempt((c) => c + 1);
                 return;
             }
 

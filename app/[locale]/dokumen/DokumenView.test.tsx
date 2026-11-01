@@ -204,6 +204,23 @@ describe("DokumenView", () => {
             }),
         });
 
+        // On send error the component refetches the document so the status
+        // chip and button state match the server.
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: docNomor,
+                    status: "siap",
+                    butuh_konfirmasi: [],
+                },
+                butuh_konfirmasi: [],
+                status: "siap",
+            }),
+        });
+
         fireEvent.change(inputRecipient, {
             target: { value: "client@example.com" },
         });
@@ -261,7 +278,7 @@ describe("DokumenView", () => {
         const docFetches = fetchMock.mock.calls.filter(
             (call) => call[0] === `/api/documents/${docId}`
         );
-        expect(docFetches.length).toBe(2);
+        expect(docFetches.length).toBe(3);
     });
 
     it("3b. a superseded document response never replaces the document now shown", async () => {
