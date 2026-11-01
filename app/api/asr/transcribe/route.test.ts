@@ -42,7 +42,7 @@ const TURNS = [
         endMs: 300,
         transcript: "Good morning.",
         final: true,
-        speaker: "A",
+        speaker: null,
     },
     {
         turn_id: "turn_2",
@@ -50,7 +50,7 @@ const TURNS = [
         endMs: 700,
         transcript: "I need ten meters of rebar for the second floor.",
         final: true,
-        speaker: "A",
+        speaker: null,
     },
     {
         turn_id: "turn_3",
@@ -58,7 +58,7 @@ const TURNS = [
         endMs: 1000,
         transcript: "And two bags of cement.",
         final: true,
-        speaker: "B",
+        speaker: null,
     },
 ];
 
@@ -168,6 +168,7 @@ describe("POST /api/asr/transcribe", () => {
             metaSessionId: metaResponse.sessionId,
             transcript: metaResponse.transcript,
             audioDurationMs: 1000,
+            mode: "ENDPOINTING",
             turns: TURNS,
         });
     });
@@ -292,15 +293,21 @@ describe("POST /api/asr/transcribe", () => {
             metaAnswers(metaResponse);
 
             const body = new FormData();
-            if (overrides.audioBytes) {
+            if (overrides.audioBytes !== null) {
                 body.set(
                     "audio",
                     new File([audio], "recording.wav", { type: "audio/wav" })
                 );
             }
-            if (overrides.locale) body.set("locale", overrides.locale);
-            if (overrides.sessionId) body.set("sessionId", overrides.sessionId);
-
+            if (overrides.locale !== null) {
+                body.set("locale", overrides.locale ?? "id");
+            }
+            if (overrides.sessionId !== null) {
+                body.set("sessionId", overrides.sessionId ?? "sess-route-1");
+            }
+            if (overrides.mode !== undefined && overrides.mode !== null) {
+                body.set("mode", overrides.mode);
+            }
             const response = await POST(
                 new Request("http://localhost/api/asr/transcribe", {
                     method: "POST",
@@ -434,5 +441,49 @@ describe("POST /api/asr/transcribe", () => {
             await (sent.get("request") as File).text()
         );
         expect(requestJson.mode).toBe("ENDPOINTING");
+    });
+
+    it("returns speaker labels when Meta returns them in DIARIZATION mode", async () => {
+        metaAnswers({
+            ...metaResponse,
+            turns: [
+                {
+                    startMs: 0,
+                    endMs: 300,
+                    transcript: "Good morning.",
+                    speaker: "A",
+                },
+                {
+                    startMs: 300,
+                    endMs: 700,
+                    transcript: "I need ten meters of rebar for the second floor.",
+                    speaker: "B",
+                },
+            ],
+        });
+
+        const response = await POST(
+            upload({ sessionId: "sess-diarization-inline", mode: "DIARIZATION" })
+        );
+        expect(response.status).toBe(200);
+        const data = await response.json();
+        expect(data.turns).toEqual([
+            {
+                turn_id: "turn_1",
+                startMs: 0,
+                endMs: 300,
+                transcript: "Good morning.",
+                final: true,
+                speaker: "A",
+            },
+            {
+                turn_id: "turn_2",
+                startMs: 300,
+                endMs: 700,
+                transcript: "I need ten meters of rebar for the second floor.",
+                final: true,
+                speaker: "B",
+            },
+        ]);
     });
 });
