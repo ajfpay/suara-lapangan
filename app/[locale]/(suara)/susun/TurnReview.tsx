@@ -25,6 +25,7 @@ interface TurnReviewProps {
         workItemsEmptyBody?: string;
         manualSessionIdLabel?: string;
         manualSessionIdPlaceholder?: string;
+        speakerLabel?: string;
     };
 }
 
@@ -359,6 +360,7 @@ export function TurnReview({ locale, copy }: TurnReviewProps) {
                             turn={turn}
                             index={turnIndex}
                             locale={locale}
+                            speakerLabel={copy.speakerLabel}
                             isPlaying={isCurrentPlaying}
                             onPlay={() =>
                                 playTurnSlice(

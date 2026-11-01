@@ -1,7 +1,7 @@
 "use client";
-
+import React from "react";
 import { Mic, Square, Loader2, CloudOff } from "lucide-react";
-import { useRecorder } from "@/lib/client/use-recorder";
+import { useRecorder, type AsrMode } from "@/lib/client/use-recorder";
 import { cn } from "@/lib/utils";
 
 interface RecorderControlProps {
@@ -10,9 +10,13 @@ interface RecorderControlProps {
     recording: string;
     stop: string;
     processing: string;
+    processingHint?: string;
     uploadPending: string;
     holdHint: string;
     recordingHint: string;
+    modeLabel: string;
+    modeEndpointing: string;
+    modeDiarization: string;
   };
 }
 
@@ -27,8 +31,9 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     handlePointerDown,
     handlePointerUp,
     handlePointerCancel,
+    mode,
+    setMode,
   } = useRecorder();
-
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -57,6 +62,25 @@ export function RecorderControl({ copy }: RecorderControlProps) {
           {error}
         </div>
       )}
+      <div className="flex flex-col items-center gap-1.5">
+        <label
+          htmlFor="asr-mode-select"
+          className="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+          {copy.modeLabel}
+        </label>
+        <select
+          id="asr-mode-select"
+          data-testid="asr-mode-select"
+          value={mode}
+          onChange={(e) => setMode(e.target.value as AsrMode)}
+          disabled={isRecording || isProcessing}
+          className="min-h-[44px] rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="ENDPOINTING">{copy.modeEndpointing}</option>
+          <option value="DIARIZATION">{copy.modeDiarization}</option>
+        </select>
+      </div>
 
       <div className="flex flex-col items-center gap-4">
         <button
@@ -84,13 +108,19 @@ export function RecorderControl({ copy }: RecorderControlProps) {
           )}
         </button>
 
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground text-center">
           {isRecording
             ? copy.recordingHint
             : isProcessing
-            ? copy.processing
+            ? copy.processing.replace("{seconds}", String(duration))
             : copy.holdHint}
         </p>
+
+        {isProcessing && copy.processingHint && (
+          <p className="text-xs text-muted-foreground/80 text-center max-w-xs -mt-2">
+            {copy.processingHint}
+          </p>
+        )}
 
         {isRecording && (
           <div

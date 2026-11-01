@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { AlertCircle, Square, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +10,7 @@ export interface TurnData {
     endMs: number;
     transcript: string;
     final?: boolean;
+    speaker?: string | null;
     butuh_konfirmasi?: Array<{
         field?: string;
         alasan?: string;
@@ -19,6 +21,7 @@ export interface TurnCardProps {
     turn: TurnData;
     index: number;
     locale: string;
+    speakerLabel?: string;
     isPlaying: boolean;
     onPlay: () => void;
     isUnavailable: boolean;
@@ -50,6 +53,7 @@ export function TurnCard({
     turn,
     index,
     locale,
+    speakerLabel,
     isPlaying,
     onPlay,
     isUnavailable,
@@ -58,6 +62,7 @@ export function TurnCard({
     const isIndo = locale === "id";
     const turnLabel = isIndo ? `Giliran ${index}` : `Turn ${index}`;
     const quoteBadgeLabel = isIndo ? `Kutipan ${index}` : `Quote ${index}`;
+    const resolvedSpeakerLabel = speakerLabel ?? (isIndo ? "Pembicara" : "Speaker");
 
     // Render transcript with highlighted confirmation phrases and number citation badges
     const renderTranscript = () => {
@@ -175,6 +180,14 @@ export function TurnCard({
                     <span className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                         {turnLabel}
                     </span>
+                    {turn.speaker && (
+                        <span
+                            data-testid={`speaker-badge-${index}`}
+                            className="font-mono text-xs font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full"
+                        >
+                            {resolvedSpeakerLabel} {turn.speaker}
+                        </span>
+                    )}
                     <span className="font-mono text-sm font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
                         {formatTimestamp(turn.startMs)} →{" "}
                         {formatTimestamp(turn.endMs)}

@@ -59,6 +59,7 @@ export default async function SusunStepPage({ params }: LocaleParams) {
                         workItemsEmptyBody: step.workItemsEmptyBody,
                         manualSessionIdLabel: step.manualSessionIdLabel,
                         manualSessionIdPlaceholder: step.manualSessionIdPlaceholder,
+                        speakerLabel: step.speakerLabel,
                     }}
                 />
             </Suspense>

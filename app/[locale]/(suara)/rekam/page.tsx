@@ -45,9 +45,13 @@ export default async function RekamStepPage({ params }: LocaleParams) {
                     recording: step.recording,
                     stop: step.stop,
                     processing: step.processing,
+                    processingHint: step.processingHint,
                     uploadPending: step.uploadPending,
                     holdHint: step.holdHint,
                     recordingHint: step.recordingHint,
+                    modeLabel: step.modeLabel,
+                    modeEndpointing: step.modeEndpointing,
+                    modeDiarization: step.modeDiarization,
                 }}
             />
             {stepPage.workList(step)}

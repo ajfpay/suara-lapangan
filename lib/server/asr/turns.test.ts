@@ -37,6 +37,7 @@ describe("normalizeTurns", () => {
                 endMs: 4200,
                 transcript: "good morning",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_2",
@@ -44,6 +45,7 @@ describe("normalizeTurns", () => {
                 endMs: 8000,
                 transcript: "I need ten meters of rebar",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_3",
@@ -51,6 +53,7 @@ describe("normalizeTurns", () => {
                 endMs: 9500,
                 transcript: "and two bags of cement",
                 final: true,
+                speaker: null,
             },
         ]);
     });
@@ -71,6 +74,7 @@ describe("normalizeTurns", () => {
                 endMs: 1000,
                 transcript: "satu",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_2",
@@ -78,6 +82,7 @@ describe("normalizeTurns", () => {
                 endMs: 1500,
                 transcript: "dua",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_3",
@@ -85,6 +90,7 @@ describe("normalizeTurns", () => {
                 endMs: 2000,
                 transcript: "tiga",
                 final: true,
+                speaker: null,
             },
         ]);
     });
@@ -109,6 +115,7 @@ describe("normalizeTurns", () => {
                 endMs: 4000,
                 transcript: "harga borongan",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_2",
@@ -116,6 +123,7 @@ describe("normalizeTurns", () => {
                 endMs: 5000,
                 transcript: "dua puluh sak",
                 final: true,
+                speaker: null,
             },
         ]);
     });
@@ -135,6 +143,7 @@ describe("normalizeTurns", () => {
                 endMs: 1200,
                 transcript: "tak terdengar",
                 final: true,
+                speaker: null,
             },
             {
                 turn_id: "turn_2",
@@ -142,6 +151,7 @@ describe("normalizeTurns", () => {
                 endMs: 3600,
                 transcript: "lanjut",
                 final: true,
+                speaker: null,
             },
         ]);
     });
@@ -159,6 +169,7 @@ describe("normalizeTurns", () => {
                 endMs: 9000,
                 transcript: "sepuluh meter kubik galian tanah",
                 final: true,
+                speaker: null,
             },
         ]);
     });
@@ -189,5 +200,57 @@ describe("normalizeTurns", () => {
                 );
             }
         }
+    });
+
+    it("passes speaker labels through from Meta in DIARIZATION mode", () => {
+        const turns = normalizeTurns({
+            turns: [
+                {
+                    startMs: 0,
+                    endMs: 3000,
+                    transcript: "Berapa sak semen?",
+                    speaker: "A",
+                },
+                {
+                    startMs: 3200,
+                    endMs: 6000,
+                    transcript: "Sepuluh sak cukup.",
+                    speaker: "B",
+                },
+                {
+                    startMs: 6200,
+                    endMs: 8000,
+                    transcript: "Siap, langsung kirim.",
+                    speaker: "A",
+                },
+            ],
+        });
+
+        expect(turns).toEqual([
+            {
+                turn_id: "turn_1",
+                startMs: 0,
+                endMs: 3000,
+                transcript: "Berapa sak semen?",
+                final: true,
+                speaker: "A",
+            },
+            {
+                turn_id: "turn_2",
+                startMs: 3200,
+                endMs: 6000,
+                transcript: "Sepuluh sak cukup.",
+                final: true,
+                speaker: "B",
+            },
+            {
+                turn_id: "turn_3",
+                startMs: 6200,
+                endMs: 8000,
+                transcript: "Siap, langsung kirim.",
+                final: true,
+                speaker: "A",
+            },
+        ]);
     });
 });

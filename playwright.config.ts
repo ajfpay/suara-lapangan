@@ -8,6 +8,9 @@ import { defineConfig, devices } from "@playwright/test";
  * and serves the production bundle rather than `next dev`, so what is tested is
  * what ships.
  */
+const PORT = Number(process.env.PORT ?? 3000);
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
 export default defineConfig({
     testDir: "./e2e",
     // The suite is small; running it serially keeps one server sane and makes
@@ -19,7 +22,7 @@ export default defineConfig({
     reporter: process.env.CI ? "github" : "list",
 
     use: {
-        baseURL: "http://127.0.0.1:3000",
+        baseURL: BASE_URL,
         trace: "on-first-retry",
     },
 
@@ -50,8 +53,8 @@ export default defineConfig({
     ],
 
     webServer: {
-        command: "npm run build && npm run start",
-        url: "http://127.0.0.1:3000/en",
+        command: `npm run build && npm run start -- -p ${PORT}`,
+        url: `${BASE_URL}/en`,
         reuseExistingServer: !process.env.CI,
         // A cold build is slow on a cold cache.
         timeout: 5 * 60 * 1000,

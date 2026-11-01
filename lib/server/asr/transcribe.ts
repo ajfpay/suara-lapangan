@@ -8,34 +8,44 @@ import {
 
 import { AsrError } from "./errors";
 import type { Locale } from "./locale";
-import { transcribeWithMeta } from "./meta";
+import { transcribeWithMeta, type AsrMode } from "./meta";
 import { normalizeTurns, type Turn } from "./turns";
+import { buildKeywords } from "./vocabulary";
 
 export type TranscribeInput = {
     sessionId: string;
     locale: Locale;
     audio: Uint8Array;
+    mode?: AsrMode;
 };
 
 /**
  * One recording in, the session's turns out.
  *
- * Idempotent by `sessionId` + the SHA-256 of the audio: a re-upload of the same
- * recording replays the stored turns instead of paying for a second
- * transcription and renumbering what the user already quoted. The same session
- * id with different audio is a new recording and replaces the old turns, so
- * `turn_1` always means the range the stored transcript says it does.
+ * Idempotent by `sessionId` + the SHA-256 of the audio + the mode: a re-upload
+ * of the same recording in the same mode replays the stored turns instead of
+ * paying for a second transcription and renumbering what the user already
+ * quoted. The mode is part of that identity because DIARIZATION adds speaker
+ * labels ENDPOINTING does not, so replaying across modes would hide them. The
+ * same session id with different audio is a new recording and replaces the old
+ * turns, so `turn_1` always means the range the stored transcript says it does.
  */
 export async function transcribeSession({
     sessionId,
     locale,
     audio,
+    mode = "ENDPOINTING",
 }: TranscribeInput): Promise<Turn[]> {
     const audioSha256 = createHash("sha256").update(audio).digest("hex");
     const store = getTurnsStore();
 
     const stored = await store.findSession(sessionId);
-    if (stored && stored.audioSha256 === audioSha256) return stored.turns;
+    // A store that predates the mode column reports none; those rows were all
+    // transcribed with ENDPOINTING, which is the column default.
+    const storedMode = stored?.mode ?? "ENDPOINTING";
+    if (stored && stored.audioSha256 === audioSha256 && storedMode === mode) {
+        return stored.turns;
+    }
 
     // Hard-stop check: reject NEW session when daily cap reached
     await assertQuotaAvailable({ locale });
@@ -47,9 +57,16 @@ export async function transcribeSession({
         });
     }
 
-    const meta = await transcribeWithMeta({ audio, locale, sessionId, apiKey });
+    const keywords = buildKeywords(locale, stored?.turns);
+    const meta = await transcribeWithMeta({
+        audio,
+        locale,
+        sessionId,
+        apiKey,
+        mode,
+        keywords,
+    });
     const turns = normalizeTurns(meta);
-
     await store.saveTranscription({
         sessionId,
         locale,
@@ -62,6 +79,7 @@ export async function transcribeSession({
             typeof meta.audioDurationMs === "number"
                 ? meta.audioDurationMs
                 : null,
+        mode,
         turns,
     });
 

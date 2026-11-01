@@ -42,6 +42,7 @@ const TURNS = [
         endMs: 300,
         transcript: "Good morning.",
         final: true,
+        speaker: null,
     },
     {
         turn_id: "turn_2",
@@ -49,6 +50,7 @@ const TURNS = [
         endMs: 700,
         transcript: "I need ten meters of rebar for the second floor.",
         final: true,
+        speaker: null,
     },
     {
         turn_id: "turn_3",
@@ -56,6 +58,7 @@ const TURNS = [
         endMs: 1000,
         transcript: "And two bags of cement.",
         final: true,
+        speaker: null,
     },
 ];
 
@@ -77,10 +80,12 @@ function upload({
     audioBytes = audio,
     locale = "id",
     sessionId = "sess-route-1",
+    mode = null,
 }: {
     audioBytes?: Uint8Array;
     locale?: string | null;
     sessionId?: string | null;
+    mode?: string | null;
 } = {}) {
     const body = new FormData();
     body.set(
@@ -89,13 +94,13 @@ function upload({
     );
     if (locale !== null) body.set("locale", locale);
     if (sessionId !== null) body.set("sessionId", sessionId);
+    if (mode !== null) body.set("mode", mode);
 
     return new Request("http://localhost/api/asr/transcribe", {
         method: "POST",
         body,
     });
 }
-
 beforeEach(() => {
     resetRateLimits();
     setUsageStore(null);
@@ -121,6 +126,7 @@ type MalformedUpload = {
     audioBytes?: Uint8Array | null;
     locale?: string | null;
     sessionId?: string | null;
+    mode?: string | null;
 };
 
 const MALFORMED_UPLOADS: Array<[string, MalformedUpload, number]> = [
@@ -129,6 +135,7 @@ const MALFORMED_UPLOADS: Array<[string, MalformedUpload, number]> = [
     ["locale not shipped", { locale: "fr" }, 400],
     ["session id missing", { sessionId: null }, 400],
     ["session id with a path", { sessionId: "../../etc/passwd" }, 400],
+    ["invalid mode", { mode: "INVALID_MODE" }, 400],
 ];
 
 describe("POST /api/asr/transcribe", () => {
@@ -161,6 +168,7 @@ describe("POST /api/asr/transcribe", () => {
             metaSessionId: metaResponse.sessionId,
             transcript: metaResponse.transcript,
             audioDurationMs: 1000,
+            mode: "ENDPOINTING",
             turns: TURNS,
         });
     });
@@ -213,6 +221,7 @@ describe("POST /api/asr/transcribe", () => {
                     endMs: 1000,
                     transcript: "sepuluh meter pagar",
                     final: true,
+                    speaker: null,
                 },
             ],
         });
@@ -284,15 +293,21 @@ describe("POST /api/asr/transcribe", () => {
             metaAnswers(metaResponse);
 
             const body = new FormData();
-            if (overrides.audioBytes) {
+            if (overrides.audioBytes !== null) {
                 body.set(
                     "audio",
                     new File([audio], "recording.wav", { type: "audio/wav" })
                 );
             }
-            if (overrides.locale) body.set("locale", overrides.locale);
-            if (overrides.sessionId) body.set("sessionId", overrides.sessionId);
-
+            if (overrides.locale !== null) {
+                body.set("locale", overrides.locale ?? "id");
+            }
+            if (overrides.sessionId !== null) {
+                body.set("sessionId", overrides.sessionId ?? "sess-route-1");
+            }
+            if (overrides.mode !== undefined && overrides.mode !== null) {
+                body.set("mode", overrides.mode);
+            }
             const response = await POST(
                 new Request("http://localhost/api/asr/transcribe", {
                     method: "POST",
@@ -388,5 +403,87 @@ describe("POST /api/asr/transcribe", () => {
             },
         });
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("passes mode DIARIZATION to Meta when requested", async () => {
+        metaAnswers(metaResponse);
+
+        const response = await POST(
+            upload({ sessionId: "sess-diarization-test", mode: "DIARIZATION" })
+        );
+        expect(response.status).toBe(200);
+
+        const [, init] = fetchMock.mock.calls[0];
+        const sent = await new Request("http://meta.test", {
+            method: "POST",
+            body: init.body,
+        }).formData();
+        const requestJson = JSON.parse(
+            await (sent.get("request") as File).text()
+        );
+        expect(requestJson.mode).toBe("DIARIZATION");
+    });
+
+    it("defaults to mode ENDPOINTING when mode is absent", async () => {
+        metaAnswers(metaResponse);
+
+        const response = await POST(
+            upload({ sessionId: "sess-endpointing-default" })
+        );
+        expect(response.status).toBe(200);
+
+        const [, init] = fetchMock.mock.calls[0];
+        const sent = await new Request("http://meta.test", {
+            method: "POST",
+            body: init.body,
+        }).formData();
+        const requestJson = JSON.parse(
+            await (sent.get("request") as File).text()
+        );
+        expect(requestJson.mode).toBe("ENDPOINTING");
+    });
+
+    it("returns speaker labels when Meta returns them in DIARIZATION mode", async () => {
+        metaAnswers({
+            ...metaResponse,
+            turns: [
+                {
+                    startMs: 0,
+                    endMs: 300,
+                    transcript: "Good morning.",
+                    speaker: "A",
+                },
+                {
+                    startMs: 300,
+                    endMs: 700,
+                    transcript: "I need ten meters of rebar for the second floor.",
+                    speaker: "B",
+                },
+            ],
+        });
+
+        const response = await POST(
+            upload({ sessionId: "sess-diarization-inline", mode: "DIARIZATION" })
+        );
+        expect(response.status).toBe(200);
+        const data = await response.json();
+        expect(data.turns).toEqual([
+            {
+                turn_id: "turn_1",
+                startMs: 0,
+                endMs: 300,
+                transcript: "Good morning.",
+                final: true,
+                speaker: "A",
+            },
+            {
+                turn_id: "turn_2",
+                startMs: 300,
+                endMs: 700,
+                transcript: "I need ten meters of rebar for the second floor.",
+                final: true,
+                speaker: "B",
+            },
+        ]);
     });
 });

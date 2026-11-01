@@ -65,20 +65,25 @@ describe("transcribeWithMeta", () => {
             method: "POST",
             body: init.body,
         }).formData();
-        expect(JSON.parse(await (sent.get("request") as File).text())).toEqual({
-            mode: "ENDPOINTING",
-            model: "muse-voice-transcribe-1.0",
-            audioEncoding: "WAV",
-            languageBias: ["Indonesian"],
-            keywords: [
+        const requestObj = JSON.parse(
+            await (sent.get("request") as File).text()
+        );
+        expect(requestObj.mode).toBe("ENDPOINTING");
+        expect(requestObj.model).toBe("muse-voice-transcribe-1.0");
+        expect(requestObj.audioEncoding).toBe("WAV");
+        expect(requestObj.languageBias).toEqual(["Indonesian", "English"]);
+        expect(requestObj.keywords).toEqual(
+            expect.arrayContaining([
                 "cakar ayam",
                 "sak",
                 "batang",
                 "titik",
                 "m2",
                 "borongan",
-            ],
-        });
+                "meter persegi",
+                "square foot",
+            ])
+        );
         expect(
             new Uint8Array(await (sent.get("audio") as File).arrayBuffer())
         ).toEqual(audio);
@@ -101,15 +106,44 @@ describe("transcribeWithMeta", () => {
         }).formData();
         const request = JSON.parse(await (sent.get("request") as File).text());
 
-        expect(request.languageBias).toEqual(["English"]);
-        expect(request.keywords).toEqual([
-            "drywall",
-            "rebar",
-            "sq ft",
-            "lin ft",
-            "bags",
-            "bars",
-        ]);
+        expect(request.languageBias).toEqual(["English", "Indonesian"]);
+        expect(request.keywords).toEqual(
+            expect.arrayContaining([
+                "drywall",
+                "rebar",
+                "sq ft",
+                "lin ft",
+                "bags",
+                "bars",
+                "square foot",
+                "linear foot",
+            ])
+        );
+    });
+
+    it("supports DIARIZATION mode and explicit keywords/languageBias overrides", async () => {
+        const fetchMock = stubFetch(() => okResponse());
+
+        await transcribeWithMeta({
+            audio,
+            locale: "id",
+            sessionId: "sess-diarization",
+            apiKey: "test-key",
+            mode: "DIARIZATION",
+            keywords: ["PT Wika", "Proyek Kemang"],
+            languageBias: ["Indonesian"],
+        });
+
+        const [, init] = fetchMock.mock.calls[0];
+        const sent = await new Request("http://meta.test", {
+            method: "POST",
+            body: init.body,
+        }).formData();
+        const request = JSON.parse(await (sent.get("request") as File).text());
+
+        expect(request.mode).toBe("DIARIZATION");
+        expect(request.keywords).toEqual(["PT Wika", "Proyek Kemang"]);
+        expect(request.languageBias).toEqual(["Indonesian"]);
     });
 
     it("classifies a refused credential without echoing it anywhere", async () => {
