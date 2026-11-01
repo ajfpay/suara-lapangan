@@ -646,7 +646,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         const retryAfter = Number(lastRes!.headers.get("Retry-After"));
         expect(retryAfter).toBeGreaterThan(0);
         const body = await lastRes!.json();
-        expect(body.error.code).toBe("rate_limited");
+        expect(body.error).toBe("rate_limited");
     });
 
     it("enforces quota hard-stop: 429 with X-Quota-Hard-Stop, model not called", async () => {
@@ -673,8 +673,65 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(res.status).toBe(429);
         expect(res.headers.get("X-Quota-Hard-Stop")).toBe("true");
         const body = await res.json();
-        expect(body.error.code).toBe("quota_exceeded");
+        expect(body.error).toBe("quota_exceeded");
         expect(spy).not.toHaveBeenCalled();
+    });
+
+    it("trips the daily cap with Spark-only token spend", async () => {
+        process.env.MODEL_API_KEY = "test-key";
+        const candidate: CandidateDocument & {
+            _usage?: sparkModule.SparkUsage;
+        } = {
+            jenis: "surat_penawaran",
+            locale: "id",
+            mata_uang: "IDR",
+            nomor: "SL/QTN/2026/0001",
+            tanggal: "2026-10-31",
+            proyek: {
+                nama: "Renovasi Rumah",
+                lokasi: "Jl. Kaliurang km 5",
+                klien: "Pak Bambang",
+            },
+            pekerjaan: [
+                {
+                    uraian: "Pemasangan hebel",
+                    volume: 10,
+                    satuan: "m2",
+                    harga_satuan: 50000,
+                    jumlah: 500000,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 500000,
+            terbilang: "Lima ratus ribu rupiah",
+            butuh_konfirmasi: [],
+            _spark_path: true,
+            _usage: { inputTokens: 120, outputTokens: 30, totalTokens: 150 },
+        };
+        vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(candidate);
+
+        await recordUsage({ estCost: 6.0 });
+
+        const req = new Request("http://localhost/api/documents", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionId: "sess-metering-spark",
+                turns: [
+                    {
+                        turn_id: "turn_1",
+                        startMs: 0,
+                        endMs: 5000,
+                        transcript:
+                            "Pemasangan hebel sepuluh meter persegi lima puluh ribu per meter.",
+                    },
+                ],
+            }),
+        });
+        const res = await POST(req);
+        expect(res.status).toBe(429);
+        expect(res.headers.get("X-Quota-Hard-Stop")).toBe("true");
+        expect(await res.json()).toMatchObject({ error: "quota_exceeded" });
     });
 
     it("records Spark token usage when model returns usage", async () => {
@@ -729,10 +786,14 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         const res = await POST(req);
         expect(res.status).toBe(200);
 
-        const queryRes = await pool.query<{ tokens: number }>(
-            "select coalesce(sum(tokens),0)::int as tokens from usage_meter"
+        const queryRes = await pool.query<{
+            tokens: number;
+            est_cost: number;
+        }>(
+            "select coalesce(sum(tokens),0)::int as tokens, coalesce(sum(est_cost),0)::float8 as est_cost from usage_meter"
         );
         expect(queryRes.rows[0].tokens).toBe(150);
+        expect(queryRes.rows[0].est_cost).toBeCloseTo(0.005, 4);
     });
 
     it("does not record tokens on fallback path when MODEL_API_KEY is missing", async () => {

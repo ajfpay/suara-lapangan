@@ -7,6 +7,7 @@ import {
     RateLimiter,
     resetRateLimits,
     withRateLimit,
+    withRateLimitFlat,
 } from "./rate-limit";
 import {
     formatDay,
@@ -196,6 +197,49 @@ describe("withRateLimit middleware wrapper", () => {
                 message:
                     "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
             },
+        });
+    });
+
+    it("answers the flat envelope {error, message} instead of the ASR nested one", async () => {
+        const innerHandler = async () => Response.json({ ok: true });
+        const wrapped = withRateLimitFlat(innerHandler, {
+            route: "/api/documents",
+            limit: 1,
+        });
+
+        await wrapped(new Request("http://localhost/api/documents"));
+        const res = await wrapped(new Request("http://localhost/api/documents"));
+
+        expect(res.status).toBe(429);
+        const body = await res.json();
+        expect(body).toEqual({
+            error: "rate_limited",
+            message:
+                "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi.",
+        });
+    });
+
+    it("answers the flat envelope when the daily cap is reached", async () => {
+        await recordUsage({
+            date: formatDay(),
+            estCost: 6.0,
+        });
+
+        const innerHandler = async () => Response.json({ ok: true });
+        const wrapped = withRateLimitFlat(innerHandler, {
+            route: "/api/documents",
+            checkDailyQuota: true,
+        });
+
+        const req = new Request("http://localhost/api/documents");
+        const res = await wrapped(req);
+
+        expect(res.status).toBe(429);
+        expect(res.headers.get("x-quota-hard-stop")).toBe("true");
+        const body = await res.json();
+        expect(body).toEqual({
+            error: "quota_exceeded",
+            message: "Batas kuota harian tercapai. Sesi baru tidak dapat dimulai hari ini.",
         });
     });
 

@@ -17,8 +17,11 @@ import {
     toResponseDocument,
 } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
-import { withRateLimit } from "@/lib/server/quota/rate-limit";
-import { recordUsage } from "@/lib/server/quota/usage-meter";
+import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
+import {
+    recordUsage,
+    SPARK_DOCUMENT_EST_COST,
+} from "@/lib/server/quota/usage-meter";
 import {
     postDocumentBodySchema,
     formatZodError,
@@ -293,10 +296,15 @@ async function handlePost(request: Request): Promise<Response> {
         );
     }
 
+    // Meter the Spark call: tokens show up in the report and the documented
+    // per-document cost keeps the daily quota hard-stop honest.
     const usage = candidate._usage;
     if (usage && usage.totalTokens > 0) {
         try {
-            await recordUsage({ tokens: usage.totalTokens });
+            await recordUsage({
+                tokens: usage.totalTokens,
+                estCost: SPARK_DOCUMENT_EST_COST,
+            });
         } catch (cause) {
             console.error(
                 redactSecrets(
@@ -321,7 +329,7 @@ async function handlePost(request: Request): Promise<Response> {
     return persistAndRespond(result.document, candidate._spark_path === true);
 }
 
-export const POST = withRateLimit(handlePost, {
+export const POST = withRateLimitFlat(handlePost, {
     route: "/api/documents",
     checkDailyQuota: true,
 });

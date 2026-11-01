@@ -11,6 +11,7 @@ import {
     patchDocumentBodySchema,
     formatZodError,
 } from "@/lib/server/validation/document";
+import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import type {
     CanonicalUnit,
     DocumentStatus,
@@ -34,9 +35,9 @@ type RouteContext = {
     params: Promise<{ id: string }>;
 };
 
-export async function PATCH(
+async function handlePatch(
     request: Request,
-    context: RouteContext
+    context?: RouteContext
 ): Promise<Response> {
     let body: unknown;
     try {
@@ -59,8 +60,9 @@ export async function PATCH(
         );
     }
 
-    const { id } = await context.params;
-    const parsedId = documentIdSchema.safeParse(id);
+    const parsedId = documentIdSchema.safeParse(
+        (await context?.params)?.id
+    );
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -71,6 +73,7 @@ export async function PATCH(
         );
     }
 
+    const id = parsedId.data;
     const { field, nilai } = parsedBody.data;
     const match = field.match(
         /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
@@ -196,12 +199,13 @@ export async function PATCH(
 
 }
 
-export async function GET(
+async function handleGet(
     _request: Request,
-    context: RouteContext
+    context?: RouteContext
 ): Promise<Response> {
-    const { id } = await context.params;
-    const parsedId = documentIdSchema.safeParse(id);
+    const parsedId = documentIdSchema.safeParse(
+        (await context?.params)?.id
+    );
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -212,6 +216,7 @@ export async function GET(
         );
     }
 
+    const id = parsedId.data;
     let stored: StoredDocument | null;
     try {
         stored = await getPostgresDocumentStore().get(id);
@@ -246,3 +251,10 @@ export async function GET(
         { status: 200 }
     );
 }
+
+export const PATCH = withRateLimitFlat(handlePatch, {
+    route: "/api/documents",
+}) as (request: Request, context: RouteContext) => Promise<Response>;
+export const GET = withRateLimitFlat(handleGet, {
+    route: "/api/documents",
+}) as (request: Request, context: RouteContext) => Promise<Response>;

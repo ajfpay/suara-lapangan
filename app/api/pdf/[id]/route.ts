@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/server/quota/rate-limit";
+import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
@@ -14,6 +14,7 @@ import {
     readPdfSnapshot,
     isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
+import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -105,6 +106,13 @@ async function handleGet(
     context?: RouteContext
 ): Promise<Response> {
     const { id } = (await context?.params) ?? {};
+    const parsedId = documentIdSchema.safeParse(id);
+    if (!parsedId.success) {
+        return NextResponse.json(
+            { error: "invalid_request", message: formatZodError(parsedId.error) },
+            { status: 400 }
+        );
+    }
     if (!id || id.trim() === "") {
         return NextResponse.json(
             { error: "not_found", message: "Document id is required" },
@@ -251,7 +259,7 @@ async function handleGet(
     });
 }
 
-export const GET = withRateLimit(handleGet, { route: "/api/pdf" }) as (
+export const GET = withRateLimitFlat(handleGet, { route: "/api/pdf" }) as (
     request: Request,
     context: RouteContext
 ) => Promise<Response>;

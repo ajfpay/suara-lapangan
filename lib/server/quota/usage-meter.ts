@@ -25,6 +25,14 @@ export const ASR_COST_PER_SECOND = 0.00005;
 /** Default daily cap ($5.00 per docs/01-ARSITEKTUR.md and docs/05-RISIKO.md) */
 export const DEFAULT_DAILY_COST_CAP = 5.0;
 
+/**
+ * Documented per-document cost of one Muse Spark 1.3 call
+ * (docs/01-ARSITEKTUR.md: "Pada Spark 1.3: ±$0,005 per dokumen"). Token-derived
+ * pricing would be far below the est_cost column's 4-decimal resolution, so the
+ * documented flat cost is the honest estimate the daily quota can actually trip on.
+ */
+export const SPARK_DOCUMENT_EST_COST = 0.005;
+
 export function getDailyCostCap(): number {
     const raw =
         process.env.DAILY_QUOTA_COST_LIMIT ?? process.env.DAILY_COST_CAP;

@@ -1,11 +1,10 @@
 import { z } from "zod";
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-const DOCUMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 export const documentIdSchema = z
     .string()
-    .regex(DOCUMENT_ID_PATTERN, "id must match ^[A-Za-z0-9_-]{1,64}$");
+    .uuid("id must be a UUID");
 
 const localeSchema = z.enum(["en", "id"]);
 

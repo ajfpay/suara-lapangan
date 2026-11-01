@@ -7,7 +7,11 @@ import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting } from "./route"
 import { PATCH } from "@/app/api/documents/[id]/route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
-import { recordUsage } from "@/lib/server/quota/usage-meter";
+import {
+    formatDay,
+    getDailyCostCap,
+    recordUsage,
+} from "@/lib/server/quota/usage-meter";
 import {
     resolvePdfStorageDir,
     relativePdfPathFor,
@@ -253,9 +257,16 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
     }
 
     it("404 for unknown id", async () => {
-        const res = await GET(new Request("http://localhost/api/pdf/nope"), {
-            params: Promise.resolve({ id: "nope" }),
-        });
+        const res = await GET(
+            new Request(
+                "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000"
+            ),
+            {
+                params: Promise.resolve({
+                    id: "00000000-0000-0000-0000-000000000000",
+                }),
+            }
+        );
         expect(res.status).toBe(404);
     });
 
@@ -278,11 +289,28 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
         const retryAfter = Number(lastRes!.headers.get("Retry-After"));
         expect(retryAfter).toBeGreaterThan(0);
         const body = await lastRes!.json();
-        expect(body.error.code).toBe("rate_limited");
+        expect(body.error).toBe("rate_limited");
+    });
+
+    it("answers 400 for a non-UUID id", async () => {
+        const res = await GET(
+            new Request("http://localhost/api/pdf/not-a-uuid"),
+            {
+                params: Promise.resolve({
+                    id: "not-a-uuid",
+                }),
+            }
+        );
+        expect(res.status).toBe(400);
+        const body = await res.json();
+        expect(body.error).toBe("invalid_request");
     });
 
     it("does not gate quota on PDF GET: reaches handler and returns 404 without X-Quota-Hard-Stop", async () => {
-        await recordUsage({ estCost: 6.0 });
+        await recordUsage({
+            date: formatDay(),
+            estCost: getDailyCostCap() + 1.0,
+        });
         const res = await GET(
             new Request(
                 "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000"
