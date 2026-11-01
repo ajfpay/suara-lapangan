@@ -8,8 +8,11 @@ import id from "@/i18n/locales/id.json";
 
 import { TurnReview } from "./TurnReview";
 import { TurnCard } from "./TurnCard";
+const searchParamsRef: { current: URLSearchParams } = {
+    current: new URLSearchParams(),
+};
 vi.mock("next/navigation", () => ({
-    useSearchParams: () => new URLSearchParams(),
+    useSearchParams: () => searchParamsRef.current,
 }));
 
 vi.mock("@/lib/client/audioslice/storage", () => ({
@@ -36,6 +39,7 @@ type StepCopy = {
     workItemsEmptyBody?: string;
     manualSessionIdLabel?: string;
     manualSessionIdPlaceholder?: string;
+    speakerLabel?: string;
 };
 
 /**
@@ -52,6 +56,7 @@ function copyFrom(messages: { susun: StepCopy }): StepCopy {
         workItemsEmptyBody: step.workItemsEmptyBody,
         manualSessionIdLabel: step.manualSessionIdLabel,
         manualSessionIdPlaceholder: step.manualSessionIdPlaceholder,
+        speakerLabel: step.speakerLabel,
     };
 }
 
@@ -132,5 +137,46 @@ describe("TurnReview", () => {
 
         const badge = screen.getByTestId("speaker-badge-1");
         expect(badge.textContent).toContain("Pembicara A");
+    });
+
+    it("renders the speaker label passed through the copy prop", async () => {
+        const customLabel = "Custom Speaker Label";
+        const fetchMock = vi.fn(async () =>
+            new Response(
+                JSON.stringify({
+                    turns: [
+                        {
+                            turn_id: "turn_2",
+                            startMs: 0,
+                            endMs: 1000,
+                            transcript: "hello",
+                            speaker: "B",
+                        },
+                    ],
+                }),
+                { status: 200, headers: { "content-type": "application/json" } }
+            )
+        );
+        vi.stubGlobal("fetch", fetchMock);
+        searchParamsRef.current = new URLSearchParams(
+            "sessionId=sess-wired"
+        );
+
+        render(
+            <TurnReview
+                locale="en"
+                copy={{
+                    title: "t",
+                    body: "b",
+                    speakerLabel: customLabel,
+                }}
+            />
+        );
+
+        const badge = await screen.findByTestId("speaker-badge-1");
+        expect(badge.textContent).toContain(customLabel);
+        expect(badge.textContent).toContain("B");
+        expect(badge.textContent).not.toContain("Speaker B");
+        searchParamsRef.current = new URLSearchParams();
     });
 });
