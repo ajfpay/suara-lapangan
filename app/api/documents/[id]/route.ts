@@ -6,6 +6,11 @@ import {
 import { redactSecrets } from "@/lib/server/asr/log";
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { amountInWords, terbilang } from "@/lib/server/guard/words";
+import {
+    documentIdSchema,
+    patchDocumentBodySchema,
+    formatZodError,
+} from "@/lib/server/validation/document";
 import type {
     CanonicalUnit,
     DocumentStatus,
@@ -24,12 +29,6 @@ class PatchIndexError extends Error {
     }
 }
 
-class PatchValueError extends Error {}
-
-type PatchBody = {
-    field?: unknown;
-    nilai?: unknown;
-};
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -39,9 +38,9 @@ export async function PATCH(
     request: Request,
     context: RouteContext
 ): Promise<Response> {
-    let body: PatchBody;
+    let body: unknown;
     try {
-        body = (await request.json()) as PatchBody;
+        body = await request.json();
     } catch {
         return NextResponse.json(
             { error: "invalid_request", message: "Request body must be JSON" },
@@ -49,50 +48,33 @@ export async function PATCH(
         );
     }
 
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
+    const parsedBody = patchDocumentBodySchema.safeParse(body);
+    if (!parsedBody.success) {
         return NextResponse.json(
             {
                 error: "invalid_request",
-                message: "Request body must be a JSON object",
-            },
-            { status: 400 }
-        );
-    }
-
-    const { field, nilai } = body;
-    if (typeof field !== "string" || field.trim() === "") {
-        return NextResponse.json(
-            {
-                error: "invalid_request",
-                message: "field is required and must be a non-empty string",
-            },
-            { status: 400 }
-        );
-    }
-
-    const match = field.match(
-        /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
-    );
-    if (!match) {
-        return NextResponse.json(
-            {
-                error: "invalid_request",
-                message: `Field '${field}' is not supported for patching. Must match pekerjaan[<i>].<volume|harga_satuan|satuan|uraian>`,
+                message: formatZodError(parsedBody.error),
             },
             { status: 400 }
         );
     }
 
     const { id } = await context.params;
-    if (!id || typeof id !== "string" || id.trim() === "") {
+    const parsedId = documentIdSchema.safeParse(id);
+    if (!parsedId.success) {
         return NextResponse.json(
             {
-                error: "not_found",
-                message: "Document id is required",
+                error: "invalid_request",
+                message: formatZodError(parsedId.error),
             },
-            { status: 404 }
+            { status: 400 }
         );
     }
+
+    const { field, nilai } = parsedBody.data;
+    const match = field.match(
+        /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
+    )!;
 
     let docStore: ReturnType<typeof getPostgresDocumentStore>;
     try {
@@ -122,47 +104,15 @@ export async function PATCH(
             }
 
             if (subfield === "volume" || subfield === "harga_satuan") {
-                if (
-                    (typeof nilai !== "number" && typeof nilai !== "string") ||
-                    (typeof nilai === "string" && nilai.trim() === "")
-                ) {
-                    throw new PatchValueError(
-                        `Field '${field}' requires a valid numeric value`
-                    );
-                }
-                const num = typeof nilai === "number" ? nilai : Number(nilai.trim());
-                if (Number.isNaN(num) || !Number.isFinite(num) || num < 0) {
-                    throw new PatchValueError(
-                        `Field '${field}' requires a valid non-negative number`
-                    );
-                }
+                const num =
+                    typeof nilai === "number" ? nilai : Number(nilai.trim());
                 document.pekerjaan[index][subfield] = num;
             } else if (subfield === "satuan") {
-                if (typeof nilai !== "string" && typeof nilai !== "number") {
-                    throw new PatchValueError(
-                        `Field '${field}' requires a string value`
-                    );
-                }
-                const str = String(nilai).trim();
-                if (str === "") {
-                    throw new PatchValueError(
-                        `Field '${field}' cannot be empty`
-                    );
-                }
-                document.pekerjaan[index].satuan = str as CanonicalUnit;
+                document.pekerjaan[index].satuan = String(
+                    nilai
+                ).trim() as CanonicalUnit;
             } else if (subfield === "uraian") {
-                if (typeof nilai !== "string" && typeof nilai !== "number") {
-                    throw new PatchValueError(
-                        `Field '${field}' requires a string value`
-                    );
-                }
-                const str = String(nilai).trim();
-                if (str === "") {
-                    throw new PatchValueError(
-                        `Field '${field}' cannot be empty`
-                    );
-                }
-                document.pekerjaan[index].uraian = str;
+                document.pekerjaan[index].uraian = String(nilai).trim();
             }
 
             // A PATCH of pekerjaan[i].<field> must also clear that exact field
@@ -193,14 +143,6 @@ export async function PATCH(
     } catch (cause) {
         if (cause instanceof PatchIndexError) {
             indexError = cause;
-        } else if (cause instanceof PatchValueError) {
-            return NextResponse.json(
-                {
-                    error: "invalid_request",
-                    message: cause.message,
-                },
-                { status: 400 }
-            );
         } else {
             console.error(
                 redactSecrets(`[documents] patch failed: ${String(cause)}`)
@@ -259,13 +201,14 @@ export async function GET(
     context: RouteContext
 ): Promise<Response> {
     const { id } = await context.params;
-    if (!id || typeof id !== "string" || id.trim() === "") {
+    const parsedId = documentIdSchema.safeParse(id);
+    if (!parsedId.success) {
         return NextResponse.json(
             {
-                error: "not_found",
-                message: "Document id is required",
+                error: "invalid_request",
+                message: formatZodError(parsedId.error),
             },
-            { status: 404 }
+            { status: 400 }
         );
     }
 

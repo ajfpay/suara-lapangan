@@ -6,6 +6,8 @@ import os from "node:os";
 import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting } from "./route";
 import { PATCH } from "@/app/api/documents/[id]/route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
+import { resetRateLimits } from "@/lib/server/quota/rate-limit";
+import { recordUsage } from "@/lib/server/quota/usage-meter";
 import {
     resolvePdfStorageDir,
     relativePdfPathFor,
@@ -211,8 +213,11 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
         tempStorageDirs.push(freshDir);
         process.env.PDF_STORAGE_DIR = freshDir;
         resetPdfCacheForTesting();
+        resetRateLimits();
 
-        await pool.query("truncate documents, sessions cascade");
+        await pool.query(
+            "truncate documents, sessions, usage_meter cascade"
+        );
         await pool.query(
             "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
         );
@@ -252,6 +257,44 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             params: Promise.resolve({ id: "nope" }),
         });
         expect(res.status).toBe(404);
+    });
+
+    it("enforces rate limit: 31 GETs for an unknown id returns 429 with Retry-After", async () => {
+        let lastRes: Response | null = null;
+        for (let i = 0; i < 31; i++) {
+            lastRes = await GET(
+                new Request(
+                    "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000"
+                ),
+                {
+                    params: Promise.resolve({
+                        id: "00000000-0000-0000-0000-000000000000",
+                    }),
+                }
+            );
+        }
+        expect(lastRes).not.toBeNull();
+        expect(lastRes!.status).toBe(429);
+        const retryAfter = Number(lastRes!.headers.get("Retry-After"));
+        expect(retryAfter).toBeGreaterThan(0);
+        const body = await lastRes!.json();
+        expect(body.error.code).toBe("rate_limited");
+    });
+
+    it("does not gate quota on PDF GET: reaches handler and returns 404 without X-Quota-Hard-Stop", async () => {
+        await recordUsage({ estCost: 6.0 });
+        const res = await GET(
+            new Request(
+                "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000"
+            ),
+            {
+                params: Promise.resolve({
+                    id: "00000000-0000-0000-0000-000000000000",
+                }),
+            }
+        );
+        expect(res.status).toBe(404);
+        expect(res.headers.get("X-Quota-Hard-Stop")).toBeNull();
     });
 
     it("409 when butuh_konfirmasi non-empty", async () => {

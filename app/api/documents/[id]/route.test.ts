@@ -273,6 +273,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
         expect(nonNumRes.status).toBe(400);
         const nonNumData = await nonNumRes.json();
         expect(nonNumData.error).toBe("invalid_request");
+        expect(nonNumData.message).toContain("nilai");
 
         const negReq = new Request(`http://localhost/api/documents/${id}`, {
             method: "PATCH",
@@ -637,5 +638,19 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
         expect(res.status).toBe(404);
         const data = await res.json();
         expect(data.error).toBe("not_found");
+    });
+
+    it("returns 400 for a malformed id", async () => {
+        const res = await GET(
+            new Request("http://localhost/api/documents/../etc/passwd"),
+            {
+                params: Promise.resolve({
+                    id: "../etc/passwd",
+                }),
+            }
+        );
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
     });
 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/server/quota/rate-limit";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
@@ -99,8 +100,11 @@ async function renderPdf(html: string): Promise<Buffer> {
     }
 }
 
-export async function GET(_request: Request, context: RouteContext): Promise<Response> {
-    const { id } = await context.params;
+async function handleGet(
+    _request: Request,
+    context?: RouteContext
+): Promise<Response> {
+    const { id } = (await context?.params) ?? {};
     if (!id || id.trim() === "") {
         return NextResponse.json(
             { error: "not_found", message: "Document id is required" },
@@ -246,3 +250,8 @@ export async function GET(_request: Request, context: RouteContext): Promise<Res
         },
     });
 }
+
+export const GET = withRateLimit(handleGet, { route: "/api/pdf" }) as (
+    request: Request,
+    context: RouteContext
+) => Promise<Response>;
