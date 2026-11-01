@@ -5,7 +5,6 @@ import { Pool } from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-    assertEmailQuotaAvailable,
     DEFAULT_EMAIL_DAILY_SEND_LIMIT,
     EmailQuotaExceededError,
     formatDay,
@@ -16,6 +15,8 @@ import {
     MemoryEmailSendQuotaStore,
     PostgresEmailSendQuotaStore,
     recordEmailSend,
+    releaseEmailSend,
+    reserveEmailSend,
     resetMemoryEmailSendQuotaStore,
     setEmailSendQuotaStore,
 } from "./email-quota";
@@ -42,11 +43,9 @@ describe("email-quota (in-memory)", () => {
         } else {
             delete process.env.EMAIL_ALLOWLIST;
         }
-        if (origEnv.dbUrl !== undefined) {
-            process.env.DATABASE_URL = origEnv.dbUrl;
-        } else {
-            delete process.env.DATABASE_URL;
-        }
+        // This suite must exercise the in-memory store, so DATABASE_URL is
+        // always cleared here; afterAll restores the original value.
+        delete process.env.DATABASE_URL;
     });
 
     afterAll(() => {
@@ -129,35 +128,35 @@ describe("email-quota (in-memory)", () => {
         expect(getEmailDailySendLimit()).toBe(10);
     });
 
-    it("assertEmailQuotaAvailable allows sends when under quota", async () => {
+    it("reserveEmailSend reserves a slot when under quota", async () => {
         process.env.EMAIL_DAILY_SEND_LIMIT = "2";
         await recordEmailSend({ day: "2026-11-01" });
 
-        const result = await assertEmailQuotaAvailable({ day: "2026-11-01" });
-        expect(result).toEqual({ count: 1, limit: 2 });
+        const result = await reserveEmailSend({ day: "2026-11-01" });
+        expect(result).toEqual({ ok: true, count: 2, limit: 2 });
     });
 
-    it("assertEmailQuotaAvailable throws EmailQuotaExceededError with locale messages when limit reached", async () => {
+    it("reserveEmailSend throws EmailQuotaExceededError with locale messages when limit reached", async () => {
         process.env.EMAIL_DAILY_SEND_LIMIT = "2";
         await recordEmailSend({ day: "2026-11-01", count: 2 });
 
         // Indonesian message (default)
         await expect(
-            assertEmailQuotaAvailable({ day: "2026-11-01", locale: "id" })
+            reserveEmailSend({ day: "2026-11-01", locale: "id" })
         ).rejects.toThrowError(
             "Batas kirim email harian tercapai. Coba lagi besok."
         );
 
         // English message
         await expect(
-            assertEmailQuotaAvailable({ day: "2026-11-01", locale: "en" })
+            reserveEmailSend({ day: "2026-11-01", locale: "en" })
         ).rejects.toThrowError(
             "Daily email send limit reached. Try again tomorrow."
         );
 
         // Inspect error fields
         try {
-            await assertEmailQuotaAvailable({ day: "2026-11-01" });
+            await reserveEmailSend({ day: "2026-11-01" });
             expect.unreachable("should have thrown");
         } catch (error) {
             expect(error).toBeInstanceOf(EmailQuotaExceededError);
@@ -168,6 +167,30 @@ describe("email-quota (in-memory)", () => {
                 expect(error.limit).toBe(2);
             }
         }
+    });
+
+    it("reserveEmailSend does not increment when the limit is reached", async () => {
+        process.env.EMAIL_DAILY_SEND_LIMIT = "1";
+        await recordEmailSend({ day: "2026-11-01" });
+
+        await expect(
+            reserveEmailSend({ day: "2026-11-01" })
+        ).rejects.toThrowError(EmailQuotaExceededError);
+
+        // The rejected reservation must not consume a slot.
+        expect(await getEmailSends("2026-11-01")).toBe(1);
+    });
+
+    it("releaseEmailSend refunds a reservation", async () => {
+        await reserveEmailSend({ day: "2026-11-01" });
+        expect(await getEmailSends("2026-11-01")).toBe(1);
+
+        await releaseEmailSend({ day: "2026-11-01" });
+        expect(await getEmailSends("2026-11-01")).toBe(0);
+
+        // Release never goes below zero.
+        await releaseEmailSend({ day: "2026-11-01" });
+        expect(await getEmailSends("2026-11-01")).toBe(0);
     });
 
     it("isRecipientAllowed allows all recipients when allowlist is unset or empty", () => {
@@ -220,6 +243,8 @@ describe("email-quota (in-memory)", () => {
         const mockStore = {
             recordEmailSend: vi.fn(),
             getEmailSends: vi.fn(),
+            reserveEmailSend: vi.fn(),
+            releaseEmailSend: vi.fn(),
         };
         setEmailSendQuotaStore(mockStore);
         expect(getEmailSendQuotaStore()).toBe(mockStore);
@@ -296,14 +321,14 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
         expect(await postgresStore.getEmailSends("2026-11-02", "user-2")).toBe(0);
     });
 
-    it("enforces assertEmailQuotaAvailable when backed by postgres store", async () => {
+    it("enforces reserveEmailSend when backed by postgres store", async () => {
         setEmailSendQuotaStore(postgresStore);
         process.env.EMAIL_DAILY_SEND_LIMIT = "1";
 
         try {
             await recordEmailSend({ day: "2026-11-01" });
             await expect(
-                assertEmailQuotaAvailable({ day: "2026-11-01", locale: "en" })
+                reserveEmailSend({ day: "2026-11-01", locale: "en" })
             ).rejects.toThrowError(
                 "Daily email send limit reached. Try again tomorrow."
             );
@@ -311,5 +336,40 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
             setEmailSendQuotaStore(null);
             delete process.env.EMAIL_DAILY_SEND_LIMIT;
         }
+    });
+
+    it("reserve/release round-trips atomically in postgres", async () => {
+        const limit = 2;
+        const first = await postgresStore.reserveEmailSend(limit, {
+            userId: "user-atomic",
+            day: "2026-11-01",
+        });
+        expect(first.ok).toBe(true);
+        expect(first.count).toBe(1);
+
+        const second = await postgresStore.reserveEmailSend(limit, {
+            userId: "user-atomic",
+            day: "2026-11-01",
+        });
+        expect(second.ok).toBe(true);
+        expect(second.count).toBe(2);
+
+        // Third reservation must fail without consuming a slot.
+        const third = await postgresStore.reserveEmailSend(limit, {
+            userId: "user-atomic",
+            day: "2026-11-01",
+        });
+        expect(third.ok).toBe(false);
+        expect(third.count).toBe(2);
+        expect(await postgresStore.getEmailSends("2026-11-01", "user-atomic")).toBe(2);
+
+        // Release refunds one slot.
+        await postgresStore.releaseEmailSend({
+            userId: "user-atomic",
+            day: "2026-11-01",
+        });
+        expect(
+            await postgresStore.getEmailSends("2026-11-01", "user-atomic")
+        ).toBe(1);
     });
 });

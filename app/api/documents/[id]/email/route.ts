@@ -27,8 +27,8 @@ import {
     readPdfSnapshot,
 } from "@/lib/server/pdf/storage";
 import {
-    assertEmailQuotaAvailable,
-    recordEmailSend,
+    reserveEmailSend,
+    releaseEmailSend,
     EmailQuotaExceededError,
     isRecipientAllowed,
 } from "@/lib/server/quota/email-quota";
@@ -110,8 +110,9 @@ async function handlePost(
         );
     }
 
+    let reservation: Awaited<ReturnType<typeof reserveEmailSend>> | null = null;
     try {
-        await assertEmailQuotaAvailable({ locale: reqLocale });
+        reservation = await reserveEmailSend({ locale: reqLocale });
     } catch (cause) {
         if (cause instanceof EmailQuotaExceededError) {
             return NextResponse.json(
@@ -240,6 +241,9 @@ async function handlePost(
     }
 
     if (!pdfBuffer) {
+        if (reservation) {
+            await releaseEmailSend().catch(() => undefined);
+        }
         return NextResponse.json(
             {
                 error: "send_failure",
@@ -272,6 +276,9 @@ async function handlePost(
         console.error(
             redactSecrets(`[email] delivery failed: ${String(cause)}`)
         );
+        if (reservation) {
+            await releaseEmailSend().catch(() => undefined);
+        }
         return NextResponse.json(
             {
                 error: "send_failure",
@@ -281,14 +288,6 @@ async function handlePost(
                         : "Gagal mengirim email",
             },
             { status: 502 }
-        );
-    }
-
-    try {
-        await recordEmailSend();
-    } catch (cause) {
-        console.error(
-            redactSecrets(`[email] failed to record quota send: ${String(cause)}`)
         );
     }
 

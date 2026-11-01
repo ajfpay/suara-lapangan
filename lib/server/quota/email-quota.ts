@@ -12,6 +12,12 @@ export type RecordEmailSendParams = {
     count?: number;
 };
 
+export type ReservationResult = {
+    ok: boolean;
+    count: number;
+    limit: number;
+};
+
 /**
  * Returns the daily send limit configured via EMAIL_DAILY_SEND_LIMIT.
  * Falls back to 100 if unset or invalid (must be a positive integer).
@@ -76,6 +82,11 @@ export class EmailQuotaExceededError extends Error {
 export interface EmailSendQuotaStore {
     recordEmailSend(params?: RecordEmailSendParams): Promise<number>;
     getEmailSends(day?: string | Date, userId?: string): Promise<number>;
+    reserveEmailSend(
+        limit: number,
+        params?: RecordEmailSendParams
+    ): Promise<ReservationResult>;
+    releaseEmailSend(params?: RecordEmailSendParams): Promise<number>;
     reset?(): Promise<void> | void;
 }
 
@@ -102,6 +113,32 @@ export class MemoryEmailSendQuotaStore implements EmailSendQuotaStore {
 
         const current = await this.getEmailSends(dayStr, userId);
         const updated = current + count;
+        this.records.set(this.key(userId, dayStr), updated);
+        return updated;
+    }
+
+    async reserveEmailSend(
+        limit: number,
+        params?: RecordEmailSendParams
+    ): Promise<ReservationResult> {
+        const userId = params?.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params?.day ?? params?.date);
+        const current = this.records.get(this.key(userId, dayStr)) ?? 0;
+
+        if (current >= limit) {
+            return { ok: false, count: current, limit };
+        }
+
+        const updated = current + 1;
+        this.records.set(this.key(userId, dayStr), updated);
+        return { ok: true, count: updated, limit };
+    }
+
+    async releaseEmailSend(params?: RecordEmailSendParams): Promise<number> {
+        const userId = params?.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params?.day ?? params?.date);
+        const current = this.records.get(this.key(userId, dayStr)) ?? 0;
+        const updated = Math.max(0, current - 1);
         this.records.set(this.key(userId, dayStr), updated);
         return updated;
     }
@@ -160,6 +197,55 @@ export class PostgresEmailSendQuotaStore implements EmailSendQuotaStore {
         return Number(result.rows[0].count);
     }
 
+    /**
+     * Atomically reserves one slot for today when the day's count is below
+     * the limit. The upsert increments only while `count < limit`, so
+     * concurrent requests cannot both reserve the last slot: the row is
+     * locked by the conflict update and the `where` clause is re-checked
+     * against the locked row.
+     */
+    async reserveEmailSend(
+        limit: number,
+        params?: RecordEmailSendParams
+    ): Promise<ReservationResult> {
+        const userId = params?.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params?.day ?? params?.date);
+
+        const result = await this.pool.query<{ count: number | string }>(
+            `insert into email_send_meter (user_id, day, count, updated_at)
+             values ($1, $2, 1, now())
+             on conflict (user_id, day) do update set
+                 count = email_send_meter.count + 1,
+                 updated_at = now()
+             where email_send_meter.count < $3
+             returning count`,
+            [userId, dayStr, limit]
+        );
+
+        if (result.rowCount === 0) {
+            const current = await this.getEmailSends(dayStr, userId);
+            return { ok: false, count: current, limit };
+        }
+
+        return { ok: true, count: Number(result.rows[0].count), limit };
+    }
+
+    async releaseEmailSend(params?: RecordEmailSendParams): Promise<number> {
+        const userId = params?.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params?.day ?? params?.date);
+
+        const result = await this.pool.query<{ count: number | string }>(
+            `update email_send_meter
+             set count = greatest(count - 1, 0),
+                 updated_at = now()
+             where user_id = $1 and day = $2
+             returning count`,
+            [userId, dayStr]
+        );
+
+        return result.rowCount === 0 ? 0 : Number(result.rows[0].count);
+    }
+
     async reset(): Promise<void> {
         await this.pool.query("truncate email_send_meter");
     }
@@ -216,25 +302,49 @@ export async function getEmailSends(
     return getEmailSendQuotaStore().getEmailSends(day, userId);
 }
 
-export async function assertEmailQuotaAvailable(options?: {
+/**
+ * Atomically reserves one daily send slot. Returns `{ok: true}` when a
+ * slot was available and reserved; `{ok: false}` (with current count and
+ * limit) when the daily limit is reached. The reservation must be released
+ * with `releaseEmailSend` if the delivery fails.
+ */
+export async function reserveEmailSend(options?: {
     day?: string | Date;
     userId?: string;
     locale?: "en" | "id";
-}): Promise<{ count: number; limit: number }> {
+}): Promise<ReservationResult> {
     const day = options?.day;
     const userId = options?.userId;
     const locale = options?.locale ?? "id";
-
-    const count = await getEmailSends(day, userId);
     const limit = getEmailDailySendLimit();
-    if (count >= limit) {
+
+    const result = await getEmailSendQuotaStore().reserveEmailSend(limit, {
+        day,
+        userId,
+    });
+
+    if (!result.ok) {
         const message =
             locale === "en"
                 ? "Daily email send limit reached. Try again tomorrow."
                 : "Batas kirim email harian tercapai. Coba lagi besok.";
-        throw new EmailQuotaExceededError(message, { count, limit });
+        throw new EmailQuotaExceededError(message, {
+            count: result.count,
+            limit,
+        });
     }
-    return { count, limit };
+
+    return result;
+}
+
+export async function releaseEmailSend(options?: {
+    day?: string | Date;
+    userId?: string;
+}): Promise<number> {
+    return getEmailSendQuotaStore().releaseEmailSend({
+        day: options?.day,
+        userId: options?.userId,
+    });
 }
 
 export function resetMemoryEmailSendQuotaStore(): void {

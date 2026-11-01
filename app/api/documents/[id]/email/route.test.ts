@@ -374,6 +374,10 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const body = await res.json();
         expect(body.error).toBe("send_failure");
 
+        // The reserved quota slot must be released: the failed delivery does
+        // not consume today's send quota.
+        expect(await getEmailSends()).toBe(0);
+
         // Verify document is unchanged: status is still siap and sent_to is not set
         const getRes = await GET(new Request(`http://localhost/api/documents/${id}`), {
             params: Promise.resolve({ id }),
@@ -382,7 +386,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const getData = await getRes.json();
         expect(getData.status).toBe("siap");
         expect(getData.sent_to).toBeNull();
-    });
+        });
 
     it("returns 502 send_failure when PDF is not found on disk", async () => {
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0004", locale: "id" });
@@ -403,9 +407,12 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         const body = await res.json();
         expect(body.error).toBe("send_failure");
         expect(sendMailMock).not.toHaveBeenCalled();
-    });
+        // The reserved slot is released when no PDF is available: the failed
+        // attempt does not consume today's send quota.
+        expect(await getEmailSends()).toBe(0);
+        });
 
-    it("rejects a stale PDF snapshot whose hash does not match the current document", async () => {
+        it("rejects a stale PDF snapshot whose hash does not match the current document", async () => {
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0005", locale: "id" });
         const { id } = await seedDocument(doc);
         // Write a PDF whose sidecar hash is the PDF bytes' hash, not the
@@ -594,7 +601,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
     it("daily quota exceeded → 429, no send", async () => {
         process.env.EMAIL_DAILY_SEND_LIMIT = "1";
         await pool.query(
-            "insert into email_send_meter (user_id, day, count) values ('default', current_date, 1)"
+            "insert into email_send_meter (user_id, day, count) values ('default', (now() at time zone 'UTC')::date, 1)"
         );
 
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0013", locale: "id" });
@@ -648,7 +655,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         expect(sendsAfter).toBe(1);
 
         const dbResult = await pool.query<{ count: number }>(
-            "select count from email_send_meter where user_id = 'default' and day = current_date"
+            "select count from email_send_meter where user_id = 'default' and day = (now() at time zone 'UTC')::date"
         );
         expect(dbResult.rows.length).toBe(1);
         expect(Number(dbResult.rows[0].count)).toBe(1);
