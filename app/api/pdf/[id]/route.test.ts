@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -23,6 +23,34 @@ import {
     readPdfHash,
     isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
+
+/**
+ * The PDF route resolves the session through `getSession` from `@/lib/server/auth`.
+ * Unit tests here control it directly instead of going through a real session.
+ * The default is an admin, because the existing suites seed legacy documents
+ * without a `user_id` and the route allows admins to read them.
+ */
+const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
+    mockGetSession: vi.fn(),
+    mockIsAdmin: vi.fn(),
+}));
+
+vi.mock("@/lib/server/auth", () => ({
+    getSession: mockGetSession,
+    isAdmin: mockIsAdmin,
+}));
+
+beforeEach(() => {
+    mockGetSession.mockResolvedValue({
+        user: {
+            id: "00000000-0000-0000-0000-000000000000",
+            email: "system@suara-lapangan.local",
+            name: "System",
+            role: "admin",
+        },
+    });
+    mockIsAdmin.mockReturnValue(true);
+});
 
 /**
  * Storage helpers unit tests (no database required; runs in all environments).
@@ -204,10 +232,19 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
         ]) {
             const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
             await pool.query(sql);
         }
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
+               ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
+             on conflict (id) do nothing`
+        );
     });
 
     beforeEach(async () => {
@@ -602,4 +639,162 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             expect(isA || isB).toBe(true);
         }
     }, 60000);
+});
+
+/**
+ * Access control. The route requires a session and honours ownership: an
+ * owned document is reachable by its owner and by admins, a legacy
+ * ownerless document only by admins.
+ */
+describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
+    let pool: Pool;
+    const tempStorageDirs: string[] = [];
+    const origPdfStorageDir = process.env.PDF_STORAGE_DIR;
+
+    beforeAll(async () => {
+        process.env.DATABASE_URL = TEST_DATABASE_URL;
+        pool = new Pool({ connectionString: TEST_DATABASE_URL });
+        for (const file of [
+            "0001_sessions_turns.sql",
+            "0002_usage_meter.sql",
+            "0003_documents.sql",
+            "0004_email_sends.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
+        ]) {
+            const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
+            await pool.query(sql);
+        }
+    });
+
+    beforeEach(async () => {
+        const freshDir = await fs.mkdtemp(
+            path.join(os.tmpdir(), "suara-pdf-storage-")
+        );
+        tempStorageDirs.push(freshDir);
+        process.env.PDF_STORAGE_DIR = freshDir;
+        resetPdfCacheForTesting();
+        resetRateLimits();
+
+        await pool.query(
+            "truncate documents, sessions, usage_meter cascade"
+        );
+        await pool.query(
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+        );
+    });
+
+    afterAll(async () => {
+        await resetPdfDbPoolForTesting();
+        await pool.end();
+        if (origPdfStorageDir !== undefined) {
+            process.env.PDF_STORAGE_DIR = origPdfStorageDir;
+        } else {
+            delete process.env.PDF_STORAGE_DIR;
+        }
+        for (const dir of tempStorageDirs) {
+            await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+        }
+    });
+
+    async function seedDocument(userId: string | null): Promise<string> {
+        const document = JSON.stringify({
+            jenis: "surat_penawaran",
+            locale: "id",
+            mata_uang: "IDR",
+            nomor: "SL/QTN/2099/0001",
+            tanggal: "2026-10-30",
+            proyek: { nama: "Villa", lokasi: "Ubud", klien: "Pak Made" },
+            pekerjaan: [
+                {
+                    uraian: "Hebel",
+                    volume: 10,
+                    satuan: "m2",
+                    harga_satuan: 50000,
+                    jumlah: 500000,
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+            total_nominal: 500000,
+            terbilang: "Lima ratus ribu rupiah",
+            butuh_konfirmasi: [],
+        });
+        const result = await pool.query<{ id: string }>(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
+             values ('seed-session', 'id', 'SL/QTN/2099/0001', 'siap', 'hash', $1::jsonb, $2) returning id`,
+            [document, userId]
+        );
+        return result.rows[0].id;
+    }
+
+    async function renderPdf(id: string): Promise<Response> {
+        const idDiskPath = path.join(
+            process.env.PDF_STORAGE_DIR!,
+            `${id}.pdf`
+        );
+        await fs.writeFile(idDiskPath, Buffer.from("%PDF-1.4 test"));
+        return GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            { params: Promise.resolve({ id }) }
+        );
+    }
+
+    function withSession(userRole: "user" | "admin", userId: string): void {
+        mockGetSession.mockResolvedValue({
+            user: { id: userId, email: "test@example.com", name: "Test User", role: userRole },
+        });
+        mockIsAdmin.mockReturnValue(userRole === "admin");
+    }
+
+    it("rejects an unauthenticated request with 401", async () => {
+        mockGetSession.mockResolvedValue(null);
+        mockIsAdmin.mockReturnValue(false);
+        const id = await seedDocument(null);
+        const res = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(401);
+        expect((await res.json()).error).toBe("unauthorized");
+    });
+
+    it("rejects a non-owner with 403", async () => {
+        withSession("user", "00000000-0000-0000-0000-000000000001");
+        const id = await seedDocument("00000000-0000-0000-0000-000000000002");
+        const res = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(403);
+        expect((await res.json()).error).toBe("forbidden");
+    });
+
+    it("serves the owner with 200", async () => {
+        withSession("user", "00000000-0000-0000-0000-000000000001");
+        const id = await seedDocument("00000000-0000-0000-0000-000000000001");
+        const res = await renderPdf(id);
+        expect(res.status).toBe(200);
+    });
+
+    it("serves an admin for a legacy ownerless document with 200", async () => {
+        withSession("admin", "00000000-0000-0000-0000-000000000000");
+        const id = await seedDocument(null);
+        const res = await renderPdf(id);
+        expect(res.status).toBe(200);
+    });
+
+    it("rejects a non-admin for a legacy ownerless document with 403", async () => {
+        withSession("user", "00000000-0000-0000-0000-000000000001");
+        const id = await seedDocument(null);
+        const res = await renderPdf(id);
+        expect(res.status).toBe(403);
+        expect((await res.json()).error).toBe("forbidden");
+    });
+
+    it("serves an admin for an owned document with 200", async () => {
+        withSession("admin", "00000000-0000-0000-0000-000000000000");
+        const id = await seedDocument("00000000-0000-0000-0000-000000000001");
+        const res = await renderPdf(id);
+        expect(res.status).toBe(200);
+    });
 });

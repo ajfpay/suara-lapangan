@@ -15,7 +15,14 @@ export type RecordUsageParams = {
     estCost?: number;
 };
 
-export const DEFAULT_USER_ID = "default";
+export const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * The legacy "default" user: the system row `0007_auth_tables.sql` seeds, so
+ * the `usage_meter.user_id` foreign key always holds.
+ */
+export const DEFAULT_USER_ID = SYSTEM_USER_ID;
+
 /**
  * Official transcription rate from docs/01-ARSITEKTUR.md:
  * $0.18 per hour of audio -> $0.00005 per second.
@@ -184,11 +191,16 @@ export class PostgresUsageStore implements UsageStore {
         }
 
         const row = result.rows[0];
+        const estCost = Number(row.est_cost);
+        const cap = await this.getCapForUser(userId);
         return {
             audioSeconds: Number(row.audio_seconds),
             tokens: Number(row.tokens),
-            estCost: Number(row.est_cost),
-            hardStop: Boolean(row.hard_stop),
+            estCost,
+            // The stored flag records a trip that happened while recording; a
+            // cap change (for example an admin setting a lower limit) must also
+            // take effect on the next read, so re-derive against the current cap.
+            hardStop: Boolean(row.hard_stop) || estCost >= cap,
         };
     }
 
@@ -201,7 +213,7 @@ export class PostgresUsageStore implements UsageStore {
             params.estCost !== undefined
                 ? Math.max(0, params.estCost)
                 : audioSeconds * ASR_COST_PER_SECOND;
-        const cap = getDailyCostCap();
+        const cap = await this.getCapForUser(userId);
 
         const result = await this.pool.query<{
             audio_seconds: string | number;
@@ -236,6 +248,95 @@ export class PostgresUsageStore implements UsageStore {
 
     async end(): Promise<void> {
         await this.pool.end();
+    }
+    async getCapForUser(userId: string): Promise<number> {
+        const res = await this.pool.query<{ daily_cost_limit: string | number }>(
+            `select daily_cost_limit from user_cost_limits where user_id = $1`,
+            [userId]
+        );
+        if (res.rowCount && res.rowCount > 0) {
+            return Number(res.rows[0].daily_cost_limit);
+        }
+        return getDailyCostCap();
+    }
+
+    async setUserLimit(userId: string, limit: number): Promise<void> {
+        const normalized = userId || DEFAULT_USER_ID;
+        await this.pool.query(
+            `insert into user_cost_limits (user_id, daily_cost_limit, updated_at)
+             values ($1, $2, now())
+             on conflict (user_id) do update
+             set daily_cost_limit = excluded.daily_cost_limit,
+                 updated_at = now()`,
+            [normalized, limit]
+        );
+    }
+
+    async getAllLimits(): Promise<Map<string, number>> {
+        const map = new Map<string, number>();
+        try {
+            const res = await this.pool.query<{ user_id: string; daily_cost_limit: string | number }>(
+                `select user_id, daily_cost_limit from user_cost_limits`
+            );
+            for (const row of res.rows) {
+                map.set(row.user_id, Number(row.daily_cost_limit));
+            }
+        } catch {
+            // table might not exist in mock env
+        }
+        return map;
+    }
+
+    async getAggregatedUsage(startDate?: string, endDate?: string): Promise<
+        Array<{
+            userId: string;
+            email: string;
+            name: string;
+            audioSeconds: number;
+            tokens: number;
+            estCost: number;
+        }>
+    > {
+        let query = `
+            select u.id as user_id, u.email, u.name,
+                   coalesce(sum(m.audio_seconds), 0) as audio_seconds,
+                   coalesce(sum(m.tokens), 0) as tokens,
+                   coalesce(sum(m.est_cost), 0) as est_cost
+            from auth_user u
+            left join usage_meter m on u.id = m.user_id
+        `;
+        const conditions: string[] = [];
+        const values: unknown[] = [];
+        if (startDate) {
+            values.push(startDate);
+            conditions.push(`m.day >= $${values.length}`);
+        }
+        if (endDate) {
+            values.push(endDate);
+            conditions.push(`m.day <= $${values.length}`);
+        }
+        if (conditions.length > 0) {
+            query += ` and ${conditions.join(" and ")}`;
+        }
+        query += ` group by u.id, u.email, u.name order by est_cost desc, u.name asc`;
+
+        const res = await this.pool.query<{
+            user_id: string;
+            email: string;
+            name: string;
+            audio_seconds: string | number;
+            tokens: string | number;
+            est_cost: string | number;
+        }>(query, values);
+
+        return res.rows.map((r) => ({
+            userId: r.user_id,
+            email: r.email,
+            name: r.name,
+            audioSeconds: Number(r.audio_seconds),
+            tokens: Number(r.tokens),
+            estCost: Number(r.est_cost),
+        }));
     }
 }
 

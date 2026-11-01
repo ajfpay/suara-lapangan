@@ -15,6 +15,7 @@ import {
     isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
 import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
+import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -22,6 +23,13 @@ type RouteContext = {
 
 // Identical-content cache: key = document nomor + content hash.
 const pdfCache = new Map<string, { hash: string; pdf: Buffer }>();
+
+function canAccessDocument(session: AuthSession, ownerUserId: string | null): boolean {
+    // Legacy ownerless documents are visible to admins only.
+    if (ownerUserId === null) return isAdmin(session);
+    // Owned documents are visible to the owner and to admins.
+    return session.user.id === ownerUserId || isAdmin(session);
+}
 
 export function resetPdfCacheForTesting(): void {
     pdfCache.clear();
@@ -117,8 +125,11 @@ async function handleGet(
     const id = parsedId.data;
     let doc: QuotationDocument | undefined;
     let storedPdfPath: string | null = null;
+    let ownerUserId: string | null = null;
     try {
-        doc = (await getPostgresDocumentStore().get(id))?.document;
+        const stored = await getPostgresDocumentStore().get(id);
+        doc = stored?.document;
+        ownerUserId = stored?.userId ?? null;
         if (doc) {
             storedPdfPath = await getDocumentPdfPath(id);
         }
@@ -138,6 +149,23 @@ async function handleGet(
         return NextResponse.json(
             { error: "not_found", message: `Document '${id}' not found` },
             { status: 404 }
+        );
+    }
+
+    // Document access control. A document with no owner is legacy data and
+    // visible to admins only; an owned document is visible to its owner or
+    // an admin. Unauthenticated requests are rejected before the disk read.
+    const session = await getSession(_request);
+    if (!session) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Authentication required" },
+            { status: 401 }
+        );
+    }
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
         );
     }
     if (doc.butuh_konfirmasi.length > 0) {

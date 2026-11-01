@@ -92,6 +92,10 @@ jobs:
       - name: Smoke tests
         env:
           DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+          # The production server never falls back to a known signing secret,
+          # so the seeded session in e2e/auth-setup.ts must sign with the same
+          # value the server uses. Keep this equal to the config's default.
+          BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
         run: npm run test:e2e
 
       - uses: actions/upload-artifact@v4
