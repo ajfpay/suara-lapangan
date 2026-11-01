@@ -8,13 +8,15 @@ import {
 
 import { AsrError } from "./errors";
 import type { Locale } from "./locale";
-import { transcribeWithMeta } from "./meta";
+import { transcribeWithMeta, type AsrMode } from "./meta";
 import { normalizeTurns, type Turn } from "./turns";
+import { buildKeywords } from "./vocabulary";
 
 export type TranscribeInput = {
     sessionId: string;
     locale: Locale;
     audio: Uint8Array;
+    mode?: AsrMode;
 };
 
 /**
@@ -30,6 +32,7 @@ export async function transcribeSession({
     sessionId,
     locale,
     audio,
+    mode = "ENDPOINTING",
 }: TranscribeInput): Promise<Turn[]> {
     const audioSha256 = createHash("sha256").update(audio).digest("hex");
     const store = getTurnsStore();
@@ -47,9 +50,16 @@ export async function transcribeSession({
         });
     }
 
-    const meta = await transcribeWithMeta({ audio, locale, sessionId, apiKey });
+    const keywords = buildKeywords(locale, stored?.turns);
+    const meta = await transcribeWithMeta({
+        audio,
+        locale,
+        sessionId,
+        apiKey,
+        mode,
+        keywords,
+    });
     const turns = normalizeTurns(meta);
-
     await store.saveTranscription({
         sessionId,
         locale,

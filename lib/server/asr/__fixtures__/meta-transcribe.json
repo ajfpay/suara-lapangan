@@ -6,17 +6,20 @@
     {
       "startMs": 0,
       "endMs": 300,
-      "transcript": "Good morning."
+      "transcript": "Good morning.",
+      "speaker": "A"
     },
     {
       "startMs": 300,
       "endMs": 700,
-      "transcript": "I need ten meters of rebar for the second floor."
+      "transcript": "I need ten meters of rebar for the second floor.",
+      "speaker": "A"
     },
     {
       "startMs": 700,
       "endMs": 1000,
-      "transcript": "And two bags of cement."
+      "transcript": "And two bags of cement.",
+      "speaker": "B"
     }
   ]
 }

@@ -16,8 +16,12 @@ import { createPostgresStore, type TranscriptionRecord } from "./store";
  */
 
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
-const migration = readFileSync(
+const migration0001 = readFileSync(
     join(__dirname, "../../../db/migrations/0001_sessions_turns.sql"),
+    "utf8"
+);
+const migration0005 = readFileSync(
+    join(__dirname, "../../../db/migrations/0005_asr_speaker.sql"),
     "utf8"
 );
 
@@ -36,6 +40,7 @@ const record: TranscriptionRecord = {
             endMs: 300,
             transcript: "pagar",
             final: true,
+            speaker: "A",
         },
         {
             turn_id: "turn_2",
@@ -43,6 +48,7 @@ const record: TranscriptionRecord = {
             endMs: 1000,
             transcript: "dua puluh meter",
             final: true,
+            speaker: "B",
         },
     ],
 };
@@ -52,10 +58,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
 
     beforeAll(async () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
-        await pool.query(migration);
+        await pool.query(migration0001);
+        await pool.query(migration0005);
         // The demo and CI both re-run the migration on a database that already
         // has the tables.
-        await pool.query(migration);
+        await pool.query(migration0001);
+        await pool.query(migration0005);
     });
 
     beforeEach(async () => {
@@ -105,6 +113,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
                 endMs: 500,
                 transcript: "ulang",
                 final: true,
+                speaker: null,
             },
         ]);
         expect(found?.audioSha256).toBe("0000beef");
@@ -134,5 +143,41 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
             sessionId: "sess-silent",
             turns: [],
         });
+    });
+
+    it("round-trips speaker labels and null speakers in DIARIZATION and ENDPOINTING turns", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const sessionWithMixedSpeakers: TranscriptionRecord = {
+            sessionId: "sess-diarization-db",
+            locale: "id",
+            audioSha256: "abc123sha",
+            audioBytes: 16000,
+            metaSessionId: "meta_sess_diar",
+            transcript: "halo mandor siap",
+            audioDurationMs: 2000,
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 1000,
+                    transcript: "halo mandor",
+                    final: true,
+                    speaker: "A",
+                },
+                {
+                    turn_id: "turn_2",
+                    startMs: 1000,
+                    endMs: 2000,
+                    transcript: "siap",
+                    final: true,
+                    speaker: null,
+                },
+            ],
+        };
+
+        await store.saveTranscription(sessionWithMixedSpeakers);
+        const retrieved = await store.findSession("sess-diarization-db");
+        expect(retrieved).not.toBeNull();
+        expect(retrieved?.turns).toEqual(sessionWithMixedSpeakers.turns);
     });
 });

@@ -1,11 +1,15 @@
 import { AsrError, upstreamError } from "./errors";
 import type { Locale } from "./locale";
 import type { MetaTranscription } from "./turns";
+import { buildKeywords, KEYWORDS, LANGUAGE_BIAS } from "./vocabulary";
+
+export { KEYWORDS, LANGUAGE_BIAS };
 
 /**
  * The one-shot transcription endpoint. `ENDPOINTING` is the mode where the
  * model decides where one turn of speech ends and the next begins — the client
  * never cuts audio, so every quoted range is a boundary Meta chose.
+ * `DIARIZATION` adds speaker labels (e.g. "A", "B").
  */
 export const META_TRANSCRIBE_URL = "https://api.meta.ai/v1/asr/transcribe";
 export const META_ASR_MODEL = "muse-voice-transcribe-1.0";
@@ -13,19 +17,7 @@ export const META_ASR_MODEL = "muse-voice-transcribe-1.0";
 /** Meta caps one request at 10 minutes of audio or 32 MB, whichever comes first. */
 export const MAX_AUDIO_BYTES = 32 * 1024 * 1024;
 
-const LANGUAGE_BIAS: Record<Locale, string[]> = {
-    en: ["English"],
-    id: ["Indonesian"],
-};
-
-/**
- * Site jargon the model would otherwise mis-hear. This biases recognition, it
- * does not constrain it, so a wrong word here costs nothing but a missed hint.
- */
-const KEYWORDS: Record<Locale, string[]> = {
-    en: ["drywall", "rebar", "sq ft", "lin ft", "bags", "bars"],
-    id: ["cakar ayam", "sak", "batang", "titik", "m2", "borongan"],
-};
+export type AsrMode = "ENDPOINTING" | "DIARIZATION";
 
 // The verified client waits 300 s: a 10-minute recording takes a while to decode.
 const TIMEOUT_MS = 300_000;
@@ -35,6 +27,9 @@ export type TranscribeOptions = {
     locale: Locale;
     sessionId: string;
     apiKey: string;
+    mode?: AsrMode;
+    keywords?: string[];
+    languageBias?: string[];
 };
 
 export async function transcribeWithMeta({
@@ -42,6 +37,9 @@ export async function transcribeWithMeta({
     locale,
     sessionId,
     apiKey,
+    mode = "ENDPOINTING",
+    keywords,
+    languageBias,
 }: TranscribeOptions): Promise<MetaTranscription> {
     const body = new FormData();
     body.set(
@@ -49,11 +47,11 @@ export async function transcribeWithMeta({
         new Blob(
             [
                 JSON.stringify({
-                    mode: "ENDPOINTING",
+                    mode,
                     model: META_ASR_MODEL,
                     audioEncoding: "WAV",
-                    languageBias: LANGUAGE_BIAS[locale],
-                    keywords: KEYWORDS[locale],
+                    languageBias: languageBias ?? LANGUAGE_BIAS[locale],
+                    keywords: keywords ?? buildKeywords(locale),
                 }),
             ],
             { type: "application/json" }

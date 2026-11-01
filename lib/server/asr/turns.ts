@@ -11,15 +11,16 @@ export type Turn = {
     endMs: number;
     transcript: string;
     final: true;
+    speaker?: string | null;
 };
 
-/** A turn as Meta returns it. Only `turns` from `ENDPOINTING` reaches this. */
+/** A turn as Meta returns it. Only `turns` from `ENDPOINTING` and `DIARIZATION` reaches this. */
 export type MetaTurn = {
     startMs?: number | null;
     endMs?: number | null;
     transcript?: string | null;
+    speaker?: string | null;
 };
-
 /** The one-shot transcription response. `turns` is absent outside the speech modes. */
 export type MetaTranscription = {
     sessionId?: string | null;
@@ -50,6 +51,7 @@ export function normalizeTurns(meta: MetaTranscription): Turn[] {
                   startMs,
                   endMs: milliseconds(turn.endMs, startMs),
                   transcript: turn.transcript ?? "",
+                  speaker: turn.speaker ?? null,
               };
           })
         : meta.transcript
@@ -58,10 +60,10 @@ export function normalizeTurns(meta: MetaTranscription): Turn[] {
                     startMs: 0,
                     endMs: milliseconds(meta.audioDurationMs, 0),
                     transcript: meta.transcript,
+                    speaker: null,
                 },
             ]
           : [];
-
     const turns: Turn[] = [];
     let previousEnd = 0;
 
@@ -79,6 +81,7 @@ export function normalizeTurns(meta: MetaTranscription): Turn[] {
             endMs: candidate.endMs,
             transcript: candidate.transcript,
             final: true,
+            speaker: candidate.speaker ?? null,
         });
         previousEnd = candidate.endMs;
     }

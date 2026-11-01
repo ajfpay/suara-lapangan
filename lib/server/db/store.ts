@@ -45,8 +45,9 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 start_ms: number;
                 end_ms: number;
                 transcript: string;
+                speaker: string | null;
             }>(
-                "select turn_index, start_ms, end_ms, transcript from turns where session_id = $1 order by turn_index",
+                "select turn_index, start_ms, end_ms, transcript, speaker from turns where session_id = $1 order by turn_index",
                 [sessionId]
             );
 
@@ -60,6 +61,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                     endMs: row.end_ms,
                     transcript: row.transcript,
                     final: true,
+                    speaker: row.speaker ?? null,
                 })),
             };
         },
@@ -98,7 +100,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 ]);
                 for (const [index, turn] of record.turns.entries()) {
                     await client.query(
-                        "insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final) values ($1, $2, $3, $4, $5, $6)",
+                        "insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final, speaker) values ($1, $2, $3, $4, $5, $6, $7)",
                         [
                             record.sessionId,
                             index + 1,
@@ -106,10 +108,10 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                             turn.endMs,
                             turn.transcript,
                             turn.final,
+                            turn.speaker ?? null,
                         ]
                     );
                 }
-
                 await client.query("commit");
             } catch (cause) {
                 await client.query("rollback");
