@@ -28,13 +28,14 @@ test("full chain: seed session → susun → confirm → dokumen → PDF downloa
     page,
 }) => {
     const sessionId = uniqueSessionId("e2e-fullchain");
-    seedSession(sessionId);
 
     try {
+        // Seeding happens inside the try: a failure here (e.g. a half-applied
+        // insert) is still cleaned up by the finally, so a red run never leaks
+        // seeded rows.
+        await seedSession(sessionId);
         await fullChain(page, sessionId);
     } finally {
-        // Clean up even when an assertion fails, so a red run never leaks
-        // seeded rows into the database.
         await deleteSession(sessionId);
     }
 });
@@ -99,12 +100,18 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
     // wrote must be complete, valid, and consistent with what the UI showed.
     // The PDF was downloaded, so pdf_path must be set and exist on disk, and
     // the confirmed document must have no open confirmations.
-    const { row } = await assertStoredDocument(sessionId, {
+    const { row, data } = await assertStoredDocument(sessionId, {
         expectPdf: true,
         expectConfirmed: true,
     });
     expect(row.nomor).toBe(nomor!);
     expect(row.status).toBe("siap");
+
+    // The UI's manual correction must be what hit the database: the stored
+    // document carries volume 16 for pekerjaan[1], not the defective "square
+    // feet" text the ASR guard flagged.
+    const pekerjaan = data.pekerjaan as { volume: number }[];
+    expect(pekerjaan[1]?.volume).toBe(16);
 
     return nomor!;
 }
@@ -112,10 +119,11 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
 test("two document creations produce different numbers", async ({ page }) => {
     const firstId = uniqueSessionId("e2e-nomor");
     const secondId = uniqueSessionId("e2e-nomor");
-    seedSession(firstId);
-    seedSession(secondId);
 
     try {
+        await seedSession(firstId);
+        await seedSession(secondId);
+
         const firstNomor = await createDocumentNumber(page, firstId);
         const secondNomor = await createDocumentNumber(page, secondId);
 

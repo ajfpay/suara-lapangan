@@ -1,10 +1,11 @@
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
+import path from "node:path";
 import { expect, type Page } from "@playwright/test";
 
 // `pg` is the app's own PostgreSQL driver; using it keeps row reads typed
 // instead of parsing psql's text output.
-import { Pool, type PoolClient } from "pg";
+import { Pool } from "pg";
 
 /**
  * A session id for one run, matching the app's `^[A-Za-z0-9_-]{1,64}$`.
@@ -26,35 +27,14 @@ function sqlLiteral(value: string): string {
 }
 
 /**
- * Runs one SQL statement through `psql` against the app's own database.
- *
- * The connection string is split into `PG*` variables rather than passed as an
- * argument, so it never reaches an argument list, a log line, or an error
- * message.
+ * Runs one SQL statement through the app's own `pg` pool. Replacing a
+ * `psql` subprocess with the driver the app itself uses removes a binary the
+ * repository never declares as a requirement, and keeps URL handling identical
+ * to the app's.
  */
-export function runSql(sql: string): void {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-        throw new Error(
-            "DATABASE_URL is required: the full-chain test seeds its session through the app's own store"
-        );
-    }
-
-    const url = new URL(connectionString);
-    execFileSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-q", "-c", sql], {
-        env: {
-            ...process.env,
-            PGHOST: url.hostname,
-            PGPORT: url.port || "5432",
-            PGUSER: decodeURIComponent(url.username),
-            PGPASSWORD: decodeURIComponent(url.password),
-            PGDATABASE: decodeURIComponent(url.pathname.replace(/^\//, "")),
-            PGSSLMODE:
-                url.searchParams.get("sslmode") ??
-                process.env.PGSSLMODE ??
-                "prefer",
-        },
-        stdio: ["ignore", "pipe", "pipe"],
+export async function runSql(sql: string): Promise<void> {
+    await withDb(async (pool) => {
+        await pool.query(sql);
     });
 }
 
@@ -87,14 +67,14 @@ export const SEEDED_TURNS = [
  * The session row is all the POST /api/documents route reads (`findSession`),
  * so the rest of the chain runs against the real routes.
  */
-export function seedSession(sessionId: string): void {
+export async function seedSession(sessionId: string): Promise<void> {
     const transcript = SEEDED_TURNS.map((turn) => turn.transcript).join(" ");
     const turns = SEEDED_TURNS.map(
         (turn, index) =>
             `(${sqlLiteral(sessionId)}, ${index + 1}, ${turn.startMs}, ${turn.endMs}, ${sqlLiteral(turn.transcript)}, true)`
     ).join(",\n            ");
 
-    runSql(`
+    await runSql(`
         insert into sessions
             (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, updated_at)
         values
@@ -106,9 +86,29 @@ export function seedSession(sessionId: string): void {
     `);
 }
 
-/** Removes the seeded session; its turns and documents go with it (cascade). */
-export function deleteSession(sessionId: string): void {
-    runSql(`delete from sessions where id = ${sqlLiteral(sessionId)};`);
+/**
+ * Removes the seeded session; its turns and documents go with it (cascade).
+ * The PDF route writes `{documentId}.pdf` (+ `.hash` sidecar) into
+ * `PDF_STORAGE_DIR`, so those artifacts are removed too — a teardown must
+ * leave no traces behind, in the database or on disk.
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+    const docRows = await query<{ id: string }>(
+        "select id from documents where session_id = $1",
+        [sessionId]
+    );
+    await runSql(`delete from sessions where id = ${sqlLiteral(sessionId)};`);
+
+    const storageDir = process.env.PDF_STORAGE_DIR;
+    if (!storageDir || docRows.length === 0) return;
+
+    for (const doc of docRows) {
+        for (const suffix of ["", ".hash"]) {
+            await rm(path.resolve(storageDir, `${doc.id}.pdf${suffix}`), {
+                force: true,
+            });
+        }
+    }
 }
 
 /**
@@ -140,19 +140,6 @@ export async function query<T extends Record<string, unknown>>(
 }
 
 /** Safer concurrency: borrows a client so transaction-scoped reads are possible. */
-export async function withClient<T>(
-    fn: (client: PoolClient) => Promise<T>
-): Promise<T> {
-    return withDb(async (pool) => {
-        const client = await pool.connect();
-        try {
-            return await fn(client);
-        } finally {
-            client.release();
-        }
-    });
-}
-
 /**
  * Validates the stored document row for a session against the document-pipeline
  * contract (ticket 01–06) at the database level.

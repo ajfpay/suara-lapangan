@@ -10,6 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: suara
+          POSTGRES_PASSWORD: suara
+          POSTGRES_DB: suara_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suara -d suara_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+      PDF_STORAGE_DIR: /home/runner/work/suara-lapangan/suara-lapangan/data/pdf-e2e
+
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +54,11 @@ jobs:
       # WebKit would add minutes per run for browsers nothing here targets.
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
+
+      # The e2e suite seeds its session and asserts rows in a real Postgres,
+      # so the schema must exist before the app boots.
+      - name: Migrate test database
+        run: node db/migrate.mjs
 
       # Builds and serves the production bundle (see playwright.config.ts).
       - name: Smoke tests
