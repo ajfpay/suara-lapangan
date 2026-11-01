@@ -10,6 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: suara
+          POSTGRES_PASSWORD: suara
+          POSTGRES_DB: suara_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suara -d suara_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+      PDF_STORAGE_DIR: /home/runner/work/suara-lapangan/suara-lapangan/data/pdf-e2e
+
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +54,24 @@ jobs:
       # WebKit would add minutes per run for browsers nothing here targets.
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
+
+      # The PDF route renders through puppeteer-core, which needs an explicit
+      # executable path. Point it at the Chromium just installed — the app's
+      # built-in fallback is a developer-machine path that does not exist on
+      # this runner.
+      - name: Locate Chromium for PDF rendering
+        run: |
+          CHROME_BIN=$(find "$HOME/.cache/ms-playwright" -type f -name chrome -path "*chrome-linux*" | head -n 1)
+          if [ -z "$CHROME_BIN" ]; then
+            echo "::error::Chromium binary not found under $HOME/.cache/ms-playwright"
+            exit 1
+          fi
+          echo "CHROME_PATH=$CHROME_BIN" >> "$GITHUB_ENV"
+
+      # The e2e suite seeds its session and asserts rows in a real Postgres,
+      # so the schema must exist before the app boots.
+      - name: Migrate test database
+        run: node db/migrate.mjs
 
       # Builds and serves the production bundle (see playwright.config.ts).
       - name: Smoke tests
