@@ -110,22 +110,6 @@ async function handlePost(
         );
     }
 
-    let reservation: Awaited<ReturnType<typeof reserveEmailSend>> | null = null;
-    try {
-        reservation = await reserveEmailSend({ locale: reqLocale });
-    } catch (cause) {
-        if (cause instanceof EmailQuotaExceededError) {
-            return NextResponse.json(
-                {
-                    error: cause.code,
-                    message: cause.message,
-                },
-                { status: 429 }
-            );
-        }
-        throw cause;
-    }
-
     const store = getPostgresDocumentStore();
     let stored: StoredDocument | null;
     try {
@@ -189,6 +173,29 @@ async function handlePost(
         );
     }
 
+    // Reserve a quota slot only after the document exists and passes the
+    // status checks, so a 404/409/500 does not consume a daily slot.
+    let reservation: Awaited<ReturnType<typeof reserveEmailSend>> | null = null;
+    try {
+        reservation = await reserveEmailSend({ locale: reqLocale });
+    } catch (cause) {
+        if (cause instanceof EmailQuotaExceededError) {
+            return NextResponse.json(
+                {
+                    error: cause.code,
+                    message: cause.message,
+                },
+                {
+                    status: 429,
+                    headers: {
+                        "X-Quota-Hard-Stop": "true",
+                    },
+                }
+            );
+        }
+        throw cause;
+    }
+
     const storageDir = resolvePdfStorageDir();
     const contentHash = contentHashOf(stored.document);
     let pdfBuffer: Buffer | null = null;
@@ -242,7 +249,13 @@ async function handlePost(
 
     if (!pdfBuffer) {
         if (reservation) {
-            await releaseEmailSend().catch(() => undefined);
+            await releaseEmailSend().catch((cause) => {
+                console.error(
+                    redactSecrets(
+                        `[email] failed to release quota reservation: ${String(cause)}`
+                    )
+                );
+            });
         }
         return NextResponse.json(
             {
@@ -277,7 +290,13 @@ async function handlePost(
             redactSecrets(`[email] delivery failed: ${String(cause)}`)
         );
         if (reservation) {
-            await releaseEmailSend().catch(() => undefined);
+            await releaseEmailSend().catch((releaseCause) => {
+                console.error(
+                    redactSecrets(
+                        `[email] failed to release quota reservation: ${String(releaseCause)}`
+                    )
+                );
+            });
         }
         return NextResponse.json(
             {

@@ -410,9 +410,9 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         // The reserved slot is released when no PDF is available: the failed
         // attempt does not consume today's send quota.
         expect(await getEmailSends()).toBe(0);
-        });
+    });
 
-        it("rejects a stale PDF snapshot whose hash does not match the current document", async () => {
+    it("rejects a stale PDF snapshot whose hash does not match the current document", async () => {
         const doc = createTestDocument({ nomor: "SL/QTN/2026/0005", locale: "id" });
         const { id } = await seedDocument(doc);
         // Write a PDF whose sidecar hash is the PDF bytes' hash, not the
@@ -623,11 +623,72 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
 
         expect(res.status).toBe(429);
         const body = await res.json();
-        expect(body.error).toBe("email_quota_exceeded");
+        expect(body.error).toBe("quota_exceeded");
         expect(body.message).toBe(
             "Daily email send limit reached. Try again tomorrow."
         );
+        expect(res.headers.get("x-quota-hard-stop")).toBe("true");
         expect(sendMailMock).not.toHaveBeenCalled();
+    });
+
+    it("404 and 409 (needs_confirmation / already_sent) do not consume quota", async () => {
+        process.env.EMAIL_DAILY_SEND_LIMIT = "1";
+
+        // Unknown document -> 404, no reservation, no send.
+        const unknownId = "00000000-0000-0000-0000-000000000099";
+        const unknownReq = new Request(
+            `http://localhost/api/documents/${unknownId}/email`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            }
+        );
+        const unknownRes = await POST(unknownReq, {
+            params: Promise.resolve({ id: unknownId }),
+        });
+        expect(unknownRes.status).toBe(404);
+
+        // needs_confirmation -> 409, no reservation, no send.
+        const confDoc = createTestDocument({
+            butuh_konfirmasi: [
+                {
+                    field: "pekerjaan[0].volume",
+                    alasan: "Volume tidak jelas",
+                    sumber_kutipan: "turn_1",
+                },
+            ],
+        });
+        const conf = await seedDocument(confDoc);
+        const confReq = new Request(
+            `http://localhost/api/documents/${conf.id}/email`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            }
+        );
+        const confRes = await POST(confReq, {
+            params: Promise.resolve({ id: conf.id }),
+        });
+        expect(confRes.status).toBe(409);
+        expect(confRes.headers.get("x-quota-hard-stop")).toBeNull();
+
+        // None of the rejected attempts consumed a slot: with limit 1, a
+        // valid send must still succeed.
+        const doc = createTestDocument({ nomor: "SL/QTN/2026/0015", locale: "id" });
+        const { id } = await seedDocument(doc);
+        await seedPdfFile(id, doc);
+        const req = new Request(`http://localhost/api/documents/${id}/email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: "user@example.com" }),
+        });
+        const res = await POST(req, {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        expect(sendMailMock).toHaveBeenCalledTimes(1);
     });
 
     it("after successful send, quota count incremented (assert via getEmailSends and direct DB query)", async () => {

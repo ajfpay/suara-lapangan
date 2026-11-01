@@ -5,6 +5,13 @@ export { DEFAULT_USER_ID, formatDay };
 
 export const DEFAULT_EMAIL_DAILY_SEND_LIMIT = 100;
 
+/**
+ * Upper bound considered sane for a daily send limit. A configured value
+ * above this is almost certainly a typo (e.g. an extra zero) and would
+ * silently disable the quota, so it is rejected in favour of the default.
+ */
+export const MAX_EMAIL_DAILY_SEND_LIMIT = 10_000;
+
 export type RecordEmailSendParams = {
     day?: string | Date;
     date?: string | Date;
@@ -30,10 +37,15 @@ export function getEmailDailySendLimit(): number {
             !isNaN(parsed) &&
             parsed > 0 &&
             Number.isInteger(parsed) &&
-            /^\s*\d+\s*$/.test(raw)
+            /^\s*\d+\s*$/.test(raw) &&
+            parsed <= MAX_EMAIL_DAILY_SEND_LIMIT
         ) {
             return parsed;
         }
+        console.warn(
+            `[email] EMAIL_DAILY_SEND_LIMIT=${raw} ignored (must be a positive ` +
+                `integer up to ${MAX_EMAIL_DAILY_SEND_LIMIT}); using default ${DEFAULT_EMAIL_DAILY_SEND_LIMIT}`
+        );
     }
     return DEFAULT_EMAIL_DAILY_SEND_LIMIT;
 }
@@ -63,7 +75,7 @@ export function isRecipientAllowed(recipient: string): boolean {
 }
 
 export class EmailQuotaExceededError extends Error {
-    readonly code = "email_quota_exceeded" as const;
+    readonly code = "quota_exceeded" as const;
     readonly status = 429;
     readonly count: number;
     readonly limit: number;

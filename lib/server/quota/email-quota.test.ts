@@ -113,6 +113,10 @@ describe("email-quota (in-memory)", () => {
 
         process.env.EMAIL_DAILY_SEND_LIMIT = "50abc";
         expect(getEmailDailySendLimit()).toBe(100);
+
+        // A value above the sanity ceiling is treated as a typo.
+        process.env.EMAIL_DAILY_SEND_LIMIT = "1000000";
+        expect(getEmailDailySendLimit()).toBe(100);
     });
 
     it("formats dates and timestamps consistently", () => {
@@ -161,7 +165,7 @@ describe("email-quota (in-memory)", () => {
         } catch (error) {
             expect(error).toBeInstanceOf(EmailQuotaExceededError);
             if (error instanceof EmailQuotaExceededError) {
-                expect(error.code).toBe("email_quota_exceeded");
+                expect(error.code).toBe("quota_exceeded");
                 expect(error.status).toBe(429);
                 expect(error.count).toBe(2);
                 expect(error.limit).toBe(2);
@@ -371,5 +375,24 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres email quota store", () => {
         expect(
             await postgresStore.getEmailSends("2026-11-01", "user-atomic")
         ).toBe(1);
+    });
+
+    it("reserveEmailSend is race-safe under concurrent reservations in postgres", async () => {
+        const userId = "user-race";
+        const day = "2026-11-01";
+        const limit = 5;
+        const attempts = 12;
+
+        const results = await Promise.all(
+            Array.from({ length: attempts }, () =>
+                postgresStore.reserveEmailSend(limit, { userId, day })
+            )
+        );
+
+        const okCount = results.filter((r) => r.ok).length;
+        expect(okCount).toBe(limit);
+        expect(
+            await postgresStore.getEmailSends(day, userId)
+        ).toBe(limit);
     });
 });
