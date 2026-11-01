@@ -137,7 +137,11 @@ function extractTermsFromText(text: string): string[] {
     // include it directly.
     const words = trimmed.split(/\s+/);
     if (words.length <= 4 && !/[.!?]$/.test(trimmed)) {
-        if (!COMMON_STOP_WORDS.has(trimmed.toLowerCase())) {
+        const isAllStopWords = words.every((word) => {
+            const cleaned = word.toLowerCase().replace(/[^a-z0-9_-]/g, "");
+            return cleaned.length > 0 && COMMON_STOP_WORDS.has(cleaned);
+        });
+        if (!isAllStopWords) {
             extracted.push(trimmed);
         }
     }

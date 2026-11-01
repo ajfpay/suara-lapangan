@@ -76,4 +76,23 @@ describe("vocabulary biasing", () => {
         expect(sakCount).toBe(1);
         expect(m2Count).toBe(1);
     });
+
+    it("does not add short phrases made only of stop words like 'Good morning' or 'Selamat pagi'", () => {
+        const keywordsId = buildKeywords("id", ["Selamat pagi", "Pak Budi"]);
+        expect(keywordsId).not.toContain("Selamat pagi");
+        expect(keywordsId).not.toContain("selamat pagi");
+        expect(keywordsId).not.toContain("Selamat");
+        expect(keywordsId).not.toContain("pagi");
+        expect(keywordsId).toContain("Pak Budi");
+        expect(keywordsId).toContain("Budi");
+
+        const keywordsEn = buildKeywords("en", ["Good morning", "Alice Walker"]);
+        expect(keywordsEn).not.toContain("Good morning");
+        expect(keywordsEn).not.toContain("good morning");
+        expect(keywordsEn).not.toContain("Good");
+        expect(keywordsEn).not.toContain("morning");
+        expect(keywordsEn).toContain("Alice Walker");
+        expect(keywordsEn).toContain("Alice");
+        expect(keywordsEn).toContain("Walker");
+    });
 });
