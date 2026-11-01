@@ -40,7 +40,8 @@
         "uploadPending": "Upload Pending",
         "recording": "Recording...",
         "stop": "Done",
-        "processing": "Processing audio...",
+        "processing": "Processing audio… {seconds}s",
+        "processingHint": "Long recordings take a while — you can leave this tab open.",
         "holdHint": "Touch and hold ≥0.3s",
         "recordingHint": "Press Done when finished speaking"
     },
@@ -53,7 +54,8 @@
         "workItemsEmpty": "No work items yet",
         "workItemsEmptyBody": "There is no recording to assemble. Step 1 adds one.",
         "manualSessionIdLabel": "Or enter Session ID manually:",
-        "manualSessionIdPlaceholder": "e.g. sess-123"
+        "manualSessionIdPlaceholder": "e.g. sess-123",
+        "speakerLabel": "Speaker"
     },
     "dokumen": {
         "heading": "Dokumen",

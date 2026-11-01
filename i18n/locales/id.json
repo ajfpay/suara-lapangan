@@ -40,7 +40,8 @@
         "uploadPending": "Unggah Tertunda",
         "recording": "Merekam...",
         "stop": "Selesai",
-        "processing": "Memproses audio...",
+        "processing": "Memproses audio… {seconds} dtk",
+        "processingHint": "Rekaman panjang membutuhkan waktu — biarkan tab ini terbuka.",
         "holdHint": "Sentuh dan tahan ≥0,3 dtk",
         "recordingHint": "Tekan Selesai setelah selesai berbicara"
     },
@@ -53,7 +54,8 @@
         "workItemsEmpty": "Belum ada item pekerjaan",
         "workItemsEmptyBody": "Belum ada rekaman untuk disusun. Langkah 1 yang menambahkannya.",
         "manualSessionIdLabel": "Atau masukkan ID sesi secara manual:",
-        "manualSessionIdPlaceholder": "contoh: sess-123"
+        "manualSessionIdPlaceholder": "contoh: sess-123",
+        "speakerLabel": "Pembicara"
     },
     "dokumen": {
         "heading": "Dokumen",

@@ -10,6 +10,7 @@ interface RecorderControlProps {
     recording: string;
     stop: string;
     processing: string;
+    processingHint?: string;
     uploadPending: string;
     holdHint: string;
     recordingHint: string;
@@ -84,13 +85,19 @@ export function RecorderControl({ copy }: RecorderControlProps) {
           )}
         </button>
 
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground text-center">
           {isRecording
             ? copy.recordingHint
             : isProcessing
-            ? copy.processing
+            ? copy.processing.replace("{seconds}", String(duration))
             : copy.holdHint}
         </p>
+
+        {isProcessing && copy.processingHint && (
+          <p className="text-xs text-muted-foreground/80 text-center max-w-xs -mt-2">
+            {copy.processingHint}
+          </p>
+        )}
 
         {isRecording && (
           <div

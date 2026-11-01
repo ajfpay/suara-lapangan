@@ -22,6 +22,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
 
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [duration, setDuration] = useState(0);
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
@@ -101,6 +102,17 @@ export function useRecorder(options: UseRecorderOptions = {}) {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state === "inactive") return;
 
+    if (durationTimerRef.current) {
+      clearInterval(durationTimerRef.current);
+      durationTimerRef.current = null;
+    }
+    setStatus("processing");
+    setDuration(0);
+    setProcessingStartedAt(Date.now());
+    durationTimerRef.current = setInterval(() => {
+      setDuration((prev) => prev + 1);
+    }, 1000);
+
     let resolvePromise: () => void = () => {};
     const promise = new Promise<void>((res) => {
       resolvePromise = res;
@@ -158,6 +170,12 @@ export function useRecorder(options: UseRecorderOptions = {}) {
         setError(message);
         setStatus("error");
         resolvePromise();
+      } finally {
+        if (durationTimerRef.current) {
+          clearInterval(durationTimerRef.current);
+          durationTimerRef.current = null;
+        }
+        setProcessingStartedAt(null);
       }
     };
 
@@ -198,6 +216,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
     isRecording: status === "recording",
     isProcessing: status === "processing",
     duration,
+    processingStartedAt,
     error,
     isOnline,
     pendingCount,

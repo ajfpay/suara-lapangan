@@ -7,7 +7,7 @@ import en from "@/i18n/locales/en.json";
 import id from "@/i18n/locales/id.json";
 
 import { TurnReview } from "./TurnReview";
-
+import { TurnCard } from "./TurnCard";
 vi.mock("next/navigation", () => ({
     useSearchParams: () => new URLSearchParams(),
 }));
@@ -77,9 +77,13 @@ describe("TurnReview", () => {
         ).toBeDefined();
         await waitFor(() => {
             expect(screen.queryByText(/Session ID/i)).toBeNull();
-            expect(screen.queryByText(en.susun.manualSessionIdLabel)).toBeNull();
+            expect(
+                screen.queryByText(en.susun.manualSessionIdLabel)
+            ).toBeNull();
             expect(container.textContent).not.toContain("Session ID");
-            expect(container.textContent).not.toContain(en.susun.manualSessionIdLabel);
+            expect(container.textContent).not.toContain(
+                en.susun.manualSessionIdLabel
+            );
         });
     });
 
@@ -105,5 +109,28 @@ describe("TurnReview", () => {
         expect(
             await screen.findByText(en.susun.manualSessionIdLabel)
         ).toBeDefined();
+    });
+
+    it("renders speaker badge when turn.speaker is present", () => {
+        render(
+            <TurnCard
+                index={1}
+                locale="id"
+                isPlaying={false}
+                onPlay={() => {}}
+                isUnavailable={false}
+                onDismissUnavailable={() => {}}
+                turn={{
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 1000,
+                    transcript: "halo mandor",
+                    speaker: "A",
+                }}
+            />
+        );
+
+        const badge = screen.getByTestId("speaker-badge-1");
+        expect(badge.textContent).toContain("Pembicara A");
     });
 });
