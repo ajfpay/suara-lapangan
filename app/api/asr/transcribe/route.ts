@@ -5,7 +5,7 @@ import {
     type Locale,
 } from "@/lib/server/asr/locale";
 import { logAsrFailure } from "@/lib/server/asr/log";
-import { MAX_AUDIO_BYTES } from "@/lib/server/asr/meta";
+import { MAX_AUDIO_BYTES, type AsrMode } from "@/lib/server/asr/meta";
 import { transcribeSession } from "@/lib/server/asr/transcribe";
 import { withRateLimit } from "@/lib/server/quota/rate-limit";
 import { QuotaExceededError } from "@/lib/server/quota/usage-meter";
@@ -15,13 +15,14 @@ import { QuotaExceededError } from "@/lib/server/quota/usage-meter";
  * line, and it must be stable enough to be the idempotency key.
  */
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const VALID_MODES = ["ENDPOINTING", "DIARIZATION"] as const;
 
 type Upload = {
     sessionId: string;
     locale: Locale;
     audio: Uint8Array;
+    mode: AsrMode;
 };
-
 async function parseUpload(request: Request): Promise<Upload> {
     let form: FormData;
     try {
@@ -58,14 +59,25 @@ async function parseUpload(request: Request): Promise<Upload> {
             detail: "locale is not one of the shipped locales",
         });
     }
+    const modeRaw = form.get("mode");
+    let mode: AsrMode = "ENDPOINTING";
+    if (modeRaw !== null && modeRaw !== undefined && modeRaw !== "") {
+        const modeStr = String(modeRaw);
+        if (!VALID_MODES.includes(modeStr as AsrMode)) {
+            throw new AsrError("invalid_request", {
+                detail: `mode must be one of: ${VALID_MODES.join(", ")}`,
+            });
+        }
+        mode = modeStr as AsrMode;
+    }
 
     return {
         sessionId,
         locale,
         audio: new Uint8Array(await audio.arrayBuffer()),
+        mode,
     };
 }
-
 /**
  * Uploads one recording, answers with the numbered turns Meta found in it.
  *
@@ -112,9 +124,7 @@ async function handlePost(request: Request): Promise<Response> {
             error instanceof AsrError
                 ? error
                 : new AsrError("internal_error", { cause: error });
-
         logAsrFailure(failure, { sessionId });
-
         return Response.json(
             {
                 error: {
