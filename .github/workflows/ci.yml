@@ -149,6 +149,7 @@ jobs:
         run: |
           docker run -d --name suara-ci \
             -p 3000:3000 \
+            --add-host=host.docker.internal:host-gateway \
             -e DATABASE_URL=postgres://suara:suara@host.docker.internal:5432/suara \
             -e BETTER_AUTH_SECRET=suara-lapangan-docker-smoke-test-secret-min-32-chars \
             -e NODE_ENV=production \
