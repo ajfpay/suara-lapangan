@@ -4,6 +4,7 @@ import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { Pool } from "pg";
 import type { QuotationDocument } from "@/lib/server/guard/types";
@@ -91,12 +92,27 @@ function shell(html: string): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
 }
 
+const CHROMIUM_CANDIDATES = [
+    process.env.CHROME_PATH,
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/home/ubuntu/.local/bin/chromium",
+];
+
+export function resolveChromiumPath(): string {
+    for (const candidate of CHROMIUM_CANDIDATES) {
+        if (candidate && existsSync(candidate)) return candidate;
+    }
+    // Last resort: legacy Playwright cache path (host dev only).
+    return "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome";
+}
+
 async function renderPdf(html: string): Promise<Buffer> {
     const puppeteer = (await import("puppeteer-core")).default;
     const browser = await puppeteer.launch({
-        executablePath:
-            process.env.CHROME_PATH ??
-            "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome",
+        executablePath: resolveChromiumPath(),
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     try {

@@ -22,6 +22,7 @@ FROM node:22-alpine AS production
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV CHROME_PATH=/usr/bin/chromium
 
 # Chromium needs these at runtime; the Alpine base does not ship them.
 RUN apk add --no-cache \
@@ -39,6 +40,10 @@ COPY --from=build --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
+
+# The PDF route snapshots rendered files under ./data/pdf; the non-root
+# runtime user must be able to create it.
+RUN mkdir -p /app/data/pdf && chown -R nextjs:nodejs /app/data
 
 USER nextjs
 
