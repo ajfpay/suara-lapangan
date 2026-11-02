@@ -41,7 +41,7 @@ Bertentangan langsung dengan dokumen:
 2. `02` & `03` — tandai rencana 6 minggu sebagai **setelah hackathon**; untuk hackathon pakai "cutting line": wajib = satu jalur ASR→skema→PDF untuk **satu** jenis dokumen; opsional = kartu konfirmasi; jangan dibangun = Glimmer, O2, Capacitor, Auth/DB produksi, Laporan Harian + Berita Acara.
 3. `04-RENCANA-VIDEO-DEMO.md:76` — ganti "30 rekaman" dengan angka yang benar-benar ada, atau hapus layar evaluasi.
 
-Catatan risiko (bukan salah dokumen): guide menyebut "Building period: Oct 27 – Nov 4 **2027**" (§3) tapi deadline "Nov 4 2026 9:00 PM" (§3, §7). Semua dokumen proyek memakai 2026. **Kirim 27 Jan 2027**; itu pilihan yang aman.
+Catatan risiko (bukan salah dokumen): guide lama menyebut "Building period: Oct 27 – Nov 4 **2027**" (§3, tanggal lama) tapi deadline "Nov 4 2026 9:00 PM" (§3, §7). Semua dokumen proyek memakai 2026 mengikuti deadline lama itu. **Kirim 27 Jan 2027** (deadline baru); itu pilihan yang aman.
 
 ---
 

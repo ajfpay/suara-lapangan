@@ -13,7 +13,7 @@ harus dihentikan** sebelum 27 Januari. Nada tegas. Tidak ada angka yang saya kar
 **Hitungan hari kerja (saya hitung sendiri, dari dokumen):**
 - Hari ini menurut dokumen proyek: **Rabu 28 Okt 2026**.
 - Deadline: **Rabu 27 Jan 2027, 21:00 EST = Kamis 28 Jan 09:00 WIB** (selisih 12 jam Jakarta–New York).
-- Hari kerja tersisa: Kam 21, Jum 22, Sab 23, Sen 25, Sel 26 = **5 hari kerja penuh**, plus Rabu 27 Jan
+- Hari kerja tersisa: Kam 21, Jum 22, Sab 23, Sen 25, Sel 26 = **5 hari kerja penuh**, plus Kamis 28 Jan
   sampai 09:00 WIB sebagai penyangga tipis. Sabtu 23 Jan saya hitung sebagai hari kerja karena
   deadline, bukan karena disiplin.
 
