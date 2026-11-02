@@ -8,6 +8,17 @@ const nextConfig = {
      * the browser binary's path resolution.
      */
     serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
+    /**
+     * The dev preview binds 127.0.0.1 and sits behind a tailscale proxy.
+     * Without this flag Next builds the middleware request URL from
+     * fetchHostname ("localhost") while the router's init URL uses the raw
+     * bind hostname (127.0.0.1); the origin mismatch makes absolute
+     * middleware redirects proxy the request (TLS to plain HTTP -> EPROTO),
+     * so /en/login and /en/register 500 through the public URL. With this
+     * flag the middleware sees the init URL directly and redirects stay
+     * same-origin.
+     */
+    skipMiddlewareUrlNormalize: true,
 };
 
 module.exports = withNextIntl(nextConfig);

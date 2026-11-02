@@ -24,6 +24,8 @@ interface RecorderControlProps {
 }
 
 export function RecorderControl({ copy }: RecorderControlProps) {
+  const params = useParams();
+  const locale = String(params?.locale ?? "id");
   const {
     isRecording,
     isProcessing,
@@ -36,9 +38,7 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     handlePointerCancel,
     mode,
     setMode,
-  } = useRecorder();
-  const params = useParams();
-  const locale = String(params?.locale ?? "id");
+  } = useRecorder({ locale });
   const { data: authSession, isPending } = useSession();
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);

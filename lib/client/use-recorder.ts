@@ -15,6 +15,11 @@ export interface UseRecorderOptions {
    * `${sessionId}${crypto.randomUUID()}`.
    */
   sessionId?: string;
+  /**
+   * Route locale ("en" | "id") the recorder page runs under. Passed to the
+   * record queue so the upload carries a locale the ASR route accepts.
+   */
+  locale?: string;
   onRecordingComplete?: (blob: Blob) => void;
   minPressDurationMs?: number;
   mode?: AsrMode;
@@ -47,20 +52,20 @@ export function useRecorder(options: UseRecorderOptions = {}) {
 
   const refreshPendingCount = useCallback(async () => {
     try {
-      const q = getRecordQueue();
+      const q = getRecordQueue(options.locale);
       const pending = await q.getPending();
       setPendingCount(pending.length);
     } catch {
       // IndexedDB access may fail in private mode or SSR
     }
-  }, []);
+  }, [options.locale]);
 
   useEffect(() => {
     setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
 
     const handleOnline = () => {
       setIsOnline(true);
-      getRecordQueue().processQueue().then(refreshPendingCount);
+      getRecordQueue(options.locale).processQueue().then(refreshPendingCount);
     };
 
     const handleOffline = () => {
@@ -153,7 +158,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
         await audioCtx.close();
 
         const wavBlob = toWav16k(audioBuffer);
-        const queue = getRecordQueue();
+        const queue = getRecordQueue(options.locale);
         // Every completed recording requires a unique sessionId:
         // 1. RecordQueue dedupes by sessionId; with an already-uploaded record, a matching
         //    sessionId causes subsequent recordings to be silently discarded.

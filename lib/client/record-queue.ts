@@ -24,6 +24,12 @@ export interface StoredRecording {
 
 export interface RecordQueueOptions {
   uploadUrl: string;
+  /**
+   * Route locale ("en" | "id") the recorder page runs under. Sent as the ASR
+   * `locale` field: the server only accepts shipped locales, so this must be
+   * the route locale, never a BCP-47 tag like "id-ID".
+   */
+  locale?: string;
 }
 
 /**
@@ -37,10 +43,12 @@ export interface RecordQueueOptions {
  */
 export class RecordQueue {
   private readonly uploadUrl: string;
+  private readonly locale: string;
   private db: IDBDatabase | null = null;
 
-  constructor({ uploadUrl }: RecordQueueOptions) {
+  constructor({ uploadUrl, locale = "id" }: RecordQueueOptions) {
     this.uploadUrl = uploadUrl;
+    this.locale = locale;
   }
 
   private async openDb(): Promise<IDBDatabase> {
@@ -160,7 +168,7 @@ export class RecordQueue {
       const form = new FormData();
       form.append("audio", record.blob, "recording.wav");
       form.append("sessionId", record.sessionId);
-      form.append("locale", "id");
+      form.append("locale", this.locale);
       form.append("mode", record.mode ?? "ENDPOINTING");
       try {
         const res = await fetch(this.uploadUrl, { method: "POST", body: form });
@@ -197,10 +205,12 @@ let _instance: RecordQueue | null = null;
 
 /**
  * Get the singleton RecordQueue instance.
+ * Pass the route locale ("en" | "id") once so uploads carry a locale the
+ * server accepts; later calls keep the first instance.
  */
-export function getRecordQueue(): RecordQueue {
+export function getRecordQueue(locale?: string): RecordQueue {
   if (!_instance) {
-    _instance = new RecordQueue({ uploadUrl: "/api/asr/transcribe" });
+    _instance = new RecordQueue({ uploadUrl: "/api/asr/transcribe", locale });
   }
   return _instance;
 }
