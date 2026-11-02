@@ -4,7 +4,7 @@
 `~/repos/suara-lapangan` pada commit `56a112a`. Repositori GitHub belum dibuat; publikasi dan
 implementasi lanjutan menunggu arahan pemilik.
 **Tanggal:** 28 Oktober 2026 (status disinkronkan 29 Oktober 2026)
-**Hackathon:** Meta (jendela karya dinilai 27 Okt – 4 Nov 2026)
+**Hackathon:** Meta (jendela karya dinilai 19 Jan – 27 Jan 2027)
 
 ---
 
@@ -145,5 +145,5 @@ Fakta ini yang membentuk arsitektur, bukan tebakan:
 - Tanpa sinyal, catatan tetap tersimpan di perangkat (unggah tertunda). Tidak ada klaim transkripsi
   offline di ponsel. Muse Glimmer hanya jalur "Best Open Weight" di satu laptop, dan sampai diuji
   dengan angka statusnya **dirancang**, bukan berjalan.
-- Kalender aktif menuju submit adalah **Gate Harian GD1–GD4 (tenggat internal: Selasa 3 Nov 2026,
+- Kalender aktif menuju submit adalah **Gate Harian GD1–GD4 (tenggat internal: Selasa 26 Jan 2027,
   16:59 UTC / 23:59 WIB)**; tangga Gate Minggu 1 sampai Minggu 6 adalah peta jalan pasca-hackathon.

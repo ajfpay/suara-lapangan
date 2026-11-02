@@ -1,10 +1,10 @@
 # D — Pemeriksaan Bantahan (Adversarial)
 
 **Tanggal:** 28 Okt 2026 · **Pemeriksa:** Reality Checker
-**Deadline submit:** 4 Nov 2026, 21:00 EST
+**Deadline submit:** 27 Jan 2027, 21:00 EST
 
 Tulisan ini menjawab satu pertanyaan: **apa yang wajib selesai, apa yang boleh ditunda, dan apa yang
-harus dihentikan** sebelum 4 November. Nada tegas. Tidak ada angka yang saya karang.
+harus dihentikan** sebelum 27 Januari. Nada tegas. Tidak ada angka yang saya karang.
 
 ---
 
@@ -12,13 +12,13 @@ harus dihentikan** sebelum 4 November. Nada tegas. Tidak ada angka yang saya kar
 
 **Hitungan hari kerja (saya hitung sendiri, dari dokumen):**
 - Hari ini menurut dokumen proyek: **Rabu 28 Okt 2026**.
-- Deadline: **Selasa 4 Nov 2026, 21:00 EST = Rabu 5 Nov 09:00 WIB** (selisih 13 jam Jakarta–New York).
-- Hari kerja tersisa: Kam 29, Jum 30, Sab 31, Sen 2, Sel 3 = **5 hari kerja penuh**, plus Rabu 5 Nov
-  sampai 09:00 WIB sebagai penyangga tipis. Sabtu 31 Okt saya hitung sebagai hari kerja karena
+- Deadline: **Rabu 27 Jan 2027, 21:00 EST = Kamis 28 Jan 09:00 WIB** (selisih 12 jam Jakarta–New York).
+- Hari kerja tersisa: Kam 21, Jum 22, Sab 23, Sen 25, Sel 26 = **5 hari kerja penuh**, plus Rabu 27 Jan
+  sampai 09:00 WIB sebagai penyangga tipis. Sabtu 23 Jan saya hitung sebagai hari kerja karena
   deadline, bukan karena disiplin.
 
 **Yang harus saya katakan lebih dulu:** keempat ADR menjadwalkan shell Android (Capacitor) ke Minggu 3
-dan Glimmer ke Minggu 5–6. Minggu-minggu itu **tidak ada** dalam kalender 4 November. Rencana 6
+dan Glimmer ke Minggu 5–6. Minggu-minggu itu **tidak ada** dalam kalender 27 Januari. Rencana 6
 minggu itu tidak gagal; rencana itu memang tidak pernah cocok dengan tanggal submit. Jadi cutting
 line di bawah bukan pilihan gaya, itu pilihan bertahan.
 
@@ -26,7 +26,7 @@ line di bawah bukan pilihan gaya, itu pilihan bertahan.
 
 | # | Item | Ukuran selesai yang bisa dibuktikan |
 |---|---|---|
-| W1 | **Repo publik + README jujur** menyatakan apa yang dibuat 27 Okt–4 Nov (syarat G4). Tanpa repo, tidak ada yang dinilai | Tautan bisa dibuka tanpa login |
+| W1 | **Repo publik + README jujur** menyatakan apa yang dibuat 19 Jan–27 Jan (syarat G4). Tanpa repo, tidak ada yang dinilai | Tautan bisa dibuka tanpa login |
 | W2 | **Video demo ≤ 3 menit** — 25% nilai, dan satu-satunya artefak yang dilihat juri secara utuh | Versi final bisa ditonton tanpa suara, tanpa layar palsu |
 | W3 | **Satu alur ujung-ke-ujung benar-benar jalan**: rekam → transkrip → dokumen → PDF → kirim. Satu jenis dokumen saja — **Surat Penawaran** (putusan KEPUTUSAN-ADR.md §5), sesuai keputusan G2 "bila gagal" | Satu rekaman asli jadi satu PDF utuh |
 | W4 | **Guard angka ADR-0002 hidup**: setiap angka punya `sumber_kutipan`, yang tidak jelas masuk `butuh_konfirmasi` dan status dokumen ditahan | Uji 10 transkrip cacat sengaja: nol angka karangan |
@@ -96,7 +96,7 @@ sekali** dalam 10 detik pertama, lalu koneksi ditutup server.
 
 ### S2 — Video dikerjakan di dua hari terakhir, lalu keluar video yang tidak bisa ditonton tanpa suara
 
-**Gejala awal:** pada **Sabtu 1 Nov pukul 18:00 WIB** belum ada satu berkas video yang bisa dibuka
+**Gejala awal:** pada **Sabtu 23 Jan pukul 18:00 WIB** belum ada satu berkas video yang bisa dibuka
 orang lain; semua materi masih berupa tangkapan layar terpisah di laptop masing-masing. Gejala kedua:
 tidak ada rekaman lapangan mentah sama sekali — hanya rekaman layar.
 
@@ -196,8 +196,8 @@ kontrak itu justru barang yang diminta. Tiga hal yang belum tertulis:
    tidak ada.
 
 **Yang harus terjadi sebelum kode pertama:** bekukan ketiga hal itu sebagai satu halaman, Senin pagi
-(2 Nov). Kalau tidak, "tanpa kode" hari ini berubah jadi "empat orang menulis kode yang tidak saling
-sambung" pada 3 November.
+(25 Jan). Kalau tidak, "tanpa kode" hari ini berubah jadi "empat orang menulis kode yang tidak saling
+sambung" pada 26 Januari.
 
 ---
 

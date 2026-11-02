@@ -1,7 +1,7 @@
 # SPEC — Suara Lapangan MVP (Next.js/invoify base, REST ENDPOINTING ASR)
 
 - **Tanggal:** 28 Okt 2026 · **Status:** DISETUJUI — Gate 1 lulus 28 Okt 2026 (pemilik menyetujui spec; D5 mesin PDF invoify/Chromium = revisi ADR-0003 disetujui; D1 repositori aplikasi = `~/repos/suara-lapangan` disetujui)
-- **Tenggat internal:** Selasa 3 Nov 2026, 16:59 UTC (23:59 WIB)
+- **Tenggat internal:** Selasa 26 Jan 2027, 16:59 UTC (23:59 WIB)
 - **Pemilik keputusan:** Pemilik Produk · **Pelaksana:** A (Mobile), B (Backend), C (Model & Data), D (Desain & Video)
 - **Sumber yang mengikat:** `docs/00`–`05`, `docs/audit/KEPUTUSAN-ADR.md`, putusan Gate Pra-Implementasi AO (`ao-output/…-Validation-Gate-2026-10-28T20-58-16`, vonis **GO BERSYARAT**, kontrak K1–K7), dan **keputusan pemilik 28 Okt 2026 malam** (Q1: basis Next.js `invoify`; Q2: REST `ENDPOINTING` sebagai jalur utama).
 - **Bukti starter code terverifikasi** (klon `~/repos/prototype/.scratch/suara-lapangan-starters/`):
@@ -62,7 +62,7 @@ Aplikasi web (basis Next.js `invoify`) dengan satu alur: **Rekam → Transkrip p
 20. Sebagai anggota tim (A/B/C/D), saya ingin kontrak antar-muka (bentuk audio, bentuk giliran, bentuk dokumen) dibekukan di Hari 1, supaya saya bisa bekerja tanpa menunggu orang lain.
 21. Sebagai D (desain & video), saya ingin dapat merekam demo dari **aplikasi nyata** (tanpa mock, tanpa layar palsu) kapan saja sejak Hari 2, supaya video 3 menit (25% nilai) tidak menunggu hari terakhir.
 22. Sebagai C (model & data), saya ingin menjalankan set evaluasi WER (EN & ID) dan 10 transkrip cacat sebagai tes otomatis yang bisa diulang, supaya klaim akurasi bisa ditelusuri ke berkas.
-23. Sebagai juri hackathon, saya ingin membaca README dwibahasa yang jujur ("dibuat 27 Okt–4 Nov 2026", batas kemampuan ditulis apa adanya), supaya penilaian tidak bergantung pada klaim berlebihan.
+23. Sebagai juri hackathon, saya ingin membaca README dwibahasa yang jujur ("dibuat 19 Jan–27 Jan 2027", batas kemampuan ditulis apa adanya), supaya penilaian tidak bergantung pada klaim berlebihan.
 
 ## Implementation Decisions
 
@@ -194,7 +194,7 @@ Kode `invoify` (MIT) dipertahankan notisnya; dependensi baru wajib lisensi permi
 
 ## Further Notes
 
-- **Kalender aktif (GD1–GD4, tenggat 3 Nov 16:59 UTC):** GD1 bukti nyata (1 transkrip 20 dtk API sungguhan → JSON → PDF, kontrak K1–K7 beku) · GD2 alur E2E + Guard §B2 (guard menolak 1 angka salah) · GD3 video v1 ≤3:00 dari aplikasi nyata · GD4 submit. Rencana 6 minggu = pasca-hackathon.
+- **Kalender aktif (GD1–GD4, tenggat 26 Jan 16:59 UTC):** GD1 bukti nyata (1 transkrip 20 dtk API sungguhan → JSON → PDF, kontrak K1–K7 beku) · GD2 alur E2E + Guard §B2 (guard menolak 1 angka salah) · GD3 video v1 ≤3:00 dari aplikasi nyata · GD4 submit. Rencana 6 minggu = pasca-hackathon.
 - **Batas klaim di video/materi:** dilarang menulis/mengucapkan "real-time", "mengerti bahasa Jawa", "APK", "0 angka karangan", "3 dokumen"; Glimmer tidak disebut; setiap angka di video dapat dibuktikan.
 - **Test runner:** Vitest ditambahkan sebagai devDependency (satu-satunya dependensi baru non-runtime); Playwright sudah ada di `invoify`.
 - **Tracker:** spec ini belum diterbitkan ke issue tracker — repo publik belum ada (Pre-Flight #7). Setelah repo dibuat dengan persetujuan pemilik, spec dipindahkan ke `docs/specs/` repo aplikasi dan diterbitkan sebagai issue.

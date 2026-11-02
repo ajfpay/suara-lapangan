@@ -7,16 +7,16 @@ menentukan isi internalnya sendiri tanpa menunggu.
 
 ---
 
-## 0. Kalender Eksekusi Aktif Hackathon (Gate Harian GD1–GD4 — Tenggat 3 Nov 2026 16:59 UTC)
+## 0. Kalender Eksekusi Aktif Hackathon (Gate Harian GD1–GD4 — Tenggat 26 Jan 2027 16:59 UTC)
 
 Sesuai putusan Gate Pra-Implementasi (`docs/03-GATE-GO-NO-GO.md` & `docs/audit/KEPUTUSAN-ADR.md`), seluruh tim bekerja pada **kalender aktif 4 hari kerja** dengan **7 Kontrak Beku (K1–K7)** dibekukan di Hari 1 pagi. Tabel Minggu 1–6 di §1 adalah **peta jalan pasca-hackathon**.
 
 | Hari | Gate Harian | Orang A (Frontend Next.js) | Orang B (Backend Route Handlers) | Orang C (Model, Schema & Eval) | Orang D (Desain, Template & Video) |
 |---|---|---|---|---|---|
-| **Hari 1 (29 Okt)** | **GD1 — Bukti Nyata & Kontrak K1–K7** | Uji 10 dtk PCM **16 kHz** native (`getUserMedia`/`MediaRecorder`); toggle bahasa `EN` / `ID` di UI; integrasi mock server B (`K5`) | Repo publik (setelah izin pemilik) + rute `POST /api/asr/transcribe` (REST `ENDPOINTING` → `turns[]` Meta → giliran `turn_N`) + **1 transkrip 20 dtk nyata (`Native English` & `Indonesia`) → JSON → PDF (pipeline Chromium `page.pdf()`)** + bekukan `K1/K3/K5/K7` | Bekukan `contracts/document.schema.json` dwibahasa (`locale: "en" \| "id"`, `Quotation / Surat Penawaran` `strict: true`, `K2`) + ≥10 fixture transkrip (`EN` & `ID`) & 10 transkrip cacat (`K4`) | Bekukan spesifikasi variabel slot template PDF dwibahasa (`Quotation` [USD] & `Surat Penawaran` [IDR], `K6`) + rekaman lokasi mentah |
-| **Hari 2 (30 Okt)** | **GD2 — Alur E2E & Guard §B2** | Alur penuh di aplikasi Next.js (`EN` & `ID`): rekam 16 kHz → REST `ENDPOINTING` → giliran `turn_N` → kartu koreksi `butuh_konfirmasi` (`sumber_kutipan`) + antrean IndexedDB | Guard Angka §B2 dwibahasa (isolasi FK `turnId`, satuan & kata kunci `EN`+`ID` ±6 kata, normalisasi pecahan/koma, `amountInWords()` [EN] & `terbilang()` [ID] di server, nomor dokumen server) + hard-stop kuota | Evaluasi Gate 1 dipercepat pada set `Native English` (WER ≤10%) dan 10–15 rekaman `Indonesia beraksen` (bila WER ID >25% → **STOP/Pivot 24 jam**) + tes otomatis 10 transkrip cacat | Implementasi visual template PDF dwibahasa (`Quotation / Estimate` & `Surat Penawaran`) bersama B |
-| **Hari 3 (2 Nov)** | **GD3 — Video v1 & Hardening** | Rekam layar alur nyata (`EN` & `ID`) tanpa mock (`app.js:9` hardcoded sudah dihapus); bukti mode pesawat (`O1`) | Proxy WSS realtime (hanya bila GD2 sudah lulus 100%; bukan syarat submit), redaksi log `accessToken`, rate limit per rute | Verifikasi akurasi field beruang pada dokumen `Quotation` (EN) & `Surat Penawaran` (ID) serta audit 0 halusinasi angka | **Produksi Video Demo v1 (≤ 3:00, subjudul bahasa Inggris untuk juri global)** dari aplikasi nyata + tontonan uji 3 orang non-teknis |
-| **Hari 4 (3 Nov)** | **GD4 — Submit (≤16:59 UTC / 23:59 WIB)** | Bekukan rilis PWA & verifikasi di 3 perangkat | Bekukan backend, cek kepatuhan lisensi paket & README dwibahasa ("dibuat 27 Okt–4 Nov") | Terbitkan lembar evaluasi jujur (`EN` & `ID`) di repo | Finalisasi video 16:9 + 9:16 & kirim submission sebelum 16:59 UTC |
+| **Hari 1 (21 Jan)** | **GD1 — Bukti Nyata & Kontrak K1–K7** | Uji 10 dtk PCM **16 kHz** native (`getUserMedia`/`MediaRecorder`); toggle bahasa `EN` / `ID` di UI; integrasi mock server B (`K5`) | Repo publik (setelah izin pemilik) + rute `POST /api/asr/transcribe` (REST `ENDPOINTING` → `turns[]` Meta → giliran `turn_N`) + **1 transkrip 20 dtk nyata (`Native English` & `Indonesia`) → JSON → PDF (pipeline Chromium `page.pdf()`)** + bekukan `K1/K3/K5/K7` | Bekukan `contracts/document.schema.json` dwibahasa (`locale: "en" \| "id"`, `Quotation / Surat Penawaran` `strict: true`, `K2`) + ≥10 fixture transkrip (`EN` & `ID`) & 10 transkrip cacat (`K4`) | Bekukan spesifikasi variabel slot template PDF dwibahasa (`Quotation` [USD] & `Surat Penawaran` [IDR], `K6`) + rekaman lokasi mentah |
+| **Hari 2 (22 Jan)** | **GD2 — Alur E2E & Guard §B2** | Alur penuh di aplikasi Next.js (`EN` & `ID`): rekam 16 kHz → REST `ENDPOINTING` → giliran `turn_N` → kartu koreksi `butuh_konfirmasi` (`sumber_kutipan`) + antrean IndexedDB | Guard Angka §B2 dwibahasa (isolasi FK `turnId`, satuan & kata kunci `EN`+`ID` ±6 kata, normalisasi pecahan/koma, `amountInWords()` [EN] & `terbilang()` [ID] di server, nomor dokumen server) + hard-stop kuota | Evaluasi Gate 1 dipercepat pada set `Native English` (WER ≤10%) dan 10–15 rekaman `Indonesia beraksen` (bila WER ID >25% → **STOP/Pivot 24 jam**) + tes otomatis 10 transkrip cacat | Implementasi visual template PDF dwibahasa (`Quotation / Estimate` & `Surat Penawaran`) bersama B |
+| **Hari 3 (25 Jan)** | **GD3 — Video v1 & Hardening** | Rekam layar alur nyata (`EN` & `ID`) tanpa mock (`app.js:9` hardcoded sudah dihapus); bukti mode pesawat (`O1`) | Proxy WSS realtime (hanya bila GD2 sudah lulus 100%; bukan syarat submit), redaksi log `accessToken`, rate limit per rute | Verifikasi akurasi field beruang pada dokumen `Quotation` (EN) & `Surat Penawaran` (ID) serta audit 0 halusinasi angka | **Produksi Video Demo v1 (≤ 3:00, subjudul bahasa Inggris untuk juri global)** dari aplikasi nyata + tontonan uji 3 orang non-teknis |
+| **Hari 4 (26 Jan)** | **GD4 — Submit (≤16:59 UTC / 23:59 WIB)** | Bekukan rilis PWA & verifikasi di 3 perangkat | Bekukan backend, cek kepatuhan lisensi paket & README dwibahasa ("dibuat 19 Jan–27 Jan") | Terbitkan lembar evaluasi jujur (`EN` & `ID`) di repo | Finalisasi video 16:9 + 9:16 & kirim submission sebelum 16:59 UTC |
 
 ---
 
@@ -49,7 +49,7 @@ Sesuai putusan Gate Pra-Implementasi (`docs/03-GATE-GO-NO-GO.md` & `docs/audit/K
   kalimat untuk melengkapi field kosong.
 - Tombol kirim via WhatsApp (share sheet) + unduh PDF.
 
-**Minggu 3 (Pasca-Hackathon — tidak dibangun sebelum submit 3 Nov)**
+**Minggu 3 (Pasca-Hackathon — tidak dibangun sebelum submit 26 Jan)**
 - Shell Android (`Capacitor`): izin mikrofon, rekam latar, lokasi opsional untuk mengisi tempat kerja.
 - Uji lapangan pertama dengan 3 mandor asli, 5 sesi.
 
