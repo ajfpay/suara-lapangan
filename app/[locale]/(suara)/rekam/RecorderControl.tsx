@@ -48,7 +48,11 @@ export function RecorderControl({ copy }: RecorderControlProps) {
 
   const showPendingBadge = !isOnline || pendingCount > 0;
 
-  if (!isPending && !authSession) {
+  if (!isOnline && !authSession) {
+    // Offline: the session fetch cannot succeed, so don't hide the recorder
+    // (and its pending-upload badge) behind the login gate. Uploads stay
+    // queued until the user is back online and signed in.
+  } else if (!isPending && !authSession) {
     return (
       <div
         className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 sm:p-10"
