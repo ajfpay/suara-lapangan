@@ -142,6 +142,9 @@ jobs:
       - name: Build image
         run: docker build -t suara-lapangan:ci .
 
+      - name: Install dependencies for host-side scripts
+        run: npm ci --ignore-scripts
+
       - name: Migrate database
         run: node db/migrate.mjs
 
