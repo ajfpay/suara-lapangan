@@ -106,3 +106,107 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  # Builds the production Docker image and exercises the PDF route inside the
+  # container. Without this job, regressions that only manifest inside the
+  # image (puppeteer-core pruned by `npm prune --omit=dev`, CHROME_PATH
+  # pointing at a host path that does not exist in the container) pass CI
+  # silently because every other gate runs on the host.
+  docker-pdf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: suara
+          POSTGRES_PASSWORD: suara
+          POSTGRES_DB: suara
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U suara -d suara"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://suara:suara@localhost:5432/suara
+      BETTER_AUTH_SECRET: suara-lapangan-docker-smoke-test-secret-min-32-chars
+      APP_PORT: 3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build image
+        run: docker build -t suara-lapangan:ci .
+
+      - name: Install dependencies for host-side scripts
+        run: npm ci --ignore-scripts
+
+      - name: Migrate database
+        run: node db/migrate.mjs
+
+      - name: Start container
+        run: |
+          docker run -d --name suara-ci \
+            -p 3000:3000 \
+            --add-host=host.docker.internal:host-gateway \
+            -e DATABASE_URL=postgres://suara:suara@host.docker.internal:5432/suara \
+            -e BETTER_AUTH_SECRET=suara-lapangan-docker-smoke-test-secret-min-32-chars \
+            -e NODE_ENV=production \
+            suara-lapangan:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/ -o /dev/null; then
+              echo "container up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::container failed to start"
+          docker logs suara-ci
+          exit 1
+
+      - name: Smoke test PDF inside container
+        env:
+          SMOKE_PORT: "3000"
+        run: |
+          set -eu
+          # Create a verified user + session directly in Postgres so the API
+          # accepts the request. Mirrors e2e/auth-setup.ts without Playwright.
+          node scripts/ci-smoke-seed.mjs > /tmp/smoke_cookie.txt
+          COOKIE=$(cat /tmp/smoke_cookie.txt)
+          DOC_ID=$(curl -fsS -X POST http://localhost:${SMOKE_PORT}/api/documents \
+            -H "Cookie: better-auth.session_token=${COOKIE}" \
+            -H "Content-Type: application/json" \
+            -d @scripts/ci-smoke-payload.json | tee /tmp/created.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0,'utf8')).document.id)")
+          echo "created doc ${DOC_ID}"
+          curl -fsS -o /tmp/out.pdf -w "HTTP %{http_code} size=%{size_download}\n" \
+            -H "Cookie: better-auth.session_token=${COOKIE}" \
+            http://localhost:${SMOKE_PORT}/api/pdf/${DOC_ID}
+          head -c 4 /tmp/out.pdf | xxd
+          head -c 4 /tmp/out.pdf | grep -q '%PDF' || { echo "::error::response is not a PDF"; exit 1; }
+          SIZE=$(stat -c%s /tmp/out.pdf)
+          [ "$SIZE" -gt 1000 ] || { echo "::error::PDF too small: $SIZE bytes"; exit 1; }
+          echo "OK: $(stat -c%s /tmp/out.pdf)-byte PDF"
+
+      - name: Dump container logs on failure
+        if: failure()
+        run: docker logs suara-ci || true
+
+      - name: Stop and remove container
+        if: always()
+        run: docker rm -f suara-ci || true
+
+      - name: Upload PDF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-pdf-smoke
+          path: /tmp/out.pdf
+          retention-days: 7

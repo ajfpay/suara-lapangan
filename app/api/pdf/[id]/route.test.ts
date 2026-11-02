@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting } from "./route";
+import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting, resolveChromiumPath } from "./route";
 import { PATCH } from "@/app/api/documents/[id]/route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
@@ -108,6 +108,16 @@ describe("pdf storage", () => {
     it("readPdf returns null for non-existent path", async () => {
         const tempDir = await makeTempDir();
         expect(await readPdf(path.join(tempDir, "missing.pdf"))).toBeNull();
+    });
+
+    it("resolveChromiumPath throws a clear error when no Chromium exists", () => {
+        const origChromePath = process.env.CHROME_PATH;
+        delete process.env.CHROME_PATH;
+        try {
+            expect(() => resolveChromiumPath(() => false)).toThrow(/no Chromium found.*CHROME_PATH/);
+        } finally {
+            if (origChromePath !== undefined) process.env.CHROME_PATH = origChromePath;
+        }
     });
 
     it("writePdfHash and readPdfHash round-trip hash values", async () => {

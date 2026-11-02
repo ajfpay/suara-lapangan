@@ -1,0 +1,13 @@
+{
+    "sessionId": "docker-smoke-1",
+    "locale": "id",
+    "turns": [
+        {
+            "turn_id": "t1",
+            "startMs": 0,
+            "endMs": 3000,
+            "transcript": "Pekerjaan galian tanah 10 meter kubik harga 150 ribu per meter kubik",
+            "final": true
+        }
+    ]
+}

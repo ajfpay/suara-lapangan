@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+*.log
+coverage
+test-results
+playwright-report
+data
+.env*
