@@ -48,16 +48,28 @@ export function RecorderControl({ copy }: RecorderControlProps) {
 
   const showPendingBadge = !isOnline || pendingCount > 0;
 
-  if (!isOnline && !authSession) {
-    // Offline: the session fetch cannot succeed, so don't hide the recorder
-    // (and its pending-upload badge) behind the login gate. Uploads stay
-    // queued until the user is back online and signed in.
-  } else if (!isPending && !authSession) {
+  const pendingBadge = showPendingBadge ? (
+    <div
+      data-testid="pending-upload-badge"
+      className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
+    >
+      <CloudOff className="h-4 w-4" aria-hidden="true" />
+      <span>
+        {copy.uploadPending}
+        {pendingCount > 0 && ` (${pendingCount})`}
+      </span>
+    </div>
+  ) : null;
+
+  if (!isPending && !authSession) {
     return (
       <div
         className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 sm:p-10"
         data-testid="login-required-notice"
       >
+        {/* Logged-out visitors have no queue of their own, so only show the
+            badge when there is something actually pending. */}
+        {pendingCount > 0 && pendingBadge}
         <LogIn className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
         <p className="text-center text-sm text-muted-foreground">
           {locale === "id"
@@ -76,18 +88,7 @@ export function RecorderControl({ copy }: RecorderControlProps) {
 
   return (
     <div className="mt-8 flex flex-col items-center gap-6 rounded-2xl border border-border bg-card p-6 sm:p-10">
-      {showPendingBadge && (
-        <div
-          data-testid="pending-upload-badge"
-          className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
-        >
-          <CloudOff className="h-4 w-4" aria-hidden="true" />
-          <span>
-            {copy.uploadPending}
-            {pendingCount > 0 && ` (${pendingCount})`}
-          </span>
-        </div>
-      )}
+      {pendingBadge}
 
       {error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm font-medium text-destructive">
