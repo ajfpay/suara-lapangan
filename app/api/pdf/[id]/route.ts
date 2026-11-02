@@ -92,21 +92,21 @@ function shell(html: string): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
 }
 
-const CHROMIUM_CANDIDATES = [
-    process.env.CHROME_PATH,
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/home/ubuntu/.local/bin/chromium",
-];
-
-export function resolveChromiumPath(): string {
-    for (const candidate of CHROMIUM_CANDIDATES) {
-        if (candidate && existsSync(candidate)) return candidate;
+export function resolveChromiumPath(exists: (p: string) => boolean = existsSync): string {
+    const candidates = [
+        process.env.CHROME_PATH,
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/home/ubuntu/.local/bin/chromium",
+        // Legacy Playwright cache path (host dev only).
+        "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome",
+    ];
+    for (const candidate of candidates) {
+        if (candidate && exists(candidate)) return candidate;
     }
-    // Last resort: legacy Playwright cache path (host dev only).
-    return "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome";
+    throw new Error("no Chromium found: set CHROME_PATH to a Chromium binary");
 }
 
 async function renderPdf(html: string): Promise<Buffer> {

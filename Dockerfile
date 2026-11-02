@@ -12,8 +12,8 @@ RUN npm run build
 
 # Drop dev-only packages before they are copied into the runtime image. The
 # `puppeteer` devDependency bundles its own Chromium (hundreds of MB) that
-# production never uses — production runs puppeteer-core with
-# @sparticuz/chromium.
+# production never uses — production uses the apk-installed chromium at
+# /usr/bin/chromium via CHROME_PATH.
 RUN npm prune --omit=dev
 
 
