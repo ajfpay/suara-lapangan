@@ -1,5 +1,37 @@
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
+    mockGetSession: vi.fn(),
+    mockIsAdmin: vi.fn(),
+}));
+
+vi.mock("@/lib/server/auth", () => ({
+    getSession: mockGetSession,
+    isAdmin: mockIsAdmin,
+}));
+
+beforeEach(() => {
+    mockGetSession.mockResolvedValue({
+        user: {
+            id: "00000000-0000-0000-0000-000000000000",
+            email: "system@suara-lapangan.local",
+            name: "System",
+            role: "admin",
+        },
+    });
+    mockIsAdmin.mockReturnValue(true);
+});
+const adminId = "00000000-0000-0000-0000-000000000000";
+const ownerId = "00000000-0000-0000-0000-000000000001";
+const otherUserId = "00000000-0000-0000-0000-000000000002";
+
+function withUser(role: "user" | "admin", userId: string): void {
+    mockGetSession.mockResolvedValue({
+        user: { id: userId, email: `${role}@example.com`, name: role, role },
+    });
+    mockIsAdmin.mockReturnValue(role === "admin");
+}
 import { GET, PATCH } from "./route";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import type { QuotationDocument } from "@/lib/server/guard/types";
@@ -57,7 +89,7 @@ function createTestDocument(
     };
 }
 
-describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", () => {
+describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route handler", () => {
     let pool: Pool;
     let seededIds: string[] = [];
 
@@ -67,19 +99,30 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
+            "0004_email_sends.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
         ]) {
             const sql = await import("node:fs/promises").then((fs) =>
                 fs.readFile(`db/migrations/${file}`, "utf8")
             );
             await pool.query(sql);
         }
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000000', 'admin@suara-lapangan.local', true, 'Admin', 'admin'),
+               ('00000000-0000-0000-0000-000000000001', 'owner@suara-lapangan.local', true, 'Owner', 'user'),
+               ('00000000-0000-0000-0000-000000000002', 'other@suara-lapangan.local', true, 'Other', 'user')
+             on conflict (id) do nothing`
+        );
     });
 
     beforeEach(async () => {
         await pool.query("truncate documents, sessions cascade");
         seededIds = [];
         await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
     });
 
@@ -87,10 +130,13 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
         await pool.end();
     });
 
-    async function seedDocument(document: QuotationDocument): Promise<string> {
+    async function seedDocument(
+        document: QuotationDocument,
+        options?: { userId?: string | null }
+    ): Promise<string> {
         const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
-             values ('seed-session', $1, $2, $3, $4, $5) returning id`,
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
+             values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
             [
                 document.locale,
                 document.nomor + "#" + seededIds.length,
@@ -99,6 +145,7 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
                     : "siap",
                 "hash-" + seededIds.length,
                 JSON.stringify(document),
+                options?.userId ?? null,
             ]
         );
         const id = result.rows[0].id;
@@ -554,9 +601,124 @@ describe.skipIf(!TEST_DATABASE_URL)("PATCH /api/documents/[id] route handler", (
             }
         }
     });
+    it("rejects unauthenticated PATCH with 401 and does not mutate DB", async () => {
+        mockGetSession.mockResolvedValue(null);
+        mockIsAdmin.mockReturnValue(false);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 99 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(401);
+        expect(await res.json()).toEqual({ error: "unauthorized", message: "Authentication required" });
+
+        const row = await pool.query<{ data_json: QuotationDocument }>("select data_json from documents where id = $1", [id]);
+        expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(10);
+    });
+
+    it("rejects non-owner PATCH with 403 and does not mutate DB", async () => {
+        withUser("user", otherUserId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 99 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+
+        const row = await pool.query<{ data_json: QuotationDocument }>("select data_json from documents where id = $1", [id]);
+        expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(10);
+    });
+
+    it("rejects non-owner for non-existent document on PATCH with 403 (no existence leak)", async () => {
+        withUser("user", otherUserId);
+        const missingId = "00000000-0000-0000-0000-000000000099";
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${missingId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 10 }),
+            }),
+            { params: Promise.resolve({ id: missingId }) }
+        );
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+    });
+
+    it("allows owner to PATCH with 200 and mutates DB", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 50 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan[0].volume).toBe(50);
+
+        const row = await pool.query<{ data_json: QuotationDocument }>("select data_json from documents where id = $1", [id]);
+        expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(50);
+    });
+
+    it("allows admin to PATCH owned document with 200 and mutates DB", async () => {
+        withUser("admin", adminId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 77 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const row = await pool.query<{ data_json: QuotationDocument }>("select data_json from documents where id = $1", [id]);
+        expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(77);
+    });
+
+    it("allows admin to PATCH legacy ownerless document with 200", async () => {
+        withUser("admin", adminId);
+        const id = await seedDocument(createTestDocument(), { userId: null });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 88 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+    });
+
+    it("rejects non-admin for legacy ownerless document on PATCH with 403", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: null });
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 88 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+    });
 });
 
-describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () => {
+describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route handler", () => {
     let pool: Pool;
     let seededIds: string[] = [];
 
@@ -566,20 +728,30 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
+            "0004_email_sends.sql",
+            "0007_auth_tables.sql",
+            "0008_documents_user_id.sql",
         ]) {
             const sql = await import("node:fs/promises").then((fs) =>
                 fs.readFile(`db/migrations/${file}`, "utf8")
             );
             await pool.query(sql);
         }
+        await pool.query(
+            `insert into auth_user (id, email, email_verified, name, role)
+             values
+               ('00000000-0000-0000-0000-000000000000', 'admin@suara-lapangan.local', true, 'Admin', 'admin'),
+               ('00000000-0000-0000-0000-000000000001', 'owner@suara-lapangan.local', true, 'Owner', 'user'),
+               ('00000000-0000-0000-0000-000000000002', 'other@suara-lapangan.local', true, 'Other', 'user')
+             on conflict (id) do nothing`
+        );
     });
-
     beforeEach(async () => {
         resetRateLimits();
         await pool.query("truncate documents, sessions cascade");
         seededIds = [];
         await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
         await seedDocument(createTestDocument());
     });
@@ -588,10 +760,13 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
         await pool.end();
     });
 
-    async function seedDocument(document: QuotationDocument): Promise<string> {
+    async function seedDocument(
+        document: QuotationDocument,
+        options?: { userId?: string | null }
+    ): Promise<string> {
         const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
-             values ('seed-session', $1, $2, $3, $4, $5) returning id`,
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
+             values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
             [
                 document.locale,
                 document.nomor + "#" + seededIds.length,
@@ -600,6 +775,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
                     : "siap",
                 "hash-" + seededIds.length,
                 JSON.stringify(document),
+                options?.userId ?? null,
             ]
         );
         const id = result.rows[0].id;
@@ -712,5 +888,75 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/documents/[id] route handler", () 
         const body = await lastRes!.json();
         expect(body.error).toBe("rate_limited");
         expect(lastRes!.headers.get("Retry-After")).toBeTruthy();
+    });
+
+    it("rejects unauthenticated GET with 401", async () => {
+        mockGetSession.mockResolvedValue(null);
+        mockIsAdmin.mockReturnValue(false);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(401);
+        expect(await res.json()).toEqual({ error: "unauthorized", message: "Authentication required" });
+    });
+
+    it("rejects non-owner GET with 403", async () => {
+        withUser("user", otherUserId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+    });
+
+    it("rejects non-owner for non-existent document on GET with 403 (no existence leak)", async () => {
+        withUser("user", otherUserId);
+        const missingId = "00000000-0000-0000-0000-000000000099";
+        const res = await GET(new Request(`http://localhost/api/documents/${missingId}`), {
+            params: Promise.resolve({ id: missingId }),
+        });
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+    });
+
+    it("serves owner with 200 on GET", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.id).toBe(id);
+    });
+
+    it("serves admin for owned document on GET with 200", async () => {
+        withUser("admin", adminId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+    });
+
+    it("serves admin for legacy ownerless document on GET with 200", async () => {
+        withUser("admin", adminId);
+        const id = await seedDocument(createTestDocument(), { userId: null });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+    });
+
+    it("rejects non-admin for legacy ownerless document on GET with 403", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: null });
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(403);
+        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
     });
 });

@@ -12,6 +12,7 @@ import {
     formatZodError,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
+import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
 import type {
     CanonicalUnit,
     DocumentStatus,
@@ -28,6 +29,16 @@ class PatchIndexError extends Error {
         super(`Pekerjaan at index ${index} not found in document`);
         this.index = index;
     }
+}
+
+function canAccessDocument(
+    session: AuthSession,
+    ownerUserId: string | null
+): boolean {
+    // Legacy ownerless documents are visible to admins only.
+    if (ownerUserId === null) return isAdmin(session);
+    // Owned documents are visible to the owner and to admins.
+    return session.user.id === ownerUserId || isAdmin(session);
 }
 
 
@@ -72,6 +83,14 @@ async function handlePatch(
             { status: 400 }
         );
     }
+    const session = await getSession(request);
+    if (!session) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Authentication required" },
+            { status: 401 }
+        );
+    }
+
 
     const id = parsedId.data;
     const { field, nilai } = parsedBody.data;
@@ -91,6 +110,37 @@ async function handlePatch(
             { status: 503 }
         );
     }
+    let existing: StoredDocument | null;
+    try {
+        existing = await docStore.get(id);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
+
+    const ownerUserId = existing?.userId ?? null;
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
+        );
+    }
+
+    if (!existing) {
+        return NextResponse.json(
+            {
+                error: "not_found",
+                message: `Document '${id}' not found`,
+            },
+            { status: 404 }
+        );
+    }
+
     const index = parseInt(match[1], 10);
     const subfield = match[2];
 
@@ -215,6 +265,14 @@ async function handleGet(
             { status: 400 }
         );
     }
+    const session = await getSession(_request);
+    if (!session) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Authentication required" },
+            { status: 401 }
+        );
+    }
+
 
     const id = parsedId.data;
     let stored: StoredDocument | null;
@@ -229,6 +287,14 @@ async function handleGet(
             { status: 500 }
         );
     }
+    const ownerUserId = stored?.userId ?? null;
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
+        );
+    }
+
     if (!stored) {
         return NextResponse.json(
             {

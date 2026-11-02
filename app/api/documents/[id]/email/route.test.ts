@@ -12,9 +12,28 @@ import type { QuotationDocument } from "@/lib/server/guard/types";
 import { writePdfAtomic } from "@/lib/server/pdf/storage";
 import { getEmailSends } from "@/lib/server/quota/email-quota";
 
-const { sendMailMock } = vi.hoisted(() => ({
+const { mockGetSession, mockIsAdmin, sendMailMock } = vi.hoisted(() => ({
+    mockGetSession: vi.fn(),
+    mockIsAdmin: vi.fn(),
     sendMailMock: vi.fn(),
 }));
+
+vi.mock("@/lib/server/auth", () => ({
+    getSession: mockGetSession,
+    isAdmin: mockIsAdmin,
+}));
+
+beforeEach(() => {
+    mockGetSession.mockResolvedValue({
+        user: {
+            id: "00000000-0000-0000-0000-000000000000",
+            email: "system@suara-lapangan.local",
+            name: "System",
+            role: "admin",
+        },
+    });
+    mockIsAdmin.mockReturnValue(true);
+});
 
 vi.mock("nodemailer", () => ({
     default: {
@@ -61,7 +80,7 @@ function createTestDocument(
     };
 }
 
-describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handler", () => {
+describe.skipIf(!TEST_DATABASE_URL).sequential("POST /api/documents/[id]/email route handler", () => {
     let pool: Pool;
     let seededIds: string[] = [];
     let tempDir: string;
@@ -93,6 +112,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         await pool.query(
             `insert into auth_user (id, email, email_verified, name, role)
              values
+               ('00000000-0000-0000-0000-000000000000','admin@suara-lapangan.local',true,'Admin','admin'),
                ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
                ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
              on conflict (id) do nothing`
@@ -119,7 +139,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         await pool.query("truncate documents, sessions cascade; truncate email_send_meter;");
         seededIds = [];
         await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
     });
 
@@ -148,17 +168,24 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         else delete process.env.EMAIL_DAILY_SEND_LIMIT;
     });
 
+    function withUser(role: "user" | "admin", userId: string): void {
+        mockGetSession.mockResolvedValue({
+            user: { id: userId, email: `${role}@example.com`, name: role, role },
+        });
+        mockIsAdmin.mockReturnValue(role === "admin");
+    }
+
     async function seedDocument(
         document: QuotationDocument,
-        options?: { pdfPath?: string }
+        options?: { pdfPath?: string; userId?: string | null }
     ): Promise<{ id: string; doc: QuotationDocument }> {
         const docToSave = {
             ...document,
             nomor: `${document.nomor}-${seededIds.length}`,
         };
         const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, pdf_path)
-             values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, pdf_path, user_id)
+             values ('seed-session', $1, $2, $3, $4, $5, $6, $7) returning id`,
             [
                 docToSave.locale,
                 docToSave.nomor,
@@ -168,6 +195,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
                 "hash-" + seededIds.length,
                 JSON.stringify(docToSave),
                 options?.pdfPath ?? null,
+                options?.userId ?? null,
             ]
         );
         const id = result.rows[0].id;
@@ -206,7 +234,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         delete process.env.SMTP_PASS;
         delete process.env.SMTP_FROM;
 
-        const id = "00000000-0000-0000-0000-000000000001";
+        const { id } = await seedDocument(createTestDocument());
         const req = new Request(`http://localhost/api/documents/${id}/email`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -729,5 +757,142 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents/[id]/email route handle
         );
         expect(dbResult.rows.length).toBe(1);
         expect(Number(dbResult.rows[0].count)).toBe(1);
+    });
+
+    describe.sequential("access control", () => {
+        const adminId = "00000000-0000-0000-0000-000000000000";
+        const ownerId = "00000000-0000-0000-0000-000000000001";
+        const foreignId = "00000000-0000-0000-0000-000000000002";
+
+        it("unauthenticated request returns 401 even when SMTP is unset", async () => {
+            mockGetSession.mockResolvedValue(null);
+            mockIsAdmin.mockReturnValue(false);
+            delete process.env.SMTP_HOST;
+            delete process.env.SMTP_PORT;
+            delete process.env.SMTP_USER;
+            delete process.env.SMTP_PASS;
+
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC01" });
+            const { id } = await seedDocument(doc, { userId: ownerId });
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "attacker@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(401);
+            expect(await res.json()).toEqual({ error: "unauthorized", message: "Authentication required" });
+        });
+
+        it("wrong-user request returns 403 even when SMTP is unset", async () => {
+            withUser("user", foreignId);
+            delete process.env.SMTP_HOST;
+            delete process.env.SMTP_PORT;
+            delete process.env.SMTP_USER;
+            delete process.env.SMTP_PASS;
+
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC02" });
+            const { id } = await seedDocument(doc, { userId: ownerId });
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user2@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(403);
+            expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        });
+
+        it("non-owner request for missing document returns 403 without leaking existence", async () => {
+            withUser("user", foreignId);
+            const missingId = "00000000-0000-0000-0000-000000000099";
+            const req = new Request(`http://localhost/api/documents/${missingId}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user2@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id: missingId }) });
+            expect(res.status).toBe(403);
+            expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        });
+
+        it("admin request for missing document returns 404", async () => {
+            withUser("admin", adminId);
+            const missingId = "00000000-0000-0000-0000-000000000099";
+            const req = new Request(`http://localhost/api/documents/${missingId}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "user@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id: missingId }) });
+            expect(res.status).toBe(404);
+            expect((await res.json()).error).toBe("not_found");
+        });
+
+        it("owner can send email with 200", async () => {
+            withUser("user", ownerId);
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC03" });
+            const { id } = await seedDocument(doc, { userId: ownerId });
+            await seedPdfFile(id, doc);
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "client@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(200);
+            expect((await res.json()).status).toBe("terkirim");
+        });
+
+        it("admin can send email for owned document with 200", async () => {
+            withUser("admin", adminId);
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC04" });
+            const { id } = await seedDocument(doc, { userId: ownerId });
+            await seedPdfFile(id, doc);
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "client@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(200);
+            expect((await res.json()).status).toBe("terkirim");
+        });
+
+        it("admin can send email for legacy ownerless document with 200", async () => {
+            withUser("admin", adminId);
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC05" });
+            const { id } = await seedDocument(doc, { userId: null });
+            await seedPdfFile(id, doc);
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "client@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(200);
+            expect((await res.json()).status).toBe("terkirim");
+        });
+
+        it("non-admin is rejected with 403 for legacy ownerless document", async () => {
+            withUser("user", ownerId);
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/AC06" });
+            const { id } = await seedDocument(doc, { userId: null });
+            await seedPdfFile(id, doc);
+
+            const req = new Request(`http://localhost/api/documents/${id}/email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ to: "client@example.com" }),
+            });
+            const res = await POST(req, { params: Promise.resolve({ id }) });
+            expect(res.status).toBe(403);
+            expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        });
     });
 });

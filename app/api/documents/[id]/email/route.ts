@@ -32,6 +32,17 @@ import {
     EmailQuotaExceededError,
     isRecipientAllowed,
 } from "@/lib/server/quota/email-quota";
+import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+
+function canAccessDocument(
+    session: AuthSession,
+    ownerUserId: string | null
+): boolean {
+    // Legacy ownerless documents are visible to admins only.
+    if (ownerUserId === null) return isAdmin(session);
+    // Owned documents are visible to the owner and to admins.
+    return session.user.id === ownerUserId || isAdmin(session);
+}
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
@@ -55,6 +66,44 @@ async function handlePost(
         );
     }
     const id = parsedId.data;
+    const session = await getSession(request);
+    if (!session) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Authentication required" },
+            { status: 401 }
+        );
+    }
+    const store = getPostgresDocumentStore();
+    let stored: StoredDocument | null;
+    try {
+        stored = await store.get(id);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[email] document store access failed: ${String(cause)}`)
+        );
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message:
+                    reqLocale === "en"
+                        ? "Failed to access document database"
+                        : "Gagal mengakses basis data dokumen",
+            },
+            { status: 500 }
+        );
+    }
+
+    const ownerUserId = stored?.userId ?? null;
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
+        );
+    }
+
+
+
+
 
     let rawBody: unknown;
     try {
@@ -109,27 +158,6 @@ async function handlePost(
             { status: 403 }
         );
     }
-
-    const store = getPostgresDocumentStore();
-    let stored: StoredDocument | null;
-    try {
-        stored = await store.get(id);
-    } catch (cause) {
-        console.error(
-            redactSecrets(`[email] document store access failed: ${String(cause)}`)
-        );
-        return NextResponse.json(
-            {
-                error: "store_failure",
-                message:
-                    reqLocale === "en"
-                        ? "Failed to access document database"
-                        : "Gagal mengakses basis data dokumen",
-            },
-            { status: 500 }
-        );
-    }
-
     if (!stored) {
         return NextResponse.json(
             {
@@ -139,6 +167,7 @@ async function handlePost(
             { status: 404 }
         );
     }
+
 
     if (
         stored.status === "perlu_konfirmasi" ||
