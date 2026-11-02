@@ -2,7 +2,7 @@
 
 **Pemutus:** e-juri (juri arsitektur utama). **Tanggal:** 28 Okt 2026.
 **Bahan:** `A-TEKNIS.md`, `B-GUARD-ANGKA.md`, `C-NILAI-HACKATHON.md`, ADR asli, `docs/01-ARSITEKTUR.md`, README, guide hackathon §4/§7/§8.
-**Konteks yang mengikat semua putusan:** sisa **5 hari kerja** (21, 22, 25, 26, 27 Jan; deadline Rab 27 Jan 2027 21:00 ET), **belum ada kode**, repo publik belum ada. ADR dinilai bukan sebagai dokumen ideal, tapi sebagai rencana yang bisa dieksekusi 4 orang sampai Senin.
+**Konteks yang mengikat semua putusan:** sisa **5 hari kerja** (21, 22, 23, 25, 26 Jan; deadline Rab 27 Jan 2027 21:00 ET), **belum ada kode**, repo publik belum ada. ADR dinilai bukan sebagai dokumen ideal, tapi sebagai rencana yang bisa dieksekusi 4 orang sampai Selasa.
 
 ---
 
