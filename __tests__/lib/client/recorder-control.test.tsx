@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ locale: "en" }),
+}));
+vi.mock("@/lib/auth-client", () => ({
+  useSession: () => ({
+    data: { user: { id: "test-user", email: "t@example.com" } },
+    isPending: false,
+  }),
+}));
 import en from "@/i18n/locales/en.json";
 import id from "@/i18n/locales/id.json";
 import { RecorderControl } from "@/app/[locale]/(suara)/rekam/RecorderControl";
