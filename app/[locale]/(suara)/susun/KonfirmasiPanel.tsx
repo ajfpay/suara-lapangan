@@ -48,6 +48,12 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 }),
             });
 
+            if (res.status === 401) {
+                const here = window.location.pathname;
+                window.location.href = `/${locale}/login?callbackUrl=${encodeURIComponent(here)}`;
+                return;
+            }
+
             if (!res.ok) {
                 const data = await res.json().catch(() => null);
                 const fallback = isIndo
@@ -133,6 +139,16 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 >
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>{error}</span>
+                    <Link
+                        href={`/${locale}/login?callbackUrl=${encodeURIComponent(
+                            typeof window !== "undefined"
+                                ? window.location.pathname + (sessionId ? `?sessionId=${sessionId}` : "")
+                                : `/${locale}/susun`
+                        )}`}
+                        className="font-bold underline"
+                    >
+                        {isIndo ? "Masuk" : "Log in"}
+                    </Link>
                 </div>
             )}
 

@@ -229,7 +229,7 @@ function doc(overrides?: Partial<QuotationDocument>): QuotationDocument {
     };
 }
 
-describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
+describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
     let pool: Pool;
     let seededId = "";
     const tempStorageDirs: string[] = [];
@@ -270,7 +270,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             "truncate documents, sessions, usage_meter cascade"
         );
         await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
     });
 
@@ -649,14 +649,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id]", () => {
             expect(isA || isB).toBe(true);
         }
     }, 60000);
-});
-
-/**
- * Access control. The route requires a session and honours ownership: an
- * owned document is reachable by its owner and by admins, a legacy
- * ownerless document only by admins.
- */
-describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
+    describe("access control", () => {
     let pool: Pool;
     const tempStorageDirs: string[] = [];
     const origPdfStorageDir = process.env.PDF_STORAGE_DIR;
@@ -690,7 +683,7 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
             "truncate documents, sessions, usage_meter cascade"
         );
         await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '')"
+            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
     });
 
@@ -707,12 +700,16 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
         }
     });
 
+    let accessControlDocCount = 0;
     async function seedDocument(userId: string | null): Promise<string> {
+        accessControlDocCount++;
+        const nomor = `SL/QTN/2099/${String(accessControlDocCount).padStart(4, "0")}`;
+        const turnsHash = `hash-ac-${accessControlDocCount}`;
         const document = JSON.stringify({
             jenis: "surat_penawaran",
             locale: "id",
             mata_uang: "IDR",
-            nomor: "SL/QTN/2099/0001",
+            nomor,
             tanggal: "2026-10-30",
             proyek: { nama: "Villa", lokasi: "Ubud", klien: "Pak Made" },
             pekerjaan: [
@@ -731,8 +728,8 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
         });
         const result = await pool.query<{ id: string }>(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
-             values ('seed-session', 'id', 'SL/QTN/2099/0001', 'siap', 'hash', $1::jsonb, $2) returning id`,
-            [document, userId]
+             values ('seed-session', 'id', $1, 'siap', $2, $3::jsonb, $4) returning id`,
+            [nomor, turnsHash, document, userId]
         );
         return result.rows[0].id;
     }
@@ -808,3 +805,4 @@ describe.skipIf(!TEST_DATABASE_URL)("GET /api/pdf/[id] access control", () => {
         expect(res.status).toBe(200);
     });
 });
+    });
