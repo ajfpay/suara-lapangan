@@ -1,7 +1,10 @@
 "use client";
 import React from "react";
-import { Mic, Square, Loader2, CloudOff } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Mic, Square, Loader2, CloudOff, LogIn } from "lucide-react";
 import { useRecorder, type AsrMode } from "@/lib/client/use-recorder";
+import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface RecorderControlProps {
@@ -34,6 +37,9 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     mode,
     setMode,
   } = useRecorder();
+  const params = useParams();
+  const locale = String(params.locale ?? "id");
+  const { data: authSession, isPending } = useSession();
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -41,6 +47,28 @@ export function RecorderControl({ copy }: RecorderControlProps) {
   };
 
   const showPendingBadge = !isOnline || pendingCount > 0;
+
+  if (!isPending && !authSession) {
+    return (
+      <div
+        className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 sm:p-10"
+        data-testid="login-required-notice"
+      >
+        <LogIn className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+        <p className="text-center text-sm text-muted-foreground">
+          {locale === "id"
+            ? "Masuk untuk mulai merekam. Hasil rekaman tersimpan ke akun Anda."
+            : "Log in to start recording. Your recordings are saved to your account."}
+        </p>
+        <Link
+          href={`/${locale}/login?callbackUrl=${encodeURIComponent(`/${locale}/rekam`)}`}
+          className="min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground"
+        >
+          {locale === "id" ? "Masuk untuk merekam" : "Log in to record"}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-8 flex flex-col items-center gap-6 rounded-2xl border border-border bg-card p-6 sm:p-10">
