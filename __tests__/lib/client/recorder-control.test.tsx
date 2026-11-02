@@ -3,9 +3,6 @@ import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { describe, it, expect, afterEach, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({
-  useParams: () => ({ locale: "en" }),
-}));
 vi.mock("@/lib/auth-client", () => ({
   useSession: () => ({
     data: { user: { id: "test-user", email: "t@example.com" } },

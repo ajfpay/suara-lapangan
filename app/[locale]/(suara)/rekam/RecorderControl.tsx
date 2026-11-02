@@ -38,7 +38,7 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     setMode,
   } = useRecorder();
   const params = useParams();
-  const locale = String(params.locale ?? "id");
+  const locale = String(params?.locale ?? "id");
   const { data: authSession, isPending } = useSession();
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
