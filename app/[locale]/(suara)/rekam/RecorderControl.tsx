@@ -1,7 +1,10 @@
 "use client";
 import React from "react";
-import { Mic, Square, Loader2, CloudOff } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Mic, Square, Loader2, CloudOff, LogIn } from "lucide-react";
 import { useRecorder, type AsrMode } from "@/lib/client/use-recorder";
+import { useSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface RecorderControlProps {
@@ -21,6 +24,8 @@ interface RecorderControlProps {
 }
 
 export function RecorderControl({ copy }: RecorderControlProps) {
+  const params = useParams();
+  const locale = String(params?.locale ?? "id");
   const {
     isRecording,
     isProcessing,
@@ -33,7 +38,8 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     handlePointerCancel,
     mode,
     setMode,
-  } = useRecorder();
+  } = useRecorder({ locale });
+  const { data: authSession, isPending } = useSession();
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -42,20 +48,47 @@ export function RecorderControl({ copy }: RecorderControlProps) {
 
   const showPendingBadge = !isOnline || pendingCount > 0;
 
+  const pendingBadge = showPendingBadge ? (
+    <div
+      data-testid="pending-upload-badge"
+      className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
+    >
+      <CloudOff className="h-4 w-4" aria-hidden="true" />
+      <span>
+        {copy.uploadPending}
+        {pendingCount > 0 && ` (${pendingCount})`}
+      </span>
+    </div>
+  ) : null;
+
+  if (!isPending && !authSession) {
+    return (
+      <div
+        className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 sm:p-10"
+        data-testid="login-required-notice"
+      >
+        {/* Logged-out visitors have no queue of their own, so only show the
+            badge when there is something actually pending. */}
+        {pendingCount > 0 && pendingBadge}
+        <LogIn className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+        <p className="text-center text-sm text-muted-foreground">
+          {locale === "id"
+            ? "Masuk untuk mulai merekam. Hasil rekaman tersimpan ke akun Anda."
+            : "Log in to start recording. Your recordings are saved to your account."}
+        </p>
+        <Link
+          href={`/${locale}/login?callbackUrl=${encodeURIComponent(`/${locale}/rekam`)}`}
+          className="min-h-[48px] rounded-xl bg-primary px-5 py-2 font-bold text-primary-foreground"
+        >
+          {locale === "id" ? "Masuk untuk merekam" : "Log in to record"}
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-8 flex flex-col items-center gap-6 rounded-2xl border border-border bg-card p-6 sm:p-10">
-      {showPendingBadge && (
-        <div
-          data-testid="pending-upload-badge"
-          className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400"
-        >
-          <CloudOff className="h-4 w-4" aria-hidden="true" />
-          <span>
-            {copy.uploadPending}
-            {pendingCount > 0 && ` (${pendingCount})`}
-          </span>
-        </div>
-      )}
+      {pendingBadge}
 
       {error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm font-medium text-destructive">

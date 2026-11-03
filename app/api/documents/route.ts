@@ -59,7 +59,13 @@ async function handlePost(request: Request): Promise<Response> {
 
     const { sessionId, locale, project, turns } = parsed.data;
     const authSession = await getSession(request);
-    const userId = authSession?.user.id ?? null;
+    if (!authSession) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Login required" },
+            { status: 401 }
+        );
+    }
+    const userId = authSession.user.id;
     // Idempotent reuse check: if document for same session exists, return it without calling the model
     // Catch store init and lookup failures, map to JSON status
     let session;
@@ -194,12 +200,12 @@ async function handlePost(request: Request): Promise<Response> {
 
     // Per-user quota hard-stop. Runs after the idempotency check so a reuse
     // hit never burns a slot, and before the nomor allocation so a 429 does
-    // not waste a number. Unauthenticated requests fall back to the system
-    // user (DEFAULT_USER_ID) so legacy callers without cookies keep working.
+    // not waste a number. Login is mandatory: anonymous callers were already
+    // rejected with 401 above.
     try {
         await assertQuotaAvailable({
             locale: resolvedLocale === "en" ? "en" : "id",
-            userId: userId ?? undefined,
+            userId,
         });
     } catch (error) {
         if (error instanceof QuotaExceededError) {
@@ -329,7 +335,7 @@ async function handlePost(request: Request): Promise<Response> {
     if (usage && usage.totalTokens > 0) {
         try {
             await recordUsage({
-                userId: userId ?? undefined,
+                userId,
                 tokens: usage.totalTokens,
                 estCost: SPARK_DOCUMENT_EST_COST,
             });

@@ -47,6 +47,9 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         );
         process.env.DATABASE_URL = TEST_DATABASE_URL;
         vi.restoreAllMocks();
+        vi.spyOn(authModule, "getSession").mockResolvedValue({
+            user: { id: "00000000-0000-0000-0000-000000000001", email: "test1@suara-lapangan.local", name: "Test User 1", role: "user" },
+        } as Awaited<ReturnType<typeof authModule.getSession>>);
     });
 
     afterEach(async () => {
@@ -657,10 +660,28 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(body.error).toBe("rate_limited");
     });
 
+    it("returns 401 and writes no row without a session", async () => {
+        vi.mocked(authModule.getSession).mockResolvedValue(null);
+        const res = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sessionId: "sess-anon-1",
+                    turns: [{ turn_id: "turn_1", startMs: 0, endMs: 1000, transcript: "anon attempt" }],
+                }),
+            })
+        );
+        expect(res.status).toBe(401);
+        expect(await res.json()).toMatchObject({ error: "unauthorized" });
+        const rows = await pool.query("select id from documents where session_id = $1", ["sess-anon-1"]);
+        expect(rows.rowCount).toBe(0);
+    });
+
     it("enforces quota hard-stop: 429 with X-Quota-Hard-Stop, model not called", async () => {
         process.env.MODEL_API_KEY = "test-key";
         const spy = vi.spyOn(sparkModule, "callMuseSpark");
-        await recordUsage({ estCost: 6.0 });
+        await recordUsage({ userId: "00000000-0000-0000-0000-000000000001", estCost: 6.0 });
 
         const req = new Request("http://localhost/api/documents", {
             method: "POST",
@@ -804,7 +825,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         };
         vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(candidate);
 
-        await recordUsage({ estCost: 6.0 });
+        await recordUsage({ userId: "00000000-0000-0000-0000-000000000001", estCost: 6.0 });
 
         const req = new Request("http://localhost/api/documents", {
             method: "POST",

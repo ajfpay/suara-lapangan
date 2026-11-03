@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
+
+let mockSession: { data: unknown; isPending: boolean } = {
+  data: { user: { id: "test-user", email: "t@example.com" } },
+  isPending: false,
+};
+vi.mock("@/lib/auth-client", () => ({
+  useSession: () => mockSession,
+}));
 import en from "@/i18n/locales/en.json";
 import id from "@/i18n/locales/id.json";
 import { RecorderControl } from "@/app/[locale]/(suara)/rekam/RecorderControl";
@@ -79,5 +87,30 @@ describe("RecorderControl mode selector and accessibility", () => {
     const select = screen.getByLabelText(en.rekam.modeLabel) as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "DIARIZATION" } });
     expect(select.value).toBe("DIARIZATION");
+  });
+
+  it("logged out and offline: shows the login notice, no record button, nothing capturable", () => {
+    mockSession = { data: null, isPending: false };
+    vi.stubGlobal("navigator", { ...navigator, onLine: false });
+    window.dispatchEvent(new Event("offline"));
+    try {
+      render(<RecorderControl copy={enCopy} />);
+
+      // Login gate is up even offline (locale falls back to "id" without router context).
+      expect(screen.getByTestId("login-required-notice")).toBeTruthy();
+      expect(screen.getByText("Masuk untuk merekam")).toBeTruthy();
+
+      // No recorder controls exist, so nothing can be captured.
+      expect(screen.queryByTestId("asr-mode-select")).toBeNull();
+      expect(screen.queryByRole("button", { name: /start recording/i })).toBeNull();
+      expect(screen.queryByTestId("record-duration")).toBeNull();
+    } finally {
+      window.dispatchEvent(new Event("online"));
+      vi.unstubAllGlobals();
+      mockSession = {
+        data: { user: { id: "test-user", email: "t@example.com" } },
+        isPending: false,
+      };
+    }
   });
 });
