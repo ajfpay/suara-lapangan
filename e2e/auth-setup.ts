@@ -13,7 +13,7 @@ import { Pool } from "pg";
  */
 
 const SESSION_COOKIE = "better-auth.session_token";
-const E2E_USER_ID = "00000000-0000-0000-0000-0000000000e2";
+export const E2E_USER_ID = "00000000-0000-0000-0000-0000000000e2";
 const E2E_USER_EMAIL = "e2e@suara-lapangan.test";
 const E2E_SESSION_TOKEN = "e2e-session-token";
 const STATE_PATH = "e2e/.auth/state.json";
