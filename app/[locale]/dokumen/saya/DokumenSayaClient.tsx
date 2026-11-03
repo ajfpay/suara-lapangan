@@ -61,7 +61,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                 return;
             }
 
-            setSendSuccess(t("sendSuccess", { nomor: sendModalDoc.nomor, email: recipientEmail }));
+            setSendSuccess(t("sendSuccess", { nomor: sendModalDoc.nomor ?? "", email: recipientEmail }));
             setDocs((prev) =>
                 prev.map((d) =>
                     d.id === sendModalDoc.id
@@ -228,7 +228,7 @@ export function DokumenSayaClient({ locale, documents: initialDocs }: DokumenSay
                 >
                     <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-foreground">
-                            {t("sendModalTitle", { nomor: sendModalDoc.nomor })}
+                            {t("sendModalTitle", { nomor: sendModalDoc.nomor ?? "" })}
                         </h3>
                         <p className="mt-1 text-sm text-muted-foreground">
                             {t("sendModalBody")}

@@ -49,7 +49,7 @@ export type QuotationDocument = {
     jenis: "surat_penawaran";
     locale: Locale;
     mata_uang: "USD" | "IDR";
-    nomor: string;
+    nomor: string | null; // null while the draft has not been approved (R39, ticket 01)
     tanggal: string;
     proyek: Proyek;
     pekerjaan: PekerjaanItem[];
@@ -59,7 +59,12 @@ export type QuotationDocument = {
     _spark_path?: boolean;
 };
 
-export type DocumentStatus = "siap" | "perlu_konfirmasi" | "terkirim";
+export type DocumentStatus =
+  | "draf"
+  | "disetujui"
+  | "terkirim"
+  | "perlu_konfirmasi" // legacy: normalized to "draf" on read
+  | "siap"; // legacy: normalized to "disetujui" on read
 
 export type DocumentResult = {
     document: QuotationDocument;

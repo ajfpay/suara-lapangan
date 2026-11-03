@@ -21,7 +21,7 @@ function doc(overrides?: Partial<QuotationDocument>): QuotationDocument {
         jenis: "surat_penawaran",
         locale: "id",
         mata_uang: "IDR",
-        nomor: "SL/QTN/2026/0001",
+        nomor: null,
         tanggal: "2026-10-31",
         proyek: { nama: "Renovasi", lokasi: "Sleman", klien: "Pak Budi" },
         pekerjaan: [
@@ -48,7 +48,7 @@ function input(
         { startMs: 0, endMs: 500, transcript: "pagar" },
     ])
 ): CreateDocumentInput {
-    return { sessionId, locale: document.locale, nomor: document.nomor, turnsHash, document };
+    return { sessionId, locale: document.locale, turnsHash, document };
 }
 
 describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
@@ -91,22 +91,36 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         );
     }
 
-    it("round-trips create and get, deriving status from butuh_konfirmasi", async () => {
+    it("creates a draft with status='draf', nomor=null, version=1, and root_id=id", async () => {
         await seedSession("s-create");
 
         const created = await store.create(
             input("s-create", doc({ butuh_konfirmasi: [] }))
         );
-        expect(created.status).toBe("siap");
+        expect(created.status).toBe("draf");
+        expect(created.nomor).toBeNull();
         expect(created.document.total_nominal).toBe(500000);
 
         const fetched = await store.get(created.id);
         expect(fetched).not.toBeNull();
+        expect(fetched!.status).toBe("draf");
+        expect(fetched!.nomor).toBeNull();
         expect(fetched!.document).toEqual(created.document);
         expect(fetched!.sessionId).toBe("s-create");
+
+        // Verify underlying database columns: status, nomor, version, root_id
+        const row = await pool.query(
+            "select status, nomor, version, root_id from documents where id = $1::uuid",
+            [created.id]
+        );
+        expect(row.rowCount).toBe(1);
+        expect(row.rows[0].status).toBe("draf");
+        expect(row.rows[0].nomor).toBeNull();
+        expect(row.rows[0].version).toBe(1);
+        expect(row.rows[0].root_id).toBe(created.id);
     });
 
-    it("maps a payload with open confirmations to perlu_konfirmasi", async () => {
+    it("stores status='draf' even when butuh_konfirmasi is not empty", async () => {
         await seedSession("s-confirm");
         const created = await store.create(
             input(
@@ -118,9 +132,47 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                 })
             )
         );
-        expect(created.status).toBe("perlu_konfirmasi");
+        expect(created.status).toBe("draf");
+        expect(created.nomor).toBeNull();
     });
 
+    it("normalizes legacy statuses on read: perlu_konfirmasi -> draf, siap -> disetujui", async () => {
+        await seedSession("s-legacy");
+        const hash1 = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 1" }]);
+        const hash2 = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 2" }]);
+
+        const res1 = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0001', 'perlu_konfirmasi', $1, $2)
+             returning id`,
+            [hash1, JSON.stringify(doc({ nomor: "SL/QTN/2026/0001" }))]
+        );
+        const legacyId1 = res1.rows[0].id;
+
+        const res2 = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0002', 'siap', $1, $2)
+             returning id`,
+            [hash2, JSON.stringify(doc({ nomor: "SL/QTN/2026/0002" }))]
+        );
+        const legacyId2 = res2.rows[0].id;
+
+        const fetched1 = await store.get(legacyId1);
+        expect(fetched1).not.toBeNull();
+        expect(fetched1!.status).toBe("draf");
+        expect(fetched1!.nomor).toBe("SL/QTN/2026/0001");
+
+        const fetched2 = await store.get(legacyId2);
+        expect(fetched2).not.toBeNull();
+        expect(fetched2!.status).toBe("disetujui");
+        expect(fetched2!.nomor).toBe("SL/QTN/2026/0002");
+
+        const foundByIdem1 = await store.findByIdempotencyKey("s-legacy", hash1);
+        expect(foundByIdem1?.status).toBe("draf");
+
+        const foundByIdem2 = await store.findByIdempotencyKey("s-legacy", hash2);
+        expect(foundByIdem2?.status).toBe("disetujui");
+    });
     it("rejects a session that does not exist with the FK violation code", async () => {
         await expect(store.create(input("no-such-session", doc()))).rejects.toMatchObject({
             code: "23503",
@@ -213,7 +265,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         }));
 
         expect(patched!.document.pekerjaan[0].volume).toBe(20);
-        expect(patched!.status).toBe("siap");
+        expect(patched!.status).toBe("disetujui");
 
         const reread = await store.get(created.id);
         expect(reread!.document.total_nominal).toBe(1000000);

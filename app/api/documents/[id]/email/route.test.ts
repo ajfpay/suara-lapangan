@@ -415,13 +415,13 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("POST /api/documents/[id]/email r
         // not consume today's send quota.
         expect(await getEmailSends()).toBe(0);
 
-        // Verify document is unchanged: status is still siap and sent_to is not set
+        // Verify document is unchanged: status is still disetujui and sent_to is not set
         const getRes = await GET(new Request(`http://localhost/api/documents/${id}`), {
             params: Promise.resolve({ id }),
         });
         expect(getRes.status).toBe(200);
         const getData = await getRes.json();
-        expect(getData.status).toBe("siap");
+        expect(getData.status).toBe("disetujui");
         expect(getData.sent_to).toBeNull();
         });
 
@@ -507,7 +507,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("POST /api/documents/[id]/email r
             params: Promise.resolve({ id }),
         });
         const getData = await getRes.json();
-        expect(getData.status).toBe("siap");
+        expect(getData.status).toBe("disetujui");
         expect(getData.sent_to).toBeNull();
         expect(pdfBuf).toBeTruthy();
     });

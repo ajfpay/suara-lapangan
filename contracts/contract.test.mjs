@@ -461,6 +461,34 @@ test("quotation schema accepts the yearly nomor and rejects the old date format"
     }
 });
 
+test("quotation schema accepts nomor: null for drafts, rejects missing key, empty string, and wrong types", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+
+    assert.deepEqual(
+        valueProblems(schema, { ...valid, nomor: null }, "draft", []),
+        [],
+        "schema must accept nomor: null"
+    );
+
+    assert.ok(
+        valueProblems(schema, { ...valid, nomor: "" }, "empty string", []).length > 0,
+        "schema must reject empty string nomor"
+    );
+
+    assert.ok(
+        valueProblems(schema, { ...valid, nomor: 12345 }, "number", []).length > 0,
+        "schema must reject numeric nomor"
+    );
+
+    const withoutNomor = { ...valid };
+    delete withoutNomor.nomor;
+    assert.ok(
+        valueProblems(schema, withoutNomor, "without nomor", []).length > 0,
+        "schema must reject document missing nomor property"
+    );
+});
+
 function terbilangNumber(n) {
     const SATUAN = [
         "", "satu", "dua", "tiga", "empat", "lima",

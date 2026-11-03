@@ -299,7 +299,7 @@ async function handlePost(
     }
 
     const docLocale = stored.document.locale === "en" ? "en" : "id";
-    const emailContent = buildDocumentEmail(stored.document.nomor, docLocale);
+    const emailContent = buildDocumentEmail(stored.document.nomor ?? "", docLocale);
 
     try {
         await sendEmail(smtpConfig, {

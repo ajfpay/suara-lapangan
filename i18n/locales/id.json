@@ -75,6 +75,7 @@
         "errorBody": "Periksa koneksi lalu coba lagi.",
         "retry": "Coba lagi",
         "nomorLabel": "Nomor dokumen",
+        "draftMarker": "DRAF — nomor belum ditetapkan",
         "statusLabel": "Status",
         "statusPerluKonfirmasi": "Perlu konfirmasi",
         "statusSiap": "Siap",

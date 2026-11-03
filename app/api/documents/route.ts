@@ -9,10 +9,6 @@ import {
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
 import {
-    allocateDocumentNumber,
-    getDocumentNumberPool,
-} from "@/lib/server/db/documentNumber";
-import {
     sparkPathMarker,
     toResponseDocument,
 } from "@/lib/server/guard/sparkPath";
@@ -187,10 +183,9 @@ async function handlePost(request: Request): Promise<Response> {
                 {
                     document: toResponseDocument({ ...doc, id: existing.id }),
                     butuh_konfirmasi: doc.butuh_konfirmasi ?? [],
-                    status:
-                        (doc.butuh_konfirmasi?.length ?? 0) > 0
-                            ? "perlu_konfirmasi"
-                            : "siap",
+                    // Ticket 01: every create is a draft; the number is
+                    // allocated at approval (ticket 03).
+                    status: "draf",
                     ...sparkPathMarker(doc._spark_path === true),
                 },
                 { status: 200 }
@@ -199,9 +194,9 @@ async function handlePost(request: Request): Promise<Response> {
     }
 
     // Per-user quota hard-stop. Runs after the idempotency check so a reuse
-    // hit never burns a slot, and before the nomor allocation so a 429 does
-    // not waste a number. Login is mandatory: anonymous callers were already
-    // rejected with 401 above.
+    // hit never burns a slot. Login is mandatory: anonymous callers were already
+    // rejected with 401 above. Ticket 01 creates drafts only, so no document
+    // number is allocated here; numbering happens at approval (ticket 03).
     try {
         await assertQuotaAvailable({
             locale: resolvedLocale === "en" ? "en" : "id",
@@ -217,36 +212,20 @@ async function handlePost(request: Request): Promise<Response> {
         throw error;
     }
 
-    // One number per created document, allocated after the idempotency check so
-    // a reuse hit never burns a number. The allocation commits independently of
-    // the document insert, so a failed create burns its number (never reused);
-    // the unique index on documents.nomor is the second line of defence.
-    const year = new Date().getFullYear();
-    let nomor: string;
-    try {
-        nomor = await allocateDocumentNumber(getDocumentNumberPool(), year);
-    } catch (cause) {
-        console.error(
-            redactSecrets(`[documents] allocation failed: ${String(cause)}`)
-        );
-        return NextResponse.json(
-            { error: "store_failure", message: "Failed to allocate document number" },
-            { status: 500 }
-        );
-    }
-
     async function persistAndRespond(
         document: QuotationDocument,
         fromModel: boolean
     ): Promise<Response> {
+        // Ticket 01: drafts carry no number; force null even if the guard
+        // echoed a candidate nomor.
+        const draft: QuotationDocument = { ...document, nomor: null };
         let stored: StoredDocument;
         try {
             stored = await docStore.create({
                 sessionId,
-                locale: document.locale,
-                nomor: document.nomor,
+                locale: draft.locale,
                 turnsHash: fingerprint,
-                document,
+                document: draft,
                 userId,
             });
         } catch (cause) {
@@ -267,9 +246,9 @@ async function handlePost(request: Request): Promise<Response> {
         };
         // A concurrent identical create can make create() return the winner's row;
         // answer from the stored row so the envelope always matches what is stored.
+        // Ticket 01: every create is a draft.
         const butuhKonfirmasi = stored.document.butuh_konfirmasi ?? [];
-        const status: DocumentStatus =
-            butuhKonfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
+        const status: DocumentStatus = "draf";
         return NextResponse.json(
             {
                 document: toResponseDocument(documentWithId),
@@ -286,7 +265,7 @@ async function handlePost(request: Request): Promise<Response> {
             session.turns,
             resolvedLocale,
             project,
-            { sessionId, nomor }
+            { sessionId }
         );
         return persistAndRespond(result.document, false);
     }
@@ -306,7 +285,7 @@ async function handlePost(request: Request): Promise<Response> {
                     session.turns,
                     resolvedLocale,
                     project,
-                    { sessionId, nomor }
+                    { sessionId }
                 );
                 // Skip persisting on transient upstream error so subsequent requests can retry
                 return NextResponse.json(
@@ -353,7 +332,6 @@ async function handlePost(request: Request): Promise<Response> {
         locale: resolvedLocale,
         project,
         sessionId,
-        nomor,
     });
 
     // Save document

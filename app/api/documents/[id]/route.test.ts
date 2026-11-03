@@ -804,7 +804,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         expect(data.document.nomor).toBe(doc.nomor);
         expect(data.document.total_nominal).toBe(700000);
         expect(data.butuh_konfirmasi).toHaveLength(1);
-        expect(data.status).toBe("perlu_konfirmasi");
+        expect(data.status).toBe("draf");
     });
 
     it("returns 404 for an unknown id", async () => {

@@ -75,6 +75,7 @@
         "errorBody": "Check your connection and try again.",
         "retry": "Try again",
         "nomorLabel": "Document number",
+        "draftMarker": "DRAFT — number not yet assigned",
         "statusLabel": "Status",
         "statusPerluKonfirmasi": "Needs confirmation",
         "statusSiap": "Ready",

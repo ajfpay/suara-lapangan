@@ -195,13 +195,14 @@ async function handleGet(
         );
     }
     const hash = hashDoc(doc);
-    const cached = pdfCache.get(doc.nomor);
+    const docNomor = doc.nomor ?? "";
+    const cached = pdfCache.get(docNomor);
     if (cached && cached.hash === hash) {
         return new Response(new Uint8Array(cached.pdf), {
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll("/", "-")}.pdf"`,
+                "Content-Disposition": `attachment; filename="${docNomor.replaceAll("/", "-")}.pdf"`,
                 "X-PDF-Cache": "HIT",
             },
         });
@@ -256,7 +257,7 @@ async function handleGet(
                 );
             }
         }
-        pdfCache.set(doc.nomor, {
+        pdfCache.set(docNomor, {
             hash,
             pdf: snapshot.pdf,
         });
@@ -264,7 +265,7 @@ async function handleGet(
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",
-                "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll(
+                "Content-Disposition": `attachment; filename="${docNomor.replaceAll(
                     "/",
                     "-"
                 )}.pdf"`,
@@ -288,12 +289,12 @@ async function handleGet(
             { status: 500 }
         );
     }
-    pdfCache.set(doc.nomor, { hash, pdf });
+    pdfCache.set(docNomor, { hash, pdf });
     return new Response(new Uint8Array(pdf), {
         status: 200,
         headers: {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="${doc.nomor.replaceAll("/", "-")}.pdf"`,
+            "Content-Disposition": `attachment; filename="${docNomor.replaceAll("/", "-")}.pdf"`,
             "X-PDF-Cache": "MISS",
         },
     });

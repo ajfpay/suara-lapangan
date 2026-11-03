@@ -8,7 +8,7 @@ import type { DocumentStatus, QuotationDocument } from "@/lib/server/guard/types
 export type StoredDocument = {
     id: string;
     sessionId: string;
-    nomor: string;
+    nomor: string | null; // null while the draft has not been approved (ticket 01)
     status: DocumentStatus;
     createdAt: Date;
     document: QuotationDocument;
@@ -39,7 +39,8 @@ export function contentHashOf(document: QuotationDocument): string {
 export type CreateDocumentInput = {
     sessionId: string;
     locale: QuotationDocument["locale"];
-    nomor: string;
+    // No nomor: ticket 01 always creates drafts with nomor = NULL; the number
+    // is allocated at approval (ticket 03).
     turnsHash: string;
     document: QuotationDocument;
     userId?: string | null;
@@ -114,7 +115,7 @@ export function createPostgresDocumentStore(
     function toStored(row: {
         id: string;
         session_id: string;
-        nomor: string;
+        nomor: string | null;
         status: DocumentStatus;
         data_json: QuotationDocument;
         pdf_path?: string | null;
@@ -123,11 +124,19 @@ export function createPostgresDocumentStore(
         created_at: Date;
         user_id?: string | null;
     }): StoredDocument {
+        // Read normalization (ticket 01): legacy vocabulary is mapped to the
+        // review-before-pdf vocabulary on every read.
+        const status: DocumentStatus =
+            row.status === "perlu_konfirmasi"
+                ? "draf"
+                : row.status === "siap"
+                  ? "disetujui"
+                  : row.status;
         return {
             id: row.id,
             sessionId: row.session_id,
             nomor: row.nomor,
-            status: row.status,
+            status,
             createdAt: row.created_at,
             document: row.data_json,
             pdfPath: row.pdf_path ?? null,
@@ -185,16 +194,12 @@ export function createPostgresDocumentStore(
                     return toStored(existing.rows[0]);
                 }
                 const result = await client.query(
-                    `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
-                     values ($1, $2, $3, $4, $5, $6, $7)
+                    `insert into documents (session_id, locale, status, turns_hash, data_json, user_id)
+                     values ($1, $2, 'draf', $3, $4, $5)
                      returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
                     [
                         input.sessionId,
                         input.locale,
-                        input.nomor,
-                        input.document.butuh_konfirmasi.length > 0
-                            ? "perlu_konfirmasi"
-                            : "siap",
                         input.turnsHash,
                         JSON.stringify(input.document),
                         input.userId ?? null,
