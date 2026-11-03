@@ -48,7 +48,14 @@ export function RecorderControl({ copy }: RecorderControlProps) {
   // visible stop control.
   React.useEffect(() => {
     if (!isPending && !authSession && isRecording) {
-      void stopRecording();
+      void Promise.resolve()
+        .then(() => stopRecording())
+        .catch((err: unknown) => {
+          console.error(
+            "[recorder] auth-race stop failed:",
+            err instanceof Error ? err.message : String(err)
+          );
+        });
     }
   }, [isPending, authSession, isRecording, stopRecording]);
   const formatDuration = (seconds: number) => {

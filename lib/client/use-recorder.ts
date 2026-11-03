@@ -81,9 +81,37 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       window.removeEventListener("offline", handleOffline);
       clearInterval(durationTimerRef.current as NodeJS.Timeout);
       clearTimeout(pressTimerRef.current as NodeJS.Timeout);
+      // Unmount while recording: detach handlers first so the forced stop
+      // below cannot fire onstop into an unmounted hook, then stop the
+      // recorder and release the mic.
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        if (recorder.state !== "inactive") {
+          try {
+            recorder.stop();
+          } catch {
+            // Already stopping; tracks are released below regardless.
+          }
+        }
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
     };
   }, [refreshPendingCount, options.locale]);
   const startRecording = useCallback(async () => {
+    // Re-entry guard: no second getUserMedia while a capture is active.
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      return;
+    }
+    if (status === "recording" || status === "processing") return;
     try {
       setError(null);
 
@@ -112,7 +140,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       setError(message);
       setStatus("error");
     }
-  }, []);
+  }, [status]);
 
   const stopRecording = useCallback(async () => {
     const recorder = mediaRecorderRef.current;

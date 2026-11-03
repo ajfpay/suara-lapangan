@@ -7,7 +7,7 @@ let mockSession: { data: unknown; isPending: boolean } = {
   data: { user: { id: "u1" } },
   isPending: true,
 };
-const stopRecording = vi.fn();
+let stopRecording = vi.fn();
 let mockRecorderState = { isRecording: false, isProcessing: false };
 
 vi.mock("@/lib/auth-client", () => ({
@@ -51,6 +51,7 @@ describe("RecorderControl auth race", () => {
     vi.clearAllMocks();
     mockRecorderState = { isRecording: false, isProcessing: false };
     mockSession = { data: { user: { id: "u1" } }, isPending: true };
+    stopRecording = vi.fn();
   });
 
   it("record button is disabled while session is pending", () => {
@@ -82,5 +83,27 @@ describe("RecorderControl auth race", () => {
     render(<RecorderControl copy={copy} />);
     expect(screen.getByTestId("login-required-notice")).toBeTruthy();
     expect(screen.queryByTestId("record-button")).toBeNull();
+  });
+
+  it("logs the auth-race stop rejection instead of letting it escape", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockSession = { data: { user: { id: "u1" } }, isPending: false };
+    mockRecorderState = { isRecording: true, isProcessing: false };
+    stopRecording = vi.fn().mockRejectedValue(new Error("mic already released"));
+
+    render(<RecorderControl copy={copy} />);
+    expect(screen.queryByTestId("login-required-notice")).toBeNull();
+
+    // Session resolves to null while own recorder still running.
+    mockSession = { data: null, isPending: false };
+    const { rerender } = render(<RecorderControl copy={copy} />);
+    rerender(<RecorderControl copy={copy} />);
+
+    await waitFor(() => expect(stopRecording).toHaveBeenCalled());
+    expect(errorSpy).toHaveBeenCalledWith(
+      "[recorder] auth-race stop failed:",
+      expect.stringContaining("mic already released")
+    );
+    errorSpy.mockRestore();
   });
 });

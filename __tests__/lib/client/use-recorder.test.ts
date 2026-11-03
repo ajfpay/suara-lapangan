@@ -6,6 +6,7 @@ import { resetRecordQueue, type StoredRecording } from "@/lib/client/record-queu
 
 let hookSlots: unknown[] = [];
 let hookIndex = 0;
+let capturedEffect: (() => () => void) | null = null;
 
 vi.mock("react", () => ({
   useState: (initial: unknown) => {
@@ -28,7 +29,9 @@ vi.mock("react", () => ({
     return hookSlots[slot] as { current: unknown };
   },
   useCallback: (fn: unknown) => fn,
-  useEffect: () => {},
+  useEffect: (fn: () => () => void) => {
+    capturedEffect = fn;
+  },
 }));
 
 // ── Simple synchronous IndexedDB mock ─────────────────────────────────────────
@@ -163,7 +166,9 @@ class FakeMediaRecorder {
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
 
-  constructor() {}
+  constructor() {
+    (globalThis as { __lastRecorder?: unknown }).__lastRecorder = this;
+  }
 
   start() {
     this.state = "recording";
@@ -419,5 +424,70 @@ describe("useRecorder / recorder logic", () => {
     const secondBody = fetchSpy.mock.calls[1][1]?.body as FormData;
     expect(firstBody.get("mode")).toBe("ENDPOINTING");
     expect(secondBody.get("mode")).toBe("DIARIZATION");
+  });
+
+  it("re-entry guard: second startRecording while active does not call getUserMedia twice", async () => {
+    hookSlots = [];
+    hookIndex = 0;
+    const getUserMedia = vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop: vi.fn() }],
+    });
+    vi.stubGlobal("navigator", { onLine: true, mediaDevices: { getUserMedia } });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const recorder = useRecorder();
+    await recorder.startRecording();
+    await recorder.startRecording();
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    await recorder.stopRecording();
+  });
+
+  it("unmount cleanup nulls onstop and ondataavailable so a forced stop cannot fire into an unmounted hook", async () => {
+    hookSlots = [];
+    hookIndex = 0;
+    capturedEffect = null;
+    (globalThis as { __lastRecorder?: unknown }).__lastRecorder = undefined;
+
+    const trackStop = vi.fn();
+    const getUserMedia = vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop: trackStop }],
+    });
+    vi.stubGlobal("indexedDB", createSimpleMockIDB());
+    vi.stubGlobal("navigator", {
+      onLine: true,
+      mediaDevices: { getUserMedia },
+    });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const recorder = useRecorder();
+    await recorder.startRecording();
+
+    const rec = (globalThis as { __lastRecorder?: FakeMediaRecorder }).__lastRecorder;
+    if (!rec) throw new Error("expected a MediaRecorder to be created");
+    expect(rec.ondataavailable).not.toBeNull();
+    // onstop attaches in stopRecording; simulate an in-flight recording.
+    rec.onstop = () => {};
+    expect(rec.onstop).not.toBeNull();
+
+    // Simulate unmount: run the effect's cleanup.
+    const effect = capturedEffect as (() => unknown) | null;
+    const cleanup = effect?.() as (() => void) | void;
+    expect(cleanup).toBeTypeOf("function");
+    (cleanup as (() => void) | undefined)?.();
+
+    expect(rec.onstop).toBeNull();
+    expect(rec.ondataavailable).toBeNull();
+    // Tracks are released on unmount so the microphone is never left live.
+    expect(trackStop).toHaveBeenCalledTimes(1);
   });
 });
