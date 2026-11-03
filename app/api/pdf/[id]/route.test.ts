@@ -3,7 +3,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { GET, resetPdfCacheForTesting, resetPdfDbPoolForTesting, resolveChromiumPath } from "./route";
+import { GET } from "./route";
+import {
+    resolveChromiumPath,
+    resetPdfCacheForTesting,
+    resetPdfDbPoolForTesting,
+} from "@/lib/server/pdf/storage";
 import { PATCH } from "@/app/api/documents/[id]/route";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
@@ -294,7 +299,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             [
                 document.locale,
                 document.nomor,
-                document.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "siap",
+                document.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "draf",
                 "pdf-hash-" + Math.random(),
                 JSON.stringify(document),
             ]

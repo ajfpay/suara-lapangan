@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
-import { redactSecrets } from "@/lib/server/asr/log";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
 import path from "node:path";
-import { Pool } from "pg";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import {
+    resolveChromiumPath,
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
@@ -16,14 +14,13 @@ import {
     isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
 import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
+import { getPdfDbPool, pdfCache } from "@/lib/server/pdf/storage";
+import { redactSecrets } from "@/lib/server/asr/log";
 import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
-
-// Identical-content cache: key = document nomor + content hash.
-const pdfCache = new Map<string, { hash: string; pdf: Buffer }>();
 
 function canAccessDocument(session: AuthSession, ownerUserId: string | null): boolean {
     // Legacy ownerless documents are visible to admins only.
@@ -32,39 +29,6 @@ function canAccessDocument(session: AuthSession, ownerUserId: string | null): bo
     return session.user.id === ownerUserId || isAdmin(session);
 }
 
-export function resetPdfCacheForTesting(): void {
-    pdfCache.clear();
-}
-
-let dbPool: Pool | null = null;
-let dbPoolUrl: string | null = null;
-
-function getPdfDbPool(): Pool {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) {
-        throw new Error("DATABASE_URL is not set");
-    }
-    if (!dbPool || dbPoolUrl !== connectionString) {
-        if (dbPool) {
-            dbPool.end().catch(() => {});
-        }
-        dbPoolUrl = connectionString;
-        dbPool = new Pool({ connectionString });
-        dbPool.on("error", (err) => {
-            console.error(redactSecrets(`[pdf] db pool error: ${String(err)}`));
-        });
-    }
-    return dbPool;
-}
-
-export async function resetPdfDbPoolForTesting(): Promise<void> {
-    if (dbPool) {
-        const p = dbPool;
-        dbPool = null;
-        dbPoolUrl = null;
-        await p.end().catch(() => {});
-    }
-}
 
 async function getDocumentPdfPath(id: string): Promise<string | null> {
     const pool = getPdfDbPool();
@@ -90,23 +54,6 @@ function hashDoc(doc: unknown): string {
 
 function shell(html: string): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
-}
-
-export function resolveChromiumPath(exists: (p: string) => boolean = existsSync): string {
-    const candidates = [
-        process.env.CHROME_PATH,
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
-        "/home/ubuntu/.local/bin/chromium",
-        // Legacy Playwright cache path (host dev only).
-        "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome",
-    ];
-    for (const candidate of candidates) {
-        if (candidate && exists(candidate)) return candidate;
-    }
-    throw new Error("no Chromium found: set CHROME_PATH to a Chromium binary");
 }
 
 async function renderPdf(html: string): Promise<Buffer> {
