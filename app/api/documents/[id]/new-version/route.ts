@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
-import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
+import {
+    documentIdSchema,
+    formatZodError,
+} from "@/lib/server/validation/document";
 import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
@@ -47,7 +50,10 @@ async function handleNewVersion(
         docStore = getPostgresDocumentStore();
     } catch {
         return NextResponse.json(
-            { error: "store_failure", message: "Failed to access document database" },
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
             { status: 500 }
         );
     }
@@ -57,7 +63,10 @@ async function handleNewVersion(
         existing = await docStore.get(id);
     } catch {
         return NextResponse.json(
-            { error: "store_failure", message: "Failed to access document database" },
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
             { status: 500 }
         );
     }
@@ -71,7 +80,10 @@ async function handleNewVersion(
 
     if (!canAccessDocument(session, existing.userId ?? null)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }

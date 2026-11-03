@@ -1,5 +1,13 @@
 import { Pool } from "pg";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from "vitest";
 import fs from "node:fs/promises";
 import { GET } from "./route";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
@@ -70,133 +78,162 @@ describe("renderQuotationHtml unit (no DB)", () => {
     });
 
     it("renders the locale draft marker for drafts, never a hardcoded literal", () => {
-        const idMarker = (idMessages as { dokumen: { draftMarker: string } }).dokumen
-            .draftMarker;
+        const idMarker = (idMessages as { dokumen: { draftMarker: string } })
+            .dokumen.draftMarker;
         expect(idMarker).toBe("DRAF — nomor belum ditetapkan");
-        expect(renderQuotationHtml(doc({ nomor: null, locale: "id" }))).toContain(idMarker);
+        expect(
+            renderQuotationHtml(doc({ nomor: null, locale: "id" }))
+        ).toContain(idMarker);
 
-        const enMarker = (enMessages as { dokumen: { draftMarker: string } }).dokumen
-            .draftMarker;
+        const enMarker = (enMessages as { dokumen: { draftMarker: string } })
+            .dokumen.draftMarker;
         const enHtml = renderQuotationHtml(doc({ nomor: null, locale: "en" }));
         expect(enHtml).toContain(enMarker);
         expect(enHtml).not.toContain(idMarker);
     });
 });
 
-describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]/preview", () => {
-    let pool: Pool;
+describe
+    .skipIf(!TEST_DATABASE_URL)
+    .sequential("GET /api/pdf/[id]/preview", () => {
+        let pool: Pool;
 
-    beforeAll(async () => {
-        process.env.DATABASE_URL = TEST_DATABASE_URL;
-        pool = new Pool({ connectionString: TEST_DATABASE_URL });
-        for (const file of [
-            "0001_sessions_turns.sql",
-            "0002_usage_meter.sql",
-            "0003_documents.sql",
-            "0004_email_sends.sql",
-            "0007_auth_tables.sql",
-            "0009_review_before_pdf.sql",
-            "0008_documents_user_id.sql",
-        ]) {
-            const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
-            await pool.query(sql);
-        }
-        await pool.query(
-            `insert into auth_user (id, email, email_verified, name, role)
+        beforeAll(async () => {
+            process.env.DATABASE_URL = TEST_DATABASE_URL;
+            pool = new Pool({ connectionString: TEST_DATABASE_URL });
+            for (const file of [
+                "0001_sessions_turns.sql",
+                "0002_usage_meter.sql",
+                "0003_documents.sql",
+                "0004_email_sends.sql",
+                "0007_auth_tables.sql",
+                "0009_review_before_pdf.sql",
+                "0008_documents_user_id.sql",
+            ]) {
+                const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
+                await pool.query(sql);
+            }
+            await pool.query(
+                `insert into auth_user (id, email, email_verified, name, role)
              values
                ('00000000-0000-0000-0000-000000000001','test1@suara-lapangan.local',true,'Test User 1','user'),
                ('00000000-0000-0000-0000-000000000002','test2@suara-lapangan.local',true,'Test User 2','user')
              on conflict (id) do nothing`
-        );
-    });
+            );
+        });
 
-    beforeEach(async () => {
-        await pool.query("truncate documents, sessions, usage_meter cascade");
-        await pool.query(
-            "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
-        );
-    });
+        beforeEach(async () => {
+            await pool.query(
+                "truncate documents, sessions, usage_meter cascade"
+            );
+            await pool.query(
+                "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
+            );
+        });
 
-    afterAll(async () => {
-        await pool.end();
-    });
+        afterAll(async () => {
+            await pool.end();
+        });
 
-    async function seed(document: QuotationDocument, status = "draf"): Promise<string> {
-        const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+        async function seed(
+            document: QuotationDocument,
+            status = "draf"
+        ): Promise<string> {
+            const result = await pool.query<{ id: string }>(
+                `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
              values ('seed-session', $1, $2, $3, $4, $5) returning id`,
-            [
-                document.locale,
-                document.nomor,
-                status,
-                "preview-hash-" + Math.random(),
-                JSON.stringify(document),
-            ]
-        );
-        return result.rows[0].id;
-    }
+                [
+                    document.locale,
+                    document.nomor,
+                    status,
+                    "preview-hash-" + Math.random(),
+                    JSON.stringify(document),
+                ]
+            );
+            return result.rows[0].id;
+        }
 
-    it("200 text/html for a draft, with the locale draft marker", async () => {
-        const id = await seed(doc({ nomor: null }), "draf");
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}/preview`), {
-            params: Promise.resolve({ id }),
+        it("200 text/html for a draft, with the locale draft marker", async () => {
+            const id = await seed(doc({ nomor: null }), "draf");
+            const res = await GET(
+                new Request(`http://localhost/api/pdf/${id}/preview`),
+                {
+                    params: Promise.resolve({ id }),
+                }
+            );
+            expect(res.status).toBe(200);
+            expect(res.headers.get("content-type")).toBe(
+                "text/html; charset=utf-8"
+            );
+            const body = await res.text();
+            expect(body).toContain(
+                (idMessages as { dokumen: { draftMarker: string } }).dokumen
+                    .draftMarker
+            );
+            expect(body).toBe(renderQuotationHtml(doc({ nomor: null })));
         });
-        expect(res.status).toBe(200);
-        expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
-        const body = await res.text();
-        expect(body).toContain(
-            (idMessages as { dokumen: { draftMarker: string } }).dokumen.draftMarker
-        );
-        expect(body).toBe(renderQuotationHtml(doc({ nomor: null })));
-    });
 
-    it("200 text/html for an approved document with its sequence number", async () => {
-        const id = await seed(doc({ nomor: "SL/QTN/2026/0042" }), "disetujui");
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}/preview`), {
-            params: Promise.resolve({ id }),
+        it("200 text/html for an approved document with its sequence number", async () => {
+            const id = await seed(
+                doc({ nomor: "SL/QTN/2026/0042" }),
+                "disetujui"
+            );
+            const res = await GET(
+                new Request(`http://localhost/api/pdf/${id}/preview`),
+                {
+                    params: Promise.resolve({ id }),
+                }
+            );
+            expect(res.status).toBe(200);
+            expect(res.headers.get("content-type")).toBe(
+                "text/html; charset=utf-8"
+            );
+            expect(await res.text()).toContain("SL/QTN/2026/0042");
         });
-        expect(res.status).toBe(200);
-        expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
-        expect(await res.text()).toContain("SL/QTN/2026/0042");
-    });
 
-    it("401 for unauthenticated callers", async () => {
-        mockGetSession.mockResolvedValueOnce(null);
-        const id = await seed(doc({ nomor: null }), "draf");
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}/preview`), {
-            params: Promise.resolve({ id }),
+        it("401 for unauthenticated callers", async () => {
+            mockGetSession.mockResolvedValueOnce(null);
+            const id = await seed(doc({ nomor: null }), "draf");
+            const res = await GET(
+                new Request(`http://localhost/api/pdf/${id}/preview`),
+                {
+                    params: Promise.resolve({ id }),
+                }
+            );
+            expect(res.status).toBe(401);
         });
-        expect(res.status).toBe(401);
-    });
 
-    it("403 for a non-owner non-admin", async () => {
-        mockGetSession.mockResolvedValueOnce({
-            user: {
-                id: "00000000-0000-0000-0000-000000000002",
-                email: "test2@suara-lapangan.local",
-                name: "Test User 2",
-                role: "user",
-            },
+        it("403 for a non-owner non-admin", async () => {
+            mockGetSession.mockResolvedValueOnce({
+                user: {
+                    id: "00000000-0000-0000-0000-000000000002",
+                    email: "test2@suara-lapangan.local",
+                    name: "Test User 2",
+                    role: "user",
+                },
+            });
+            mockIsAdmin.mockReturnValueOnce(false);
+            const id = await seed(doc({ nomor: null }), "draf");
+            const res = await GET(
+                new Request(`http://localhost/api/pdf/${id}/preview`),
+                {
+                    params: Promise.resolve({ id }),
+                }
+            );
+            expect(res.status).toBe(403);
         });
-        mockIsAdmin.mockReturnValueOnce(false);
-        const id = await seed(doc({ nomor: null }), "draf");
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}/preview`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(res.status).toBe(403);
-    });
 
-    it("404 for unknown id", async () => {
-        const res = await GET(
-            new Request(
-                "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000/preview"
-            ),
-            {
-                params: Promise.resolve({
-                    id: "00000000-0000-0000-0000-000000000000",
-                }),
-            }
-        );
-        expect(res.status).toBe(404);
+        it("404 for unknown id", async () => {
+            const res = await GET(
+                new Request(
+                    "http://localhost/api/pdf/00000000-0000-0000-0000-000000000000/preview"
+                ),
+                {
+                    params: Promise.resolve({
+                        id: "00000000-0000-0000-0000-000000000000",
+                    }),
+                }
+            );
+            expect(res.status).toBe(404);
+        });
     });
-});
