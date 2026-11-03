@@ -1,6 +1,60 @@
 import { mkdir, open, rename, unlink, readFile } from "node:fs/promises";
+import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { existsSync } from "node:fs";
+
+/**
+ * Resolve the Chromium binary the PDF pipeline renders through.
+ *
+ * Candidates are consulted in order; the first path that exists wins. A
+ * `CHROME_PATH` environment variable takes precedence over the built-in list so
+ * a deployment can point at a pinned binary. Callers may pass a custom
+ * `exists` predicate so the lookup can be unit tested without touching the
+ * filesystem.
+ */
+// Identical-content cache: key = document nomor + content hash.
+export const pdfCache = new Map<string, { hash: string; pdf: Buffer }>();
+
+export let dbPool: Pool | null = null;
+export let dbPoolUrl: string | null = null;
+
+export function getPdfDbPool(): Pool {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error("DATABASE_URL is not set");
+    }
+    if (!dbPool || dbPoolUrl !== connectionString) {
+        if (dbPool) {
+            dbPool.end().catch(() => {});
+        }
+        dbPoolUrl = connectionString;
+        dbPool = new Pool({ connectionString });
+        dbPool.on("error", (err) => {
+            console.error(`[pdf] db pool error: ${String(err)}`);
+        });
+    }
+    return dbPool;
+}
+
+export function resolveChromiumPath(
+    exists: (p: string) => boolean = existsSync
+): string {
+    const candidates = [
+        process.env.CHROME_PATH,
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/home/ubuntu/.local/bin/chromium",
+        // Legacy Playwright cache path (host dev only).
+        "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome",
+    ];
+    for (const candidate of candidates) {
+        if (candidate && exists(candidate)) return candidate;
+    }
+    throw new Error("no Chromium found: set CHROME_PATH to a Chromium binary");
+}
 
 export function resolvePdfStorageDir(): string {
     const configured = process.env.PDF_STORAGE_DIR;
@@ -213,5 +267,26 @@ export async function readPdfHash(filePath: string): Promise<string | null> {
             return null;
         }
         throw err;
+    }
+}
+
+/**
+ * Test-only helper: flush the in-process PDF cache so tests start from a
+ * clean state. Not part of the request path.
+ */
+export function resetPdfCacheForTesting(): void {
+    pdfCache.clear();
+}
+
+/**
+ * Test-only helper: close the pooled client so tests start from a clean
+ * state. Not part of the request path.
+ */
+export async function resetPdfDbPoolForTesting(): Promise<void> {
+    if (dbPool) {
+        const p = dbPool;
+        dbPool = null;
+        dbPoolUrl = null;
+        await p.end().catch(() => {});
     }
 }

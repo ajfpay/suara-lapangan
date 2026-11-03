@@ -8,23 +8,29 @@ import {
 } from "./helpers";
 
 /**
- * Full-chain ticket 07: rekam → susun → dokumen (create + view) → PDF
+ * Full-chain ticket 07: rekam → susun → confirm → approve → dokumen → PDF
  * download.
  *
  * The one piece that cannot run in a browser is the microphone upload, so the
  * session is seeded in the database the same way `saveTranscription` in
  * `lib/server/db/store.ts` writes a real ASR upload. Everything after that is
  * the real product: the Susun screen renders the stored turns, "Buat dokumen"
- * POSTs to /api/documents, the confirmation card PATCHes the one defective
- * field, the Dokumen screen loads the real PDF, and the download button saves
- * it with the document number as filename.
+ * POSTs to /api/documents and gets a draft with no number, the confirmation
+ * card PATCHes the one defective field, approval issues the number and renders
+ * the PDF, and the Dokumen screen loads it and saves it with the document
+ * number as filename.
+ *
+ * Approval has no UI control yet, so it is driven over the page's own request
+ * context: the real POST /api/documents/{id}/approve route, with the browser's
+ * own cookies. That route is the product's gate — a draft must not be
+ * downloadable — so the test exercises it rather than bypassing it.
  *
  * No microphone, no Meta API (`MODEL_API_KEY` unset → the guard's fallback),
  * no pre-seeded document rows: only the session row exists before the test,
  * and the document is created by the UI.
  */
 
-test("full chain: seed session → susun → confirm → dokumen → PDF download", async ({
+test("full chain: seed session → susun → confirm → approve → dokumen → PDF download", async ({
     page,
 }) => {
     const sessionId = uniqueSessionId("e2e-fullchain");
@@ -41,8 +47,8 @@ test("full chain: seed session → susun → confirm → dokumen → PDF downloa
 });
 
 /**
- * One full pass: susun → buat dokumen → confirm → lihat dokumen → unduh.
- * Returns the document number shown by the UI.
+ * One full pass: susun → buat dokumen → confirm → approve → lihat dokumen →
+ * unduh. Returns the document number the server issued at approval.
  */
 async function fullChain(page: Page, sessionId: string): Promise<string> {
     // ── Susun: turns render from the seeded session ──────────────────────────
@@ -52,15 +58,20 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
 
     // ── Create the document (POST /api/documents) ────────────────────────────
     await page.getByTestId("btn-buat-dokumen").click();
-    await expect(page.getByTestId("document-nomor")).toBeVisible();
+    await expect(page.getByTestId("document-status")).toBeVisible();
 
-    const nomor = (await page.getByTestId("document-nomor").textContent())?.trim();
-    expect(nomor).toBeTruthy();
+    // A fresh created document is a draft: numbering is deferred to approval,
+    // so the screen shows the draft status, no number, and no download.
+    await expect(page.getByTestId("document-status")).toHaveText("draf");
+    await expect(page.getByTestId("document-nomor")).toHaveText("");
 
     // The defective turn must have produced exactly one confirmation.
     await expect(
         page.getByTestId("konfirmasi-pekerjaan[1].volume")
     ).toBeVisible();
+    await expect(page.getByTestId("btn-unduh")).toBeDisabled();
+
+    const docId = await documentIdFromLink(page);
 
     // ── Confirm the field via PATCH (manual correction) ──────────────────────
     await page
@@ -72,20 +83,41 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
         .getByRole("button", { name: "Save" })
         .click();
 
-    // After resolution the document is siap: the download button activates.
-    await expect(page.getByTestId("btn-unduh")).toBeEnabled();
+    // The correction clears the confirmation, but resolving a field is not
+    // approval: the document is still a draft and still has no number.
+    await expect(
+        page.getByTestId("konfirmasi-pekerjaan[1].volume")
+    ).toHaveCount(0);
+    await expect(page.getByTestId("document-status")).toHaveText("draf");
+    await expect(page.getByTestId("document-nomor")).toHaveText("");
 
-    // ── Dokumen screen: view the generated PDF ───────────────────────────────
+    // ── Dokumen screen: a draft is not viewable as a PDF ─────────────────────
     await page.getByTestId("link-lihat-dokumen").click();
+    await expect(page.getByTestId("document-status")).toHaveText("Draft");
+    await expect(page.getByTestId("document-nomor")).toHaveText(
+        "Not yet assigned"
+    );
+    await expect(page.getByTestId("approval-pending")).toBeVisible();
+    await expect(page.getByTestId("draft-helper")).toBeVisible();
+    await expect(page.getByTestId("pdf-frame")).toHaveCount(0);
+    await expect(page.getByTestId("btn-unduh")).toBeDisabled();
+
+    // ── Approve: the number is issued here, and only here ────────────────────
+    const nomor = await approveDocument(page, docId);
+
+    // ── Dokumen screen: the approved document shows its number and PDF ───────
+    await page.reload();
+    await expect(page.getByTestId("document-status")).toHaveText("Approved");
+    await expect(page.getByTestId("document-nomor")).toHaveText(nomor);
     await expect(page.getByTestId("pdf-frame")).toBeVisible();
-    await expect(page.getByTestId("document-nomor")).toHaveText(nomor!);
+    await expect(page.getByTestId("btn-unduh")).toBeEnabled();
 
     // ── Download: filename = document number, payload starts with %PDF ───────
     const downloadPromise = page.waitForEvent("download");
     await page.getByTestId("btn-unduh").click();
     const download = await downloadPromise;
 
-    const expectedFilename = nomor!.replaceAll("/", "-") + ".pdf";
+    const expectedFilename = nomor.replaceAll("/", "-") + ".pdf";
     expect(download.suggestedFilename()).toBe(expectedFilename);
 
     const stream = await download.createReadStream();
@@ -104,8 +136,8 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
         expectPdf: true,
         expectConfirmed: true,
     });
-    expect(row.nomor).toBe(nomor!);
-    expect(row.status).toBe("siap");
+    expect(row.nomor).toBe(nomor);
+    expect(row.status).toBe("disetujui");
 
     // The UI's manual correction must be what hit the database: the stored
     // document carries volume 16 for pekerjaan[1], not the defective "square
@@ -113,7 +145,7 @@ async function fullChain(page: Page, sessionId: string): Promise<string> {
     const pekerjaan = data.pekerjaan as { volume: number }[];
     expect(pekerjaan[1]?.volume).toBe(16);
 
-    return nomor!;
+    return nomor;
 }
 
 test("two document creations produce different numbers", async ({ page }) => {
@@ -148,16 +180,71 @@ test("two document creations produce different numbers", async ({ page }) => {
     }
 });
 
+/**
+ * Creates one document through the UI, resolves its single confirmation, and
+ * approves it — the number only exists after approval — returning that number.
+ */
 async function createDocumentNumber(
     page: Page,
     sessionId: string
 ): Promise<string> {
     await page.goto(`/en/susun?sessionId=${sessionId}`);
     await page.getByTestId("btn-buat-dokumen").click();
-    await expect(page.getByTestId("document-nomor")).toBeVisible();
-    const nomor = (
-        await page.getByTestId("document-nomor").textContent()
-    )?.trim();
-    expect(nomor).toBeTruthy();
-    return nomor!;
+    await expect(page.getByTestId("document-status")).toHaveText("draf");
+
+    const docId = await documentIdFromLink(page);
+
+    await page
+        .getByTestId("konfirmasi-pekerjaan[1].volume")
+        .getByLabel("Manual correction")
+        .fill("16");
+    await page
+        .getByTestId("konfirmasi-pekerjaan[1].volume")
+        .getByRole("button", { name: "Save" })
+        .click();
+    await expect(
+        page.getByTestId("konfirmasi-pekerjaan[1].volume")
+    ).toHaveCount(0);
+
+    return approveDocument(page, docId);
+}
+
+/** The document id the Susun screen links to on its "Lihat dokumen" control. */
+async function documentIdFromLink(page: Page): Promise<string> {
+    const href = await page
+        .getByTestId("link-lihat-dokumen")
+        .getAttribute("href");
+    expect(href, "Lihat dokumen must link to the created document").toBeTruthy();
+
+    const docId = new URL(href!, "http://localhost").searchParams.get("doc");
+    expect(docId, "the link must carry the document id").toBeTruthy();
+
+    return docId!;
+}
+
+/**
+ * Approves the document over the page's own request context — same cookies as
+ * the browser, real route, real gate. Returns the server-issued number.
+ */
+async function approveDocument(page: Page, docId: string): Promise<string> {
+    const response = await page.request.post(
+        `/api/documents/${encodeURIComponent(docId)}/approve`
+    );
+    const text = await response.text();
+
+    if (response.status() !== 200) {
+        throw new Error(
+            `approve failed: HTTP ${response.status()} ${text}`
+        );
+    }
+
+    const body = JSON.parse(text) as {
+        status: string;
+        document: { nomor: string };
+    };
+
+    expect(body.status).toBe("disetujui");
+    expect(body.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+
+    return body.document.nomor;
 }

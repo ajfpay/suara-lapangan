@@ -101,6 +101,19 @@ export class AsrError extends Error {
     }
 }
 
+/** Ownership denial: 404 for foreign-owned, 403 for legacy null-owner non-admin. */
+export class SessionOwnershipError extends AsrError {
+    readonly status: 403 | 404;
+    constructor(status: 403 | 404) {
+        super("internal_error", {
+            detail:
+                status === 404 ? "foreign session" : "legacy ownerless session",
+        });
+        this.name = "SessionOwnershipError";
+        this.status = status;
+    }
+}
+
 export function upstreamError(status: number, body?: string): AsrError {
     const code: AsrErrorCode =
         status === 400

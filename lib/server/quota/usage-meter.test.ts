@@ -20,9 +20,20 @@ import {
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
 
 describe("usage-meter (in-memory)", () => {
+    let savedDatabaseUrl: string | undefined;
     beforeEach(() => {
+        // Force the in-memory store: the full suite exports DATABASE_URL,
+        // which would otherwise route these tests to the shared Postgres.
+        savedDatabaseUrl = process.env.DATABASE_URL;
+        delete process.env.DATABASE_URL;
         setUsageStore(null);
         resetMemoryUsageStore();
+    });
+
+    afterAll(() => {
+        if (savedDatabaseUrl !== undefined) {
+            process.env.DATABASE_URL = savedDatabaseUrl;
+        }
     });
 
     it("returns zeroes and hardStop false for a new day", async () => {
@@ -189,6 +200,9 @@ describe("usage-meter (in-memory)", () => {
         const mockStore = {
             recordUsage: vi.fn(),
             getUsage: vi.fn(),
+            reserveQuota: vi.fn(),
+            releaseQuota: vi.fn(),
+            reconcileQuota: vi.fn(),
         };
         setUsageStore(mockStore);
         expect(getUsageStore()).toBe(mockStore);
@@ -259,5 +273,61 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres usage store", () => {
 
         const usage = await postgresStore.getUsage("2026-10-29", "00000000-0000-0000-0000-000000000002");
         expect(usage.hardStop).toBe(true);
+    });
+
+    it("two concurrent reserves cannot both pass on the last remaining quota", async () => {
+        const userId = "00000000-0000-0000-0000-000000000001";
+        const day = "2026-10-30";
+        await postgresStore.setUserLimit(userId, 1.0);
+        // Fill the bucket to 0.9 of a 1.0 cap: only one 0.1 reservation fits.
+        await postgresStore.recordUsage({ userId, date: day, estCost: 0.9 });
+
+        const [a, b] = await Promise.all([
+            postgresStore.reserveQuota({ userId, day, estCost: 0.1 }),
+            postgresStore.reserveQuota({ userId, day, estCost: 0.1 }),
+        ]);
+
+        expect([a.ok, b.ok].sort()).toEqual([false, true]);
+        const usage = await postgresStore.getUsage(day, userId);
+        expect(usage.estCost).toBeCloseTo(1.0, 4);
+    });
+
+    it("a released reservation restores the bucket for the next caller", async () => {
+        const userId = "00000000-0000-0000-0000-000000000001";
+        const day = "2026-10-31";
+        await postgresStore.setUserLimit(userId, 1.0);
+
+        const reserved = await postgresStore.reserveQuota({
+            userId,
+            day,
+            estCost: 0.5,
+        });
+        expect(reserved.ok).toBe(true);
+
+        await postgresStore.releaseQuota({ userId, day, estCost: 0.5 });
+        const usage = await postgresStore.getUsage(day, userId);
+        expect(usage.estCost).toBeCloseTo(0, 4);
+        expect(usage.hardStop).toBe(false);
+    });
+
+    it("reconcile swaps the estimate for the actual cost in one atomic add", async () => {
+        const userId = "00000000-0000-0000-0000-000000000001";
+        const day = "2026-11-01";
+        await postgresStore.setUserLimit(userId, 1.0);
+
+        const reserved = await postgresStore.reserveQuota({
+            userId,
+            day,
+            estCost: 0.5,
+        });
+        expect(reserved.ok).toBe(true);
+
+        const final = await postgresStore.reconcileQuota({
+            userId,
+            day,
+            reservedCost: 0.5,
+            actualCost: 0.2,
+        });
+        expect(final.estCost).toBeCloseTo(0.2, 4);
     });
 });

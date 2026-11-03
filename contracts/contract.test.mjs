@@ -437,6 +437,27 @@ test("quotation schema rejects impossible calendar dates and turn_0 citations", 
         "schema must reject turn_0"
     );
 });
+test("quotation schema accepts sumber_kutipan: 'manual' and rejects arbitrary citations", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+    const manualDoc = {
+        ...valid,
+        pekerjaan: [{ ...valid.pekerjaan[0], sumber_kutipan: "manual" }],
+    };
+    assert.deepEqual(
+        valueProblems(schema, manualDoc, "manualDoc", []),
+        [],
+        "schema must accept sumber_kutipan: 'manual'"
+    );
+    const arbitraryDoc = {
+        ...valid,
+        pekerjaan: [{ ...valid.pekerjaan[0], sumber_kutipan: "user_added" }],
+    };
+    assert.ok(
+        valueProblems(schema, arbitraryDoc, "arbitraryDoc", []).length > 0,
+        "schema must reject arbitrary citation 'user_added'"
+    );
+});
 
 test("quotation schema accepts the yearly nomor and rejects the old date format", () => {
     const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
@@ -459,6 +480,34 @@ test("quotation schema accepts the yearly nomor and rejects the old date format"
             `schema must reject ${nomor}`
         );
     }
+});
+
+test("quotation schema accepts nomor: null for drafts, rejects missing key, empty string, and wrong types", () => {
+    const schema = loadSchema(DOCUMENT_SCHEMAS.quotation);
+    const valid = loadAll(validDir)[0].data.expected_document;
+
+    assert.deepEqual(
+        valueProblems(schema, { ...valid, nomor: null }, "draft", []),
+        [],
+        "schema must accept nomor: null"
+    );
+
+    assert.ok(
+        valueProblems(schema, { ...valid, nomor: "" }, "empty string", []).length > 0,
+        "schema must reject empty string nomor"
+    );
+
+    assert.ok(
+        valueProblems(schema, { ...valid, nomor: 12345 }, "number", []).length > 0,
+        "schema must reject numeric nomor"
+    );
+
+    const withoutNomor = { ...valid };
+    delete withoutNomor.nomor;
+    assert.ok(
+        valueProblems(schema, withoutNomor, "without nomor", []).length > 0,
+        "schema must reject document missing nomor property"
+    );
 });
 
 function terbilangNumber(n) {

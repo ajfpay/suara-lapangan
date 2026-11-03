@@ -34,9 +34,9 @@
       "description": "Follows locale: en -> USD, id -> IDR."
     },
     "nomor": {
-      "type": "string",
+      "type": ["string", "null"],
       "pattern": "^SL/QTN/[1-9][0-9]{3}/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})$",
-      "description": "Server-made document number: calendar year and a four-digit sequence (0001..9999) that resets each year. Never spoken by the user and never invented by the model."
+      "description": "Server-made document number: calendar year and a four-digit sequence (0001..9999) that resets each year. Null while the draft has not been approved (ticket 01). Never spoken by the user and never invented by the model."
     },
     "tanggal": {
       "type": "string",
@@ -101,7 +101,7 @@
           },
           "sumber_kutipan": {
             "type": "string",
-            "pattern": "^turn_[1-9][0-9]*$",
+            "pattern": "^(turn_[1-9][0-9]*|manual)$",
             "description": "Turn id (K3) inside the same session, final=true only."
           }
         }

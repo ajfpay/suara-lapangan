@@ -49,6 +49,12 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pressTriggeredRef = useRef(false);
+  // Synchronous in-flight flag: two startRecording calls before the first
+  // getUserMedia resolves must share one mic request, not open two streams.
+  const startingRef = useRef(false);
+  // Set on unmount: a getUserMedia that resolves after unmount must have its
+  // stream released immediately instead of starting a recording.
+  const unmountedRef = useRef(false);
 
   const refreshPendingCount = useCallback(async () => {
     try {
@@ -81,13 +87,50 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       window.removeEventListener("offline", handleOffline);
       clearInterval(durationTimerRef.current as NodeJS.Timeout);
       clearTimeout(pressTimerRef.current as NodeJS.Timeout);
+      unmountedRef.current = true;
+      // Unmount while recording: detach handlers first so the forced stop
+      // below cannot fire onstop into an unmounted hook, then stop the
+      // recorder and release the mic.
+      const recorder = mediaRecorderRef.current;
+      if (recorder) {
+        recorder.onstop = null;
+        recorder.ondataavailable = null;
+        if (recorder.state !== "inactive") {
+          try {
+            recorder.stop();
+          } catch {
+            // Already stopping; tracks are released below regardless.
+          }
+        }
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
     };
   }, [refreshPendingCount, options.locale]);
   const startRecording = useCallback(async () => {
+    // Re-entry guard: no second getUserMedia while a capture is active.
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      return;
+    }
+    if (status === "recording" || status === "processing") return;
+    if (startingRef.current) return;
+    startingRef.current = true;
     try {
       setError(null);
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (unmountedRef.current) {
+        // Unmounted while the mic request was in flight: release the
+        // late-arriving stream immediately; never start a recording.
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
 
       const mediaRecorder = new MediaRecorder(stream);
@@ -111,8 +154,10 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       const message = err instanceof Error ? err.message : "Gagal mengakses mikrofon";
       setError(message);
       setStatus("error");
+    } finally {
+      startingRef.current = false;
     }
-  }, []);
+  }, [status]);
 
   const stopRecording = useCallback(async () => {
     const recorder = mediaRecorderRef.current;

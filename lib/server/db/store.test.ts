@@ -28,6 +28,14 @@ const migration0006 = readFileSync(
     join(__dirname, "../../../db/migrations/0006_asr_mode.sql"),
     "utf8"
 );
+const migration0007 = readFileSync(
+    join(__dirname, "../../../db/migrations/0007_auth_tables.sql"),
+    "utf8"
+);
+const migration0010 = readFileSync(
+    join(__dirname, "../../../db/migrations/0010_sessions_user_id.sql"),
+    "utf8"
+);
 
 const record: TranscriptionRecord = {
     sessionId: "sess-round-trip",
@@ -65,11 +73,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         await pool.query(migration0001);
         await pool.query(migration0005);
         await pool.query(migration0006);
+        await pool.query(migration0007);
+        await pool.query(migration0010);
         // The demo and CI both re-run the migration on a database that already
         // has the tables.
         await pool.query(migration0001);
         await pool.query(migration0005);
         await pool.query(migration0006);
+        await pool.query(migration0007);
+        await pool.query(migration0010);
     });
 
     beforeEach(async () => {
@@ -90,6 +102,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
             locale: "id",
             audioSha256: "9f2c1a",
             mode: "ENDPOINTING",
+            userId: null,
             turns: record.turns,
         });
     });
@@ -214,5 +227,169 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         });
         const def = await store.findSession("sess-mode-default");
         expect(def?.mode).toBe("ENDPOINTING");
+    });
+
+    it("persists userId on saveTranscription and reads back from findSession", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const ownerId = "00000000-0000-0000-0000-000000000000";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-owned-direct",
+            userId: ownerId,
+        });
+
+        const owned = await store.findSession("sess-owned-direct");
+        expect(owned?.userId).toBe(ownerId);
+    });
+
+    it("sets session owner via setSessionOwner when user_id is null", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const ownerId = "00000000-0000-0000-0000-000000000000";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-ownerless",
+        });
+
+        const before = await store.findSession("sess-ownerless");
+        expect(before?.userId).toBeNull();
+
+        await store.setSessionOwner!("sess-ownerless", ownerId);
+
+        const after = await store.findSession("sess-ownerless");
+        expect(after?.userId).toBe(ownerId);
+    });
+
+    it("does not overwrite existing session owner when setSessionOwner is called again with another user", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const originalOwner = "00000000-0000-0000-0000-000000000000";
+
+        // Insert a second user in auth_user to test foreign user id
+        const foreignOwner = "00000000-0000-0000-0000-000000000002";
+        await pool.query(
+            "insert into auth_user (id, email, email_verified, name, role) values ($1, $2, true, 'User 2', 'user') on conflict (id) do nothing",
+            [foreignOwner, "user2@suara-lapangan.local"]
+        );
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-first-writer",
+            userId: originalOwner,
+        });
+
+        await store.setSessionOwner!("sess-first-writer", foreignOwner);
+
+        const check = await store.findSession("sess-first-writer");
+        expect(check?.userId).toBe(originalOwner);
+    });
+
+    it("saveTranscription by a foreign user throws ownership error and keeps original audio", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const originalOwner = "00000000-0000-0000-0000-000000000000";
+        const foreignOwner = "00000000-0000-0000-0000-000000000002";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-resave-owner",
+            userId: originalOwner,
+        });
+
+        await expect(
+            store.saveTranscription({
+                ...record,
+                sessionId: "sess-resave-owner",
+                audioSha256: "different-audio-sha",
+                userId: foreignOwner,
+            })
+        ).rejects.toMatchObject({ name: "SessionOwnershipError" });
+
+        const check = await store.findSession("sess-resave-owner");
+        expect(check?.userId).toBe(originalOwner);
+        expect(check?.audioSha256).toBe(record.audioSha256);
+    });
+
+    it("two simultaneous first uploads by the SAME user converge: exactly one claims, one is foreign", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const user = "00000000-0000-0000-0000-0000000000a1";
+        await pool.query(
+            "insert into auth_user (id, email, email_verified, name, role) values ($1, 'race-same@suara-lapangan.local', true, 'Race', 'user') on conflict (id) do nothing",
+            [user]
+        );
+        const create = {
+            locale: "id",
+            audioSha256: "race-same-sha",
+            audioBytes: 16000,
+        } as const;
+
+        const [a, b] = await Promise.all([
+            store.claimSessionOwner!(
+                "sess-claim-race-same",
+                user,
+                false,
+                create
+            ),
+            store.claimSessionOwner!(
+                "sess-claim-race-same",
+                user,
+                false,
+                create
+            ),
+        ]);
+
+        // The verdict keys on whether OUR insert landed, never on a re-read
+        // of the owner: both callers own the row, but only one may proceed
+        // to a paid transcription.
+        expect([a, b].sort()).toEqual(["claimed", "foreign"]);
+        const row = await store.findSession("sess-claim-race-same");
+        expect(row?.userId).toBe(user);
+    });
+
+    it("a claimed placeholder never satisfies the cache: its audio hash is a sentinel, not the upload's", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const user = "00000000-0000-0000-0000-0000000000a1";
+        const claim = await store.claimSessionOwner!(
+            "sess-claim-sentinel",
+            user,
+            false,
+            { locale: "id", audioSha256: "real-audio-sha", audioBytes: 16000 }
+        );
+        expect(claim).toBe("claimed");
+
+        const row = await store.findSession("sess-claim-sentinel");
+        // The winner must still transcribe: a placeholder whose stored hash
+        // equalled the upload's would cache-hit on zero turns and return []
+        // without ever calling Meta.
+        expect(row?.audioSha256).not.toBe("real-audio-sha");
+    });
+
+    it("two simultaneous first uploads on an unseen session id converge: one claims, one is foreign", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const userA = "00000000-0000-0000-0000-0000000000a1";
+        const userB = "00000000-0000-0000-0000-0000000000b2";
+        for (const [id, email] of [
+            [userA, "race-a@suara-lapangan.local"],
+            [userB, "race-b@suara-lapangan.local"],
+        ] as const) {
+            await pool.query(
+                "insert into auth_user (id, email, email_verified, name, role) values ($1, $2, true, 'Race', 'user') on conflict (id) do nothing",
+                [id, email]
+            );
+        }
+        const create = {
+            locale: "id",
+            audioSha256: "race-sha",
+            audioBytes: 16000,
+        } as const;
+
+        const [a, b] = await Promise.all([
+            store.claimSessionOwner!("sess-claim-race", userA, false, create),
+            store.claimSessionOwner!("sess-claim-race", userB, false, create),
+        ]);
+
+        expect([a, b].sort()).toEqual(["claimed", "foreign"]);
+        const row = await store.findSession("sess-claim-race");
+        const winner = a === "claimed" ? userA : userB;
+        expect(row?.userId).toBe(winner);
     });
 });

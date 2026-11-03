@@ -43,7 +43,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
     beforeEach(async () => {
         resetRateLimits();
         await pool.query(
-            "truncate documents, sessions, usage_meter cascade"
+            "truncate documents, sessions, usage_meter, document_sequences cascade"
         );
         process.env.DATABASE_URL = TEST_DATABASE_URL;
         vi.restoreAllMocks();
@@ -215,7 +215,8 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(data.document.id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
-        expect(data.status).toBe("siap");
+        expect(data.status).toBe("draf");
+        expect(data.document.nomor).toBeNull();
         expect(data.butuh_konfirmasi).toEqual([]);
         expect(data.document.pekerjaan).toHaveLength(1);
         expect(data.document.pekerjaan[0].volume).toBe(100);
@@ -224,12 +225,13 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
 
         // The row is in Postgres with the same id and payload.
         const row = await pool.query(
-            "select id, session_id, status, data_json from documents where id = $1::uuid",
+            "select id, session_id, status, nomor, data_json from documents where id = $1::uuid",
             [data.document.id]
         );
         expect(row.rowCount).toBe(1);
         expect(row.rows[0].session_id).toBe("sess-persist-1");
-        expect(row.rows[0].status).toBe("siap");
+        expect(row.rows[0].status).toBe("draf");
+        expect(row.rows[0].nomor).toBeNull();
         expect(row.rows[0].data_json.total_nominal).toBe(
             data.document.total_nominal
         );
@@ -271,8 +273,11 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(res2.status).toBe(200);
         const second = await res2.json();
 
+        expect(first.status).toBe("draf");
+        expect(first.document.nomor).toBeNull();
+        expect(second.status).toBe("draf");
         expect(second.document.id).toBe(first.document.id);
-        expect(second.document.nomor).toBe(first.document.nomor);
+        expect(second.document.nomor).toBeNull();
 
         // Only one row exists.
         const rows = await pool.query(
@@ -324,11 +329,11 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(second.document.id).toMatch(
             /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
         );
-        expect(second.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
-        expect(second.document.nomor).not.toBe(first.document.nomor);
+        expect(first.document.nomor).toBeNull();
+        expect(second.document.nomor).toBeNull();
     });
 
-    it("assigns the yearly number at creation and never lets the model's nomor through", async () => {
+    it("creates draft without number, never lets model nomor through, and leaves document_sequences empty", async () => {
         process.env.MODEL_API_KEY = "test-key";
         const session = mockSession(
             "sess-nomor-owner",
@@ -361,7 +366,6 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         };
         vi.spyOn(sparkModule, "callMuseSpark").mockResolvedValue(mockCandidate);
 
-        const expectedYear = new Date().getFullYear();
         const res = await POST(
             new Request("http://localhost/api/documents", {
                 method: "POST",
@@ -372,15 +376,59 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(res.status).toBe(200);
         const data = await res.json();
 
-        expect(data.document.nomor).toMatch(
-            new RegExp(`^SL/QTN/${expectedYear}/\\d{4}$`)
-        );
-        expect(data.document.nomor).not.toBe(modelNomor);
+        expect(data.status).toBe("draf");
+        expect(data.document.nomor).toBeNull();
         const row = await pool.query(
-            "select nomor from documents where id = $1::uuid",
+            "select nomor, status from documents where id = $1::uuid",
             [data.document.id]
         );
-        expect(row.rows[0].nomor).toBe(data.document.nomor);
+        expect(row.rows[0].nomor).toBeNull();
+        expect(row.rows[0].status).toBe("draf");
+
+        const seqRows = await pool.query("select * from document_sequences");
+        expect(seqRows.rowCount).toBe(0);
+    });
+
+    it("duplicate create returns 200 with draf status and leaves document_sequences empty", async () => {
+        delete process.env.MODEL_API_KEY;
+        const transcript =
+            "Pemasangan keramik, sepuluh meter persegi, lima puluh ribu per meter persegi.";
+        const session = mockSession("sess-dup-draf", transcript);
+        await seedSessionsIntoDb([{ id: "sess-dup-draf", locale: "id", turns: session.turns }]);
+        vi.spyOn(dbStore, "getTurnsStore").mockReturnValue(mockStore(session));
+
+        const body = JSON.stringify({
+            sessionId: "sess-dup-draf",
+            project: { nama: "Proyek Duplikat", lokasi: "Sleman", klien: "Pak Budi" },
+        });
+
+        const res1 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        expect(res1.status).toBe(200);
+        const data1 = await res1.json();
+        expect(data1.status).toBe("draf");
+        expect(data1.document.nomor).toBeNull();
+
+        const res2 = await POST(
+            new Request("http://localhost/api/documents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body,
+            })
+        );
+        expect(res2.status).toBe(200);
+        const data2 = await res2.json();
+        expect(data2.status).toBe("draf");
+        expect(data2.document.nomor).toBeNull();
+        expect(data2.document.id).toBe(data1.document.id);
+
+        const seqRows = await pool.query("select * from document_sequences");
+        expect(seqRows.rowCount).toBe(0);
     });
 
     it("an inline-turns POST against a stored session builds from the stored turns, never clobbering them", async () => {
@@ -510,7 +558,8 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
         expect(res.status).toBe(200);
         const data = await res.json();
 
-        expect(data.status).toBe("siap");
+        expect(data.status).toBe("draf");
+        expect(data.document.nomor).toBeNull();
         expect(data.butuh_konfirmasi).toEqual([]);
         expect(data.document.pekerjaan).toHaveLength(1);
         expect(data.document.pekerjaan[0].volume).toBe(24);
@@ -522,7 +571,7 @@ describe.skipIf(!TEST_DATABASE_URL)("POST /api/documents route handler", () => {
             "select status from documents where id = $1::uuid",
             [data.document.id]
         );
-        expect(row.rows[0].status).toBe("siap");
+        expect(row.rows[0].status).toBe("draf");
     });
 
     it("carries _spark_path on the model path outside production", async () => {

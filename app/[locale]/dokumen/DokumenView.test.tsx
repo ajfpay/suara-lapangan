@@ -80,11 +80,7 @@ describe("DokumenView", () => {
         });
 
         render(
-            <DokumenView
-                locale="en"
-                docId="not-a-uuid"
-                copy={en.dokumen}
-            />
+            <DokumenView locale="en" docId="not-a-uuid" copy={en.dokumen} />
         );
 
         await waitFor(() => {
@@ -191,7 +187,9 @@ describe("DokumenView", () => {
         expect(sendBtn.disabled).toBe(false);
         expect(sendBtn.title).toBe("");
 
-        const inputRecipient = screen.getByTestId("input-recipient") as HTMLInputElement;
+        const inputRecipient = screen.getByTestId(
+            "input-recipient"
+        ) as HTMLInputElement;
         expect(inputRecipient).toBeTruthy();
 
         // Send failure flow
@@ -265,9 +263,9 @@ describe("DokumenView", () => {
         await waitFor(() => {
             expect(screen.getByTestId("send-success-message")).toBeTruthy();
         });
-        expect(screen.getByTestId("send-success-message").textContent).toContain(
-            en.dokumen.sendSuccess
-        );
+        expect(
+            screen.getByTestId("send-success-message").textContent
+        ).toContain(en.dokumen.sendSuccess);
 
         await waitFor(() => {
             expect(screen.getByTestId("document-status").textContent).toBe(
@@ -305,7 +303,8 @@ describe("DokumenView", () => {
         fetchMock.mockImplementation(async (url: unknown) => {
             const u = String(url);
             if (u === "/api/documents/doc-a") return docAPending;
-            if (u === "/api/documents/doc-b") return envelope("doc-b", "SL/QTN/2026/0002");
+            if (u === "/api/documents/doc-b")
+                return envelope("doc-b", "SL/QTN/2026/0002");
             return {
                 ok: true,
                 status: 200,
@@ -352,8 +351,10 @@ describe("DokumenView", () => {
 
         fetchMock.mockImplementation(async (url: unknown) => {
             const u = String(url);
-            if (u === "/api/documents/doc-a") return envelope("doc-a", "SL/QTN/2026/0001");
-            if (u === "/api/documents/doc-b") return envelope("doc-b", "SL/QTN/2026/0002");
+            if (u === "/api/documents/doc-a")
+                return envelope("doc-a", "SL/QTN/2026/0001");
+            if (u === "/api/documents/doc-b")
+                return envelope("doc-b", "SL/QTN/2026/0002");
             return {
                 ok: true,
                 status: 200,
@@ -405,8 +406,10 @@ describe("DokumenView", () => {
         let docAFetches = 0;
         fetchMock.mockImplementation(async (url: unknown) => {
             const u = String(url);
-            if (u === "/api/documents/doc-a") return envelope("doc-a", "SL/QTN/2026/0001");
-            if (u === "/api/documents/doc-b") return envelope("doc-b", "SL/QTN/2026/0002");
+            if (u === "/api/documents/doc-a")
+                return envelope("doc-a", "SL/QTN/2026/0001");
+            if (u === "/api/documents/doc-b")
+                return envelope("doc-b", "SL/QTN/2026/0002");
             if (u === "/api/documents/doc-a/pdf") {
                 docAFetches += 1;
                 return docAFetches === 1 ? pdf : { ok: false, status: 500 };
@@ -707,5 +710,707 @@ describe("DokumenView", () => {
         expect(screen.getByText(idMessages.dokumen.emptyTitle)).toBeTruthy();
         expect(screen.getByText(idMessages.dokumen.emptyBody)).toBeTruthy();
         expect(screen.getByText(idMessages.dokumen.emptyCta)).toBeTruthy();
+    });
+
+    it("safely parses drafts with nomor=null: shows sequence as Not yet assigned / Belum ditetapkan and status Draft / Draf", async () => {
+        const docId = "draft-123";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: null,
+                    status: "draf",
+                    butuh_konfirmasi: [],
+                },
+                status: "draf",
+                butuh_konfirmasi: [],
+            }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            const nomorEl = screen.getByTestId("document-nomor");
+            expect(nomorEl.textContent).toBe("Not yet assigned");
+        });
+
+        const statusEl = screen.getByTestId("document-status");
+        expect(statusEl.textContent).toBe("Draft");
+        expect(screen.queryByTestId("dokumen-error")).toBeNull();
+    });
+
+    it("drafts (status draf): Unduh PDF disabled with helper text, pdf-frame NOT rendered, approval-pending shown, no pdf fetch", async () => {
+        const docId = "draft-456";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: null,
+                    status: "draf",
+                    butuh_konfirmasi: [],
+                },
+                status: "draf",
+                butuh_konfirmasi: [],
+            }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor")).toBeTruthy();
+        });
+
+        // Unduh PDF disabled
+        const downloadButton = screen.getByTestId(
+            "btn-unduh"
+        ) as HTMLButtonElement;
+        expect(downloadButton.disabled).toBe(true);
+
+        // Helper text "Approve document first"
+        expect(screen.getByText("Approve document first")).toBeTruthy();
+
+        // Kirim disabled
+        const sendButton = screen.getByTestId("btn-kirim") as HTMLButtonElement;
+        expect(sendButton.disabled).toBe(true);
+
+        // pdf-frame NOT rendered
+        expect(screen.queryByTestId("pdf-frame")).toBeNull();
+
+        // Approval pending state rendered
+        expect(screen.getByTestId("approval-pending")).toBeTruthy();
+
+        // PDF fetch was never called
+        const pdfCalls = fetchMock.mock.calls.filter((call) =>
+            String(call[0]).includes("/pdf")
+        );
+        expect(pdfCalls.length).toBe(0);
+    });
+
+    it("approved (disetujui): shows sequence number, enables Unduh PDF + Kirim, renders pdf-frame", async () => {
+        const docId = "doc-appr-789";
+        const docNomor = "2026/0042";
+
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: docNomor,
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                butuh_konfirmasi: [],
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () =>
+                new Blob(["%PDF-1.4 mock"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor").textContent).toBe(
+                docNomor
+            );
+        });
+
+        expect(screen.getByTestId("document-status").textContent).toBe(
+            "Approved"
+        );
+
+        const downloadButton = screen.getByTestId(
+            "btn-unduh"
+        ) as HTMLButtonElement;
+        expect(downloadButton.disabled).toBe(false);
+
+        const sendButton = screen.getByTestId("btn-kirim") as HTMLButtonElement;
+        expect(sendButton.disabled).toBe(false);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("pdf-frame")).toBeTruthy();
+        });
+    });
+
+    it("renders version selector for documents with lineage, allows selecting older version and downloading its PDF", async () => {
+        const v2Id = "doc-v2";
+        const v1Id = "doc-v1";
+
+        // Initial fetch for v2 (draft)
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: v2Id,
+                    nomor: null,
+                    status: "draf",
+                    butuh_konfirmasi: [],
+                },
+                status: "draf",
+                version: 2,
+                root_id: "root-abc",
+                versions: [
+                    {
+                        id: v1Id,
+                        version: 1,
+                        nomor: "2026/0001",
+                        status: "disetujui",
+                        superseded_by: v2Id,
+                    },
+                    {
+                        id: v2Id,
+                        version: 2,
+                        nomor: null,
+                        status: "draf",
+                        superseded_by: null,
+                    },
+                ],
+            }),
+        });
+
+        // When switching to v1: fetch doc v1
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: v1Id,
+                    nomor: "2026/0001",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: "root-abc",
+                superseded_by: v2Id,
+                versions: [
+                    {
+                        id: v1Id,
+                        version: 1,
+                        nomor: "2026/0001",
+                        status: "disetujui",
+                        superseded_by: v2Id,
+                    },
+                    {
+                        id: v2Id,
+                        version: 2,
+                        nomor: null,
+                        status: "draf",
+                        superseded_by: null,
+                    },
+                ],
+            }),
+        });
+        // PDF fetch for v1
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () =>
+                new Blob(["%PDF mock v1"], { type: "application/pdf" }),
+        });
+        // Download fetch for v1
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            headers: new Headers({
+                "content-disposition": 'attachment; filename="2026-0001.pdf"',
+            }),
+            blob: async () =>
+                new Blob(["%PDF mock v1"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={v2Id} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("version-selector")).toBeTruthy();
+        });
+
+        const selector = screen.getByTestId(
+            "version-selector"
+        ) as HTMLSelectElement;
+        expect(selector.options.length).toBe(2);
+
+        // Switch to v1
+        fireEvent.change(selector, { target: { value: v1Id } });
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor").textContent).toBe(
+                "2026/0001"
+            );
+        });
+        expect(screen.getByTestId("document-status").textContent).toBe(
+            "Approved"
+        );
+
+        // Download v1 PDF
+        const downloadButton = screen.getByTestId("btn-unduh");
+        expect((downloadButton as HTMLButtonElement).disabled).toBe(false);
+
+        const createdAnchors: HTMLAnchorElement[] = [];
+        const realCreateElement = document.createElement.bind(document);
+        vi.spyOn(document, "createElement").mockImplementation(
+            (tag: string) => {
+                const el = realCreateElement(tag);
+                if (tag === "a") createdAnchors.push(el as HTMLAnchorElement);
+                return el;
+            }
+        );
+
+        fireEvent.click(downloadButton);
+
+        await waitFor(() => {
+            expect(createdAnchors.length).toBe(1);
+            expect(createdAnchors[0].download).toBe("2026-0001.pdf");
+        });
+    });
+
+    it("visibly marks superseded version in selector and on its own preview", async () => {
+        const docId = "doc-v1-old";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0010",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: "root-xyz",
+                superseded_by: "doc-v2-new",
+                versions: [
+                    {
+                        id: docId,
+                        version: 1,
+                        nomor: "2026/0010",
+                        status: "disetujui",
+                        superseded_by: "doc-v2-new",
+                    },
+                    {
+                        id: "doc-v2-new",
+                        version: 2,
+                        nomor: "2026/0020",
+                        status: "disetujui",
+                        superseded_by: null,
+                    },
+                ],
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("superseded-badge")).toBeTruthy();
+        });
+
+        // Visible on its own preview
+        expect(screen.getByTestId("superseded-badge").textContent).toContain(
+            "Superseded"
+        );
+        expect(screen.getByTestId("superseded-banner")).toBeTruthy();
+
+        // Visible in version selector
+        const selector = screen.getByTestId(
+            "version-selector"
+        ) as HTMLSelectElement;
+        const v1Option = selector.querySelector('option[value="doc-v1-old"]');
+        expect(v1Option?.textContent).toContain("Superseded");
+    });
+
+    it("approved docs show 'Create new version' button: POST /api/documents/{id}/new-version and redirects to /susun", async () => {
+        const docId = "doc-appr-999";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0099",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: "root-999",
+                superseded_by: null,
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+
+        // Mock new-version POST response
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 201,
+            json: async () => ({
+                document: {
+                    id: "new-draft-id",
+                    nomor: null,
+                    status: "draf",
+                },
+                status: "draf",
+                version: 2,
+            }),
+        });
+
+        // Track window.location.href changes
+        let assignedHref = "";
+        const originalLocation = window.location;
+        delete (window as unknown as { location?: Location }).location;
+        window.location = {
+            ...originalLocation,
+            pathname: "/en/dokumen",
+            search: `?doc=${docId}`,
+            set href(val: string) {
+                assignedHref = val;
+            },
+            get href() {
+                return (
+                    assignedHref || "http://localhost/en/dokumen?doc=" + docId
+                );
+            },
+        } as unknown as Location;
+
+        try {
+            render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId("btn-new-version")).toBeTruthy();
+            });
+
+            fireEvent.click(screen.getByTestId("btn-new-version"));
+
+            await waitFor(() => {
+                expect(assignedHref).toBe("/en/susun?doc=new-draft-id");
+            });
+
+            const newVersionCalls = fetchMock.mock.calls.filter((call) =>
+                String(call[0]).includes(`/api/documents/${docId}/new-version`)
+            );
+            expect(newVersionCalls.length).toBe(1);
+            expect(newVersionCalls[0][1]?.method).toBe("POST");
+        } finally {
+            window.location = originalLocation;
+        }
+    });
+
+    it("carries full page address including search query on 401 login redirect", async () => {
+        const docId = "doc-unauth-1";
+        fetchMock.mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: async () => ({
+                error: "unauthorized",
+                message: "Authentication required",
+            }),
+        });
+
+        let assignedHref = "";
+        const originalLocation = window.location;
+        delete (window as unknown as { location?: Location }).location;
+        window.location = {
+            ...originalLocation,
+            pathname: "/en/dokumen",
+            search: "?doc=doc-unauth-1&recording=rec_789",
+            set href(val: string) {
+                assignedHref = val;
+            },
+            get href() {
+                return (
+                    assignedHref ||
+                    "http://localhost/en/dokumen?doc=doc-unauth-1&recording=rec_789"
+                );
+            },
+        } as unknown as Location;
+
+        try {
+            render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+            await waitFor(() => {
+                expect(assignedHref).toBe(
+                    "/en/login?callbackUrl=" +
+                        encodeURIComponent(
+                            "/en/dokumen?doc=doc-unauth-1&recording=rec_789"
+                        )
+                );
+            });
+        } finally {
+            window.location = originalLocation;
+        }
+    });
+
+    it("renders draft and approved status and helper copy in Indonesian", async () => {
+        const docId = "draft-id-test";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: null,
+                    status: "draf",
+                    butuh_konfirmasi: [],
+                },
+                status: "draf",
+                butuh_konfirmasi: [],
+            }),
+        });
+
+        render(
+            <DokumenView locale="id" docId={docId} copy={idMessages.dokumen} />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor").textContent).toBe(
+                "Belum ditetapkan"
+            );
+        });
+        expect(screen.getByTestId("document-status").textContent).toBe("Draf");
+        expect(
+            screen.getByText("Setujui dokumen terlebih dahulu")
+        ).toBeTruthy();
+    });
+
+    it("does not render version selector when there is only a single version", async () => {
+        const docId = "doc-single-1";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0001",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: docId,
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor")).toBeTruthy();
+        });
+        expect(screen.queryByTestId("version-selector")).toBeNull();
+    });
+
+    it("terkirim status enables download, kirim, and create new version", async () => {
+        const docId = "doc-terkirim-1";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0077",
+                    status: "terkirim",
+                    butuh_konfirmasi: [],
+                },
+                status: "terkirim",
+                version: 1,
+                root_id: docId,
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-nomor").textContent).toBe(
+                "2026/0077"
+            );
+        });
+        expect(screen.getByTestId("document-status").textContent).toBe("Sent");
+        expect(
+            (screen.getByTestId("btn-unduh") as HTMLButtonElement).disabled
+        ).toBe(false);
+        expect(
+            (screen.getByTestId("btn-kirim") as HTMLButtonElement).disabled
+        ).toBe(false);
+        expect(
+            (screen.getByTestId("btn-new-version") as HTMLButtonElement)
+                .disabled
+        ).toBe(false);
+    });
+
+    it("disables 'Create new version' on an already superseded version", async () => {
+        const docId = "doc-superseded-btn";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0011",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: "root-btn",
+                superseded_by: "doc-v2",
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("btn-new-version")).toBeTruthy();
+        });
+        expect(
+            (screen.getByTestId("btn-new-version") as HTMLButtonElement)
+                .disabled
+        ).toBe(true);
+    });
+
+    it("handles 401 when creating a new version with full callbackUrl", async () => {
+        const docId = "doc-401-new-version";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0099",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: docId,
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: async () => ({
+                error: "unauthorized",
+            }),
+        });
+
+        let assignedHref = "";
+        const originalLocation = window.location;
+        delete (window as unknown as { location?: Location }).location;
+        window.location = {
+            ...originalLocation,
+            pathname: "/en/dokumen",
+            search: `?doc=${docId}&foo=bar`,
+            set href(val: string) {
+                assignedHref = val;
+            },
+            get href() {
+                return (
+                    assignedHref ||
+                    `http://localhost/en/dokumen?doc=${docId}&foo=bar`
+                );
+            },
+        } as unknown as Location;
+
+        try {
+            render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+            await waitFor(() => {
+                expect(screen.getByTestId("btn-new-version")).toBeTruthy();
+            });
+
+            fireEvent.click(screen.getByTestId("btn-new-version"));
+
+            await waitFor(() => {
+                expect(assignedHref).toBe(
+                    "/en/login?callbackUrl=" +
+                        encodeURIComponent(`/en/dokumen?doc=${docId}&foo=bar`)
+                );
+            });
+        } finally {
+            window.location = originalLocation;
+        }
+    });
+
+    it("shows error alert when new version creation fails", async () => {
+        const docId = "doc-new-ver-fail";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: docId,
+                    nomor: "2026/0088",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                version: 1,
+                root_id: docId,
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: false,
+            status: 409,
+            json: async () => ({
+                error: "invalid_state",
+                message: "Cannot create a new version in this state",
+            }),
+        });
+
+        render(<DokumenView locale="en" docId={docId} copy={en.dokumen} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("btn-new-version")).toBeTruthy();
+        });
+
+        fireEvent.click(screen.getByTestId("btn-new-version"));
+
+        await waitFor(() => {
+            expect(screen.getByTestId("new-version-error")).toBeTruthy();
+            expect(
+                screen.getByTestId("new-version-error").textContent
+            ).toContain("Cannot create a new version in this state");
+        });
     });
 });

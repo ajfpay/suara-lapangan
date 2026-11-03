@@ -1,5 +1,6 @@
 import { AsrError, httpStatusFor, userMessage } from "@/lib/server/asr/errors";
 import { DEFAULT_ASR_LOCALE } from "@/lib/server/asr/locale";
+import { getSession, isAdmin } from "@/lib/server/auth";
 import { getTurnsStore } from "@/lib/server/db/store";
 
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -9,7 +10,7 @@ type RouteContext = {
 };
 
 export async function GET(
-    _request: Request,
+    request: Request,
     context: RouteContext
 ): Promise<Response> {
     try {
@@ -28,10 +29,47 @@ export async function GET(
             );
         }
 
+        const authSession = await getSession(request);
+        if (!authSession) {
+            return Response.json(
+                {
+                    error: {
+                        code: "unauthenticated",
+                        message: "Login required",
+                    },
+                },
+                { status: 401 }
+            );
+        }
+
         const store = getTurnsStore();
         const session = await store.findSession(sessionId);
 
         if (!session) {
+            return Response.json(
+                {
+                    error: {
+                        code: "not_found",
+                        message: "Session not found",
+                    },
+                },
+                { status: 404 }
+            );
+        }
+
+        if (session.userId == null) {
+            if (!isAdmin(authSession)) {
+                return Response.json(
+                    {
+                        error: {
+                            code: "forbidden",
+                            message: "Session ownership cannot be proven",
+                        },
+                    },
+                    { status: 403 }
+                );
+            }
+        } else if (session.userId !== authSession.user.id) {
             return Response.json(
                 {
                     error: {

@@ -2,11 +2,13 @@ import { createHash } from "node:crypto";
 
 import { getTurnsStore } from "@/lib/server/db/store";
 import {
-    assertQuotaAvailable,
-    recordUsage,
+    reconcileQuota,
+    releaseQuota,
+    reserveQuota,
 } from "@/lib/server/quota/usage-meter";
 
-import { AsrError } from "./errors";
+import { AsrError, SessionOwnershipError } from "./errors";
+export { SessionOwnershipError } from "./errors";
 import type { Locale } from "./locale";
 import { transcribeWithMeta, type AsrMode } from "./meta";
 import { normalizeTurns, type Turn } from "./turns";
@@ -17,7 +19,24 @@ export type TranscribeInput = {
     locale: Locale;
     audio: Uint8Array;
     mode?: AsrMode;
+    /** Caller identity for the cache-hit ownership check. */
+    userId?: string | null;
+    isAdmin?: boolean;
 };
+
+function checkSessionOwnership(
+    storedUserId: string | null | undefined,
+    callerUserId: string | null | undefined,
+    isAdmin: boolean
+): void {
+    if (storedUserId == null) {
+        if (!isAdmin) throw new SessionOwnershipError(403);
+        return;
+    }
+    if (callerUserId == null || storedUserId !== callerUserId) {
+        throw new SessionOwnershipError(404);
+    }
+}
 
 /**
  * One recording in, the session's turns out.
@@ -35,6 +54,8 @@ export async function transcribeSession({
     locale,
     audio,
     mode = "ENDPOINTING",
+    userId = null,
+    isAdmin = false,
 }: TranscribeInput): Promise<Turn[]> {
     const audioSha256 = createHash("sha256").update(audio).digest("hex");
     const store = getTurnsStore();
@@ -44,55 +65,85 @@ export async function transcribeSession({
     // transcribed with ENDPOINTING, which is the column default.
     const storedMode = stored?.mode ?? "ENDPOINTING";
     if (stored && stored.audioSha256 === audioSha256 && storedMode === mode) {
+        // Cache hit: verify the caller owns the session before replaying.
+        // No quota is spent on a denied hit.
+        checkSessionOwnership(stored.userId, userId, isAdmin);
         return stored.turns;
     }
-
-    // Hard-stop check: reject NEW session when daily cap reached
-    await assertQuotaAvailable({ locale });
-
-    const apiKey = process.env.MODEL_API_KEY;
-    if (!apiKey) {
-        throw new AsrError("not_configured", {
-            detail: "MODEL_API_KEY is not set",
-        });
+    if (stored) {
+        // Different audio or mode overwrites the session: the existing row
+        // must already belong to the caller (or be a legacy ownerless row
+        // an admin may adopt).
+        checkSessionOwnership(stored.userId, userId, isAdmin);
     }
 
-    const keywords = buildKeywords(locale, stored?.turns);
-    const meta = await transcribeWithMeta({
-        audio,
+    // Reserve-then-reconcile: the estimated cost lands in the caller's
+    // own bucket atomically, in the same statement that checks the cap, so
+    // two concurrent callers cannot both pass on the last remaining quota.
+    // A reservation that never runs (Meta failure, save failure) is
+    // released; a completed transcription reconciles the estimate to the
+    // actual duration. The user id keeps one heavy caller from exhausting
+    // a shared bucket for everyone else.
+    const estimatedSeconds = audio.byteLength / 32000;
+    const estimatedCost = (estimatedSeconds / 3600) * 0.18;
+    await reserveQuota({
         locale,
-        sessionId,
-        apiKey,
-        mode,
-        keywords,
+        userId: userId ?? undefined,
+        estCost: estimatedCost,
     });
-    const turns = normalizeTurns(meta);
-    await store.saveTranscription({
-        sessionId,
-        locale,
-        audioSha256,
-        audioBytes: audio.byteLength,
-        metaSessionId:
-            typeof meta.sessionId === "string" ? meta.sessionId : null,
-        transcript: meta.transcript ?? "",
-        audioDurationMs:
+
+    try {
+        const apiKey = process.env.MODEL_API_KEY;
+        if (!apiKey) {
+            throw new AsrError("not_configured", {
+                detail: "MODEL_API_KEY is not set",
+            });
+        }
+
+        const keywords = buildKeywords(locale, stored?.turns);
+        const meta = await transcribeWithMeta({
+            audio,
+            locale,
+            sessionId,
+            apiKey,
+            mode,
+            keywords,
+        });
+        const turns = normalizeTurns(meta);
+        await store.saveTranscription({
+            sessionId,
+            locale,
+            audioSha256,
+            audioBytes: audio.byteLength,
+            metaSessionId:
+                typeof meta.sessionId === "string" ? meta.sessionId : null,
+            transcript: meta.transcript ?? "",
+            audioDurationMs:
+                typeof meta.audioDurationMs === "number"
+                    ? meta.audioDurationMs
+                    : null,
+            mode,
+            turns,
+            userId: userId ?? null,
+        });
+
+        const audioSeconds =
             typeof meta.audioDurationMs === "number"
-                ? meta.audioDurationMs
-                : null,
-        mode,
-        turns,
-    });
+                ? meta.audioDurationMs / 1000
+                : audio.byteLength / 32000;
 
-    const audioSeconds =
-        typeof meta.audioDurationMs === "number"
-            ? meta.audioDurationMs / 1000
-            : audio.byteLength / 32000;
+        await reconcileQuota({
+            userId: userId ?? undefined,
+            reservedCost: estimatedCost,
+            actualCost: (audioSeconds / 3600) * 0.18,
+        });
 
-    await recordUsage({
-        audioSeconds,
-        tokens: 0,
-        estCost: (audioSeconds / 3600) * 0.18,
-    });
-
-    return turns;
+        return turns;
+    } catch (error) {
+        await releaseQuota({
+            userId: userId ?? undefined,
+            estCost: estimatedCost,
+        });
+        throw error;
+    }
 }

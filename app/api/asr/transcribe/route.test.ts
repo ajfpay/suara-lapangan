@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { Pool } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import {
+    getUsage,
     recordUsage,
     resetMemoryUsageStore,
     setUsageStore,
@@ -20,14 +22,22 @@ import { POST } from "./route";
  * K5 fixture. No key, no database and no network are needed to run this.
  */
 
-const { storeStub } = vi.hoisted(() => ({
+const { storeStub, mockGetSession } = vi.hoisted(() => ({
     storeStub: {
         findSession: vi.fn(),
         saveTranscription: vi.fn(),
+        setSessionOwner: vi.fn(),
+        claimSessionOwner: vi.fn(),
     },
+    mockGetSession: vi.fn(),
 }));
 
 vi.mock("@/lib/server/db/store", () => ({ getTurnsStore: () => storeStub }));
+vi.mock("@/lib/server/auth", () => ({
+    getSession: mockGetSession,
+    isAdmin: (session: { user?: { role?: string } } | null) =>
+        session?.user?.role === "admin",
+}));
 
 const FIXTURE_DIR = join(__dirname, "../../../../lib/server/asr/__fixtures__");
 const audio = new Uint8Array(readFileSync(join(FIXTURE_DIR, "sample-16k.wav")));
@@ -101,12 +111,36 @@ function upload({
         body,
     });
 }
-beforeEach(() => {
+beforeEach(async () => {
     resetRateLimits();
     setUsageStore(null);
     resetMemoryUsageStore();
+    // The route resolves the real Postgres usage store via DATABASE_URL; a
+    // hard-stopped row left by another suite would 429 every test here.
+    const dbUrl =
+        process.env.ASR_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+    if (dbUrl) {
+        const pool = new Pool({ connectionString: dbUrl });
+        try {
+            await pool.query("truncate usage_meter");
+        } catch {
+            // usage_meter may not exist in suites that never ran migrations.
+        } finally {
+            await pool.end();
+        }
+    }
+    mockGetSession.mockReset().mockResolvedValue({
+        user: {
+            id: "00000000-0000-0000-0000-000000000001",
+            email: "user@suara.local",
+            name: "User",
+            role: "user",
+        },
+    });
     storeStub.findSession.mockReset().mockResolvedValue(null);
     storeStub.saveTranscription.mockReset().mockResolvedValue(undefined);
+    storeStub.setSessionOwner.mockReset().mockResolvedValue(undefined);
+    storeStub.claimSessionOwner.mockReset().mockResolvedValue("missing");
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -139,6 +173,67 @@ const MALFORMED_UPLOADS: Array<[string, MalformedUpload, number]> = [
 ];
 
 describe("POST /api/asr/transcribe", () => {
+    it("returns HTTP 401 unauthenticated when request carries no valid session, and performs no transcription work", async () => {
+        mockGetSession.mockResolvedValueOnce(null);
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(401);
+        const body = await response.json();
+        expect(body.error.code).toBe("unauthenticated");
+        expect(storeStub.findSession).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+    it("maps auth resolution failure to 500 internal_error and performs no transcription work", async () => {
+        mockGetSession.mockRejectedValueOnce(new Error("auth db down"));
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(500);
+        const body = await response.json();
+        expect(body.error.code).toBe("internal_error");
+        expect(storeStub.findSession).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+
+    it("persists authenticated caller's user id as session owner via setSessionOwner", async () => {
+        metaAnswers(metaResponse);
+        const callerUserId = "00000000-0000-0000-0000-000000000001";
+        mockGetSession.mockResolvedValueOnce({
+            user: {
+                id: callerUserId,
+                email: "user@suara.local",
+                name: "User",
+                role: "user",
+            },
+        });
+
+        const response = await POST(upload({ sessionId: "sess-owned-1" }));
+
+        expect(response.status).toBe(200);
+        expect(storeStub.setSessionOwner).toHaveBeenCalledWith(
+            "sess-owned-1",
+            callerUserId
+        );
+    });
+
+    it("maps setSessionOwner failure to 500 internal_error without leaking store text", async () => {
+        metaAnswers(metaResponse);
+        storeStub.setSessionOwner.mockRejectedValueOnce(new Error("postgres connection refused"));
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(500);
+        const body = await response.json();
+        expect(body.error.code).toBe("internal_error");
+        expect(JSON.stringify(body)).not.toContain("postgres connection refused");
+    });
+
     it("answers with the numbered turns Meta found", async () => {
         metaAnswers(metaResponse);
 
@@ -170,6 +265,7 @@ describe("POST /api/asr/transcribe", () => {
             audioDurationMs: 1000,
             mode: "ENDPOINTING",
             turns: TURNS,
+            userId: "00000000-0000-0000-0000-000000000001",
         });
     });
 
@@ -178,6 +274,7 @@ describe("POST /api/asr/transcribe", () => {
             sessionId: "sess-route-1",
             locale: "id",
             audioSha256: createHash("sha256").update(audio).digest("hex"),
+            userId: "00000000-0000-0000-0000-000000000001",
             turns: TURNS,
         });
         metaAnswers(metaResponse);
@@ -200,6 +297,7 @@ describe("POST /api/asr/transcribe", () => {
             sessionId: "sess-route-1",
             locale: "id",
             audioSha256: createHash("sha256").update(audio).digest("hex"),
+            userId: "00000000-0000-0000-0000-000000000001",
             turns: TURNS,
         });
         metaAnswers({
@@ -387,6 +485,7 @@ describe("POST /api/asr/transcribe", () => {
 
     it("returns 429 with X-Quota-Hard-Stop header when daily cap is reached", async () => {
         await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
             estCost: 6.0,
         });
 
@@ -485,5 +584,116 @@ describe("POST /api/asr/transcribe", () => {
                 speaker: "B",
             },
         ]);
+    });
+
+    it("claims ownership before transcription: foreign-owned session gets 404 without Meta call", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("foreign");
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-foreign" }));
+
+        expect(response.status).toBe(404);
+        expect(await response.json()).toEqual({
+            error: { code: "not_found", message: "Session not found" },
+        });
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+    });
+
+    it("claim-race loser is denied even when claim reports claimed but row belongs to another user", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("claimed");
+        storeStub.findSession.mockResolvedValue({
+            sessionId: "sess-race",
+            locale: "id",
+            audioSha256: "x",
+            userId: "other-user",
+            turns: [],
+        });
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-race" }));
+
+        expect(response.status).toBe(404);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("checks quota before claiming: exhausted quota answers 429 without adopting the session", async () => {
+        await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
+            estCost: 6.0,
+        });
+
+        const response = await POST(
+            upload({ sessionId: "sess-quota-before-claim" })
+        );
+
+        expect(response.status).toBe(429);
+        expect(storeStub.claimSessionOwner).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("legacy null-owner session is denied to non-admin with 403 before transcription", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("claimed");
+        storeStub.findSession.mockResolvedValue({
+            sessionId: "sess-legacy",
+            locale: "id",
+            audioSha256: "x",
+            userId: null,
+            turns: [],
+        });
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-legacy" }));
+
+        expect(response.status).toBe(403);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("quota is per-user: another user's exhausted bucket does not block this caller", async () => {
+        await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000002",
+            estCost: 6.0,
+        });
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-other-bucket" }));
+
+        expect(response.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it("a failed transcription releases the route-level reservation: no phantom charge remains", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+        metaAnswers(metaResponse);
+        // transcribeSession's own reservation succeeds but its Meta call
+        // fails: both reservations (route-level and inner) must be released.
+        fetchMock.mockImplementation(async () => new Response("boom", { status: 500 }));
+
+        const response = await POST(upload({ sessionId: "sess-quota-release" }));
+
+        expect(response.status).toBe(502);
+        const usage = await getUsage(
+            new Date().toISOString().slice(0, 10),
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(usage.estCost).toBeCloseTo(0, 4);
+    });
+
+    it("quota is per-user: this caller's exhausted bucket blocks even when the shared bucket is empty", async () => {
+        await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
+            estCost: 6.0,
+        });
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+
+        const response = await POST(
+            upload({ sessionId: "sess-own-bucket" })
+        );
+
+        expect(response.status).toBe(429);
+        expect(storeStub.claimSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

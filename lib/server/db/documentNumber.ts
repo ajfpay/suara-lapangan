@@ -23,9 +23,11 @@ export function formatDocumentNumber(year: number, sequence: number): string {
  * takes the row lock for its duration and concurrent callers serialize on
  * it: each committed allocation returns a distinct `last_number`, and a
  * caller that waits on the lock re-evaluates the ceiling predicate against
- * the latest committed value instead of the one it read. The UPDATE commits
- * in autocommit, decoupled from the document insert — a failed insert burns
- * the number instead of handing it back, so a number is never reused.
+ * the latest committed value instead of the one it read. Under the
+ * review-before-pdf lifecycle (ticket 03), allocation is deferred to
+ * document approval and executes within the approval database transaction on
+ * a PoolClient, committing atomically with the status transition to
+ * `disetujui`. If called on a standalone Pool, the UPDATE commits in autocommit.
  * Year rollover is implicit: a year with no row is seeded at 0 and the
  * first UPDATE yields 1.
  *

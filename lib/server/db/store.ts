@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-import { AsrError } from "@/lib/server/asr/errors";
+import { AsrError, SessionOwnershipError } from "@/lib/server/asr/errors";
 import type { Locale } from "@/lib/server/asr/locale";
 import type { Turn } from "@/lib/server/asr/turns";
 
@@ -14,6 +14,8 @@ export type TranscriptionRecord = {
     audioDurationMs: number | null;
     /** Defaults to ENDPOINTING in the column when a caller omits it. */
     mode?: string;
+    /** Owner written to sessions.user_id; null for rows that predate auth. */
+    userId?: string | null;
     turns: Turn[];
 };
 
@@ -27,12 +29,32 @@ export type StoredSession = {
      * treats a missing mode as ENDPOINTING.
      */
     mode?: string;
+    /** Owner from sessions.user_id; null for rows created before migration 0010. */
+    userId?: string | null;
     turns: Turn[];
 };
 
 export interface TurnsStore {
     findSession(sessionId: string): Promise<StoredSession | null>;
     saveTranscription(record: TranscriptionRecord): Promise<void>;
+    setSessionOwner?(sessionId: string, userId: string): Promise<void>;
+    /**
+     * First-writer-wins claim: sets owner only when the row exists and is
+     * ownerless. When `create` is provided and no row exists yet, the claim
+     * atomically inserts a placeholder row owned by the caller
+     * (INSERT ... ON CONFLICT DO NOTHING) and re-reads ownership, so two
+     * simultaneous first uploads converge: the winner gets 'claimed', the
+     * loser gets 'foreign'. Without `create`, a missing row returns
+     * 'missing' and the caller must create it. Returns 'claimed' when the
+     * caller now owns the row, 'foreign' when another user owns it,
+     * 'orphan' when the row is ownerless and the caller is not an admin.
+     */
+    claimSessionOwner?(
+        sessionId: string,
+        userId: string,
+        isAdmin?: boolean,
+        create?: { locale: Locale; audioSha256: string; audioBytes: number }
+    ): Promise<"claimed" | "foreign" | "missing" | "orphan">;
 }
 
 export function createPostgresStore(connectionString: string): TurnsStore {
@@ -44,7 +66,8 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 locale: Locale;
                 audio_sha256: string;
                 mode: string;
-            }>("select locale, audio_sha256, mode from sessions where id = $1", [
+                user_id: string | null;
+            }>("select locale, audio_sha256, mode, user_id from sessions where id = $1", [
                 sessionId,
             ]);
             if (session.rowCount === 0) return null;
@@ -65,6 +88,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 locale: session.rows[0].locale,
                 audioSha256: session.rows[0].audio_sha256,
                 mode: session.rows[0].mode,
+                userId: session.rows[0].user_id ?? null,
                 turns: stored.rows.map((row) => ({
                     turn_id: `turn_${row.turn_index}`,
                     startMs: row.start_ms,
@@ -80,10 +104,26 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             const client = await pool.connect();
             try {
                 await client.query("begin");
+                // Race guard: the claim check in the route happens before the
+                // (paid) transcription, so a second caller can create the row
+                // in between. Re-check ownership inside this transaction: a
+                // foreign-owned row must never be overwritten with our audio.
+                const ownerRow = await client.query<{
+                    user_id: string | null;
+                }>("select user_id from sessions where id = $1 for update", [
+                    record.sessionId,
+                ]);
+                if (ownerRow.rowCount === 1) {
+                    const owner = ownerRow.rows[0].user_id;
+                    if (owner != null && owner !== (record.userId ?? null)) {
+                        await client.query("rollback");
+                        throw new SessionOwnershipError(404);
+                    }
+                }
                 await client.query(
                     `insert into sessions
-                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, updated_at)
-                     values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, user_id, updated_at)
+                     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
                      on conflict (id) do update set
                         locale = excluded.locale,
                         audio_sha256 = excluded.audio_sha256,
@@ -92,6 +132,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         transcript = excluded.transcript,
                         audio_duration_ms = excluded.audio_duration_ms,
                         mode = excluded.mode,
+                        user_id = coalesce(sessions.user_id, excluded.user_id),
                         updated_at = now()`,
                     [
                         record.sessionId,
@@ -102,6 +143,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         record.transcript,
                         record.audioDurationMs,
                         record.mode ?? "ENDPOINTING",
+                        record.userId ?? null,
                     ]
                 );
 
@@ -131,6 +173,72 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             } finally {
                 client.release();
             }
+        },
+
+        async setSessionOwner(sessionId, userId) {
+            await pool.query(
+                "update sessions set user_id = $1 where id = $2 and user_id is null",
+                [userId, sessionId]
+            );
+        },
+
+        async claimSessionOwner(
+            sessionId: string,
+            userId: string,
+            isAdmin = false,
+            create?: { locale: string; audioSha256: string; audioBytes: number }
+        ) {
+            const existing = await pool.query<{ user_id: string | null }>(
+                "select user_id from sessions where id = $1",
+                [sessionId]
+            );
+            if (existing.rowCount === 0) {
+                // No row yet: atomically insert a placeholder owned by the
+                // caller so two simultaneous first uploads converge. The
+                // verdict keys on whether OUR insert landed (rowCount 1),
+                // not on a re-read of the owner: two callers with the SAME
+                // user id would both re-read their own id and both proceed
+                // to a paid transcription. The winner's insert lands and
+                // gets 'claimed'; the loser conflicts and gets 'foreign',
+                // even when the row's owner is its own user id.
+                // Without create data there is nothing to insert, so report
+                // 'missing' and let the caller create the row.
+                if (!create) return "missing";
+                // The placeholder's audio hash is a sentinel that can never
+                // equal a real upload's SHA-256, so the winner's own
+                // placeholder never satisfies transcribeSession's cache-hit
+                // check and the winner always proceeds to Meta.
+                const inserted = await pool.query(
+                    `insert into sessions
+                        (id, locale, audio_sha256, audio_bytes, transcript, user_id, updated_at)
+                     values ($1, $2, $3, $4, '', $5, now())
+                     on conflict (id) do nothing`,
+                    [sessionId, create.locale, "", create.audioBytes, userId]
+                );
+                if (inserted.rowCount === 1) return "claimed";
+                return "foreign";
+            }
+            const owner = existing.rows[0].user_id;
+            if (owner != null) return owner === userId ? "claimed" : "foreign";
+            // Ownerless legacy row: only an admin may adopt it. A non-admin
+            // caller must get the same 403 the cache/overwrite paths raise,
+            // never silently become the owner.
+            if (!isAdmin) return "orphan";
+            const result = await pool.query<{
+                user_id: string | null;
+            }>(
+                `update sessions set user_id = $1
+                 where id = $2 and user_id is null
+                 returning user_id`,
+                [userId, sessionId]
+            );
+            if (result.rowCount === 1) return "claimed";
+            const raced = await pool.query<{ user_id: string | null }>(
+                "select user_id from sessions where id = $1",
+                [sessionId]
+            );
+            if (raced.rowCount === 0) return "missing";
+            return raced.rows[0].user_id === userId ? "claimed" : "foreign";
         },
     };
 }

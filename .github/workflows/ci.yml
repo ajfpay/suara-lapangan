@@ -181,13 +181,42 @@ jobs:
           # accepts the request. Mirrors e2e/auth-setup.ts without Playwright.
           node scripts/ci-smoke-seed.mjs > /tmp/smoke_cookie.txt
           COOKIE=$(cat /tmp/smoke_cookie.txt)
+          AUTH_HEADER="Cookie: better-auth.session_token=${COOKIE}"
           DOC_ID=$(curl -fsS -X POST http://localhost:${SMOKE_PORT}/api/documents \
-            -H "Cookie: better-auth.session_token=${COOKIE}" \
+            -H "${AUTH_HEADER}" \
             -H "Content-Type: application/json" \
             -d @scripts/ci-smoke-payload.json | tee /tmp/created.json | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0,'utf8')).document.id)")
           echo "created doc ${DOC_ID}"
+
+          # A fresh document is a draft, and a draft has no number and no PDF.
+          # The clean payload must not need any confirmation, otherwise this
+          # smoke test is testing an ambiguous transcript, not the PDF path.
+          node -e "
+            const body = JSON.parse(require('fs').readFileSync('/tmp/created.json','utf8'));
+            const doc = body.document;
+            const pending = body.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? [];
+            // Draft-ness lives on the create envelope: the stored document keeps
+            // the guard's own status ('siap'/'perlu_konfirmasi') while the route
+            // reports every create as 'draf'.
+            if (body.status !== 'draf') { console.error('expected draf, got ' + body.status); process.exit(1); }
+            if (doc.nomor !== null) { console.error('a draft must have no number, got ' + doc.nomor); process.exit(1); }
+            if (pending.length !== 0) { console.error('smoke payload needs confirmation: ' + JSON.stringify(pending)); process.exit(1); }
+          "
+          echo "draft ${DOC_ID} created with no number and no open confirmations"
+
+          # Approval is the gate: it issues the number and renders the PDF.
+          curl -fsS -X POST http://localhost:${SMOKE_PORT}/api/documents/${DOC_ID}/approve \
+            -H "${AUTH_HEADER}" \
+            -o /tmp/approved.json -w "approve HTTP %{http_code}\n"
+          node -e "
+            const body = JSON.parse(require('fs').readFileSync('/tmp/approved.json','utf8'));
+            if (body.status !== 'disetujui') { console.error('approve did not approve: ' + body.status); process.exit(1); }
+            if (!body.document.nomor) { console.error('approve issued no number'); process.exit(1); }
+            console.log('approved as ' + body.document.nomor);
+          "
+
           curl -fsS -o /tmp/out.pdf -w "HTTP %{http_code} size=%{size_download}\n" \
-            -H "Cookie: better-auth.session_token=${COOKIE}" \
+            -H "${AUTH_HEADER}" \
             http://localhost:${SMOKE_PORT}/api/pdf/${DOC_ID}
           head -c 4 /tmp/out.pdf | xxd
           head -c 4 /tmp/out.pdf | grep -q '%PDF' || { echo "::error::response is not a PDF"; exit 1; }

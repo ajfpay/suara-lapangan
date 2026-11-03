@@ -1,22 +1,65 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { allocateDocumentNumber } from "./documentNumber";
 
 import { Pool } from "pg";
 
 import { redactSecrets } from "@/lib/server/asr/log";
 import type { DocumentStatus, QuotationDocument } from "@/lib/server/guard/types";
 
+export type FieldChange = {
+    field: string;
+    original: unknown;
+    current: unknown;
+    changed_by: string;
+    changed_at: string;
+};
+
+export class DocumentLockedError extends Error {
+    readonly status: DocumentStatus;
+    constructor(status: DocumentStatus) {
+        super(`Document is locked with status '${status}'`);
+        this.name = "DocumentLockedError";
+        this.status = status;
+    }
+}
+
 export type StoredDocument = {
     id: string;
     sessionId: string;
-    nomor: string;
+    nomor: string | null; // null while the draft has not been approved (ticket 01)
     status: DocumentStatus;
+    rawStatus?: string;
     createdAt: Date;
     document: QuotationDocument;
     pdfPath?: string | null;
     sentTo?: string | null;
     sentAt?: Date | null;
     userId?: string | null;
+    fieldChanges: FieldChange[];
+    approvedAt?: Date | null;
+    approvedBy?: string | null;
+    version: number;
+    rootId: string;
+    parentId?: string | null;
+    supersededBy?: string | null;
+    turnsHash?: string;
 };
+
+export type ApproveResult =
+    | { ok: true; document: StoredDocument }
+    | {
+          ok: false;
+          reason: "not_found" | "needs_confirmation" | "invalid_state";
+          status?: DocumentStatus;
+      };
+
+export type CreateVersionResult =
+    | { ok: true; document: StoredDocument }
+    | {
+          ok: false;
+          reason: "not_found" | "invalid_state";
+          status?: DocumentStatus;
+      };
 
 export type AdminDocument = StoredDocument & {
     userEmail?: string | null;
@@ -39,7 +82,8 @@ export function contentHashOf(document: QuotationDocument): string {
 export type CreateDocumentInput = {
     sessionId: string;
     locale: QuotationDocument["locale"];
-    nomor: string;
+    // No nomor: ticket 01 always creates drafts with nomor = NULL; the number
+    // is allocated at approval (ticket 03).
     turnsHash: string;
     document: QuotationDocument;
     userId?: string | null;
@@ -60,7 +104,16 @@ export interface DocumentStore {
      */
     update(
         id: string,
-        transform: (document: QuotationDocument) => QuotationDocument
+        transform: (
+            document: QuotationDocument,
+            context?: { fieldChanges: FieldChange[] }
+        ) =>
+            | QuotationDocument
+            | {
+                  document: QuotationDocument;
+                  fieldChanges?: FieldChange[];
+                  status?: DocumentStatus;
+              }
     ): Promise<StoredDocument | null>;
     /**
      * Records a successful email send: sets status `terkirim` and persists
@@ -75,7 +128,18 @@ export interface DocumentStore {
         sentTo: string,
         contentHash: string
     ): Promise<MarkSentResult>;
+    approve(
+        id: string,
+        userId: string,
+        options?: { approvalYear?: number }
+    ): Promise<ApproveResult>;
+    setPdfPath(id: string, pdfPath: string): Promise<void>;
+    createVersion(
+        id: string,
+        options?: { userId?: string }
+    ): Promise<CreateVersionResult>;
     listByUser(userId: string): Promise<StoredDocument[]>;
+    listByRootId(rootId: string): Promise<StoredDocument[]>;
     listAll(): Promise<AdminDocument[]>;
 }
 
@@ -98,6 +162,9 @@ export function turnsHashOf(
     return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
 
+const DOCUMENT_COLUMNS =
+    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash";
+
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -114,7 +181,7 @@ export function createPostgresDocumentStore(
     function toStored(row: {
         id: string;
         session_id: string;
-        nomor: string;
+        nomor: string | null;
         status: DocumentStatus;
         data_json: QuotationDocument;
         pdf_path?: string | null;
@@ -122,12 +189,29 @@ export function createPostgresDocumentStore(
         sent_at?: Date | null;
         created_at: Date;
         user_id?: string | null;
+        field_changes?: unknown;
+        approved_at?: Date | string | null;
+        approved_by?: string | null;
+        version?: number | null;
+        root_id?: string | null;
+        parent_id?: string | null;
+        superseded_by?: string | null;
+        turns_hash?: string | null;
     }): StoredDocument {
+        // Read normalization (ticket 01): legacy vocabulary is mapped to the
+        // review-before-pdf vocabulary on every read.
+        const status: DocumentStatus =
+            row.status === "perlu_konfirmasi"
+                ? "draf"
+                : row.status === "siap"
+                  ? "disetujui"
+                  : row.status;
         return {
             id: row.id,
             sessionId: row.session_id,
             nomor: row.nomor,
-            status: row.status,
+            status,
+            rawStatus: row.status,
             createdAt: row.created_at,
             document: row.data_json,
             pdfPath: row.pdf_path ?? null,
@@ -138,18 +222,34 @@ export function createPostgresDocumentStore(
                     : new Date(row.sent_at)
                 : null,
             userId: row.user_id ?? null,
+            fieldChanges: Array.isArray(row.field_changes)
+                ? (row.field_changes as FieldChange[])
+                : [],
+            approvedAt: row.approved_at
+                ? row.approved_at instanceof Date
+                    ? row.approved_at
+                    : new Date(row.approved_at)
+                : null,
+            approvedBy: row.approved_by ?? null,
+            version: row.version ?? 1,
+            rootId: row.root_id ?? row.id,
+            parentId: row.parent_id ?? null,
+            supersededBy: row.superseded_by ?? null,
+            turnsHash: row.turns_hash ?? undefined,
         };
     }
 
     return {
         async findByIdempotencyKey(sessionId, turnsHash) {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                `select ${DOCUMENT_COLUMNS}
                  from documents
                  where session_id = $1
                    and turns_hash = $2
+                   and version = 1
                    and (created_at at time zone 'UTC')::date
                        = (now() at time zone 'UTC')::date
+                 order by created_at asc
                  limit 1`,
                 [sessionId, turnsHash]
             );
@@ -171,12 +271,14 @@ export function createPostgresDocumentStore(
                     input.sessionId,
                 ]);
                 const existing = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                    `select ${DOCUMENT_COLUMNS}
                      from documents
                      where session_id = $1
                        and turns_hash = $2
+                       and version = 1
                        and (created_at at time zone 'UTC')::date
                            = (now() at time zone 'UTC')::date
+                     order by created_at asc
                      limit 1`,
                     [input.sessionId, input.turnsHash]
                 );
@@ -185,16 +287,12 @@ export function createPostgresDocumentStore(
                     return toStored(existing.rows[0]);
                 }
                 const result = await client.query(
-                    `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
-                     values ($1, $2, $3, $4, $5, $6, $7)
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
+                    `insert into documents (session_id, locale, status, turns_hash, data_json, user_id)
+                     values ($1, $2, 'draf', $3, $4, $5)
+                     returning ${DOCUMENT_COLUMNS}`,
                     [
                         input.sessionId,
                         input.locale,
-                        input.nomor,
-                        input.document.butuh_konfirmasi.length > 0
-                            ? "perlu_konfirmasi"
-                            : "siap",
                         input.turnsHash,
                         JSON.stringify(input.document),
                         input.userId ?? null,
@@ -220,7 +318,7 @@ export function createPostgresDocumentStore(
         async get(id) {
             if (!UUID_RE.test(id)) return null;
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                `select ${DOCUMENT_COLUMNS}
                  from documents where id = $1::uuid`,
                 [id]
             );
@@ -238,7 +336,7 @@ export function createPostgresDocumentStore(
                 // one reads the first one's committed payload, so its recomputed
                 // totals build on the corrected numbers instead of overwriting.
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                    `select ${DOCUMENT_COLUMNS}
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -247,39 +345,56 @@ export function createPostgresDocumentStore(
                     return null;
                 }
                 const stored = toStored(locked.rows[0]);
-                const updated = transform(stored.document);
+                const isLocked = stored.status === "terkirim" || stored.status === "disetujui";
+                if (isLocked) {
+                    await client.query("rollback");
+                    throw new DocumentLockedError(stored.status);
+                }
+                const transformRes = transform(stored.document, {
+                    fieldChanges: stored.fieldChanges,
+                });
+                const updated =
+                    transformRes &&
+                    typeof transformRes === "object" &&
+                    "document" in transformRes &&
+                    transformRes.document
+                        ? transformRes.document
+                        : (transformRes as QuotationDocument);
+                const nextFieldChanges =
+                    transformRes &&
+                    typeof transformRes === "object" &&
+                    "fieldChanges" in transformRes &&
+                    Array.isArray(transformRes.fieldChanges)
+                        ? transformRes.fieldChanges
+                        : stored.fieldChanges;
+
                 const nextStatus: DocumentStatus =
-                    updated.butuh_konfirmasi.length > 0
-                        ? "perlu_konfirmasi"
-                        : "siap";
-                // A PATCH edits the payload, so any previously sent version no
-                // longer exists. The send record is cleared so a document never
-                // carries a sent record for a version that was never sent; a
-                // fresh send (via markSent) sets it again.
+                    transformRes &&
+                    typeof transformRes === "object" &&
+                    "status" in transformRes &&
+                    transformRes.status
+                        ? transformRes.status
+                        : "draf";
                 const result = await client.query(
                     `update documents
                      set data_json = $2,
-                         status = $3,
-                         sent_to = $4,
-                         sent_at = $5,
+                         field_changes = $3,
+                         status = $4,
+                         sent_to = null,
+                         sent_at = null,
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
+                     returning ${DOCUMENT_COLUMNS}`,
                     [
                         id,
                         JSON.stringify(updated),
+                        JSON.stringify(nextFieldChanges),
                         nextStatus,
-                        null,
-                        null,
                     ]
                 );
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
-                // A failed rollback must not replace the original cause. But a
-                // rollback that fails leaves the client in an unknown state, so
-                // it is destroyed instead of released back to the pool: a later
-                // borrower could inherit an aborted transaction or its locks.
                 await client.query("rollback").catch(() => {
                     client.release(cause instanceof Error ? cause : undefined);
                     clientReleased = true;
@@ -299,7 +414,7 @@ export function createPostgresDocumentStore(
             try {
                 await client.query("begin");
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                    `select ${DOCUMENT_COLUMNS}
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -319,7 +434,7 @@ export function createPostgresDocumentStore(
                          sent_at = now(),
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id`,
+                     returning ${DOCUMENT_COLUMNS}`,
                     [id, sentTo]
                 );
                 await client.query("commit");
@@ -335,9 +450,223 @@ export function createPostgresDocumentStore(
             }
         },
 
+        async approve(id, userId, options) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
+            const client = await pool.connect();
+            let clientReleased = false;
+            try {
+                await client.query("begin");
+                const locked = await client.query(
+                    `select ${DOCUMENT_COLUMNS}
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "not_found" };
+                }
+                const stored = toStored(locked.rows[0]);
+
+                // Idempotent: already approved
+                if (stored.status === "disetujui") {
+                    await client.query("commit");
+                    return { ok: true, document: stored };
+                }
+
+                // Invalid state if not draf
+                if (stored.status !== "draf") {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: stored.status,
+                    };
+                }
+
+                // Must not have open confirmations. Legacy rows carry the
+                // raw status 'perlu_konfirmasi' with an empty
+                // butuh_konfirmasi array, so the raw status gates too.
+                if (
+                    stored.rawStatus === "perlu_konfirmasi" ||
+                    (stored.document.butuh_konfirmasi &&
+                        stored.document.butuh_konfirmasi.length > 0)
+                ) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "needs_confirmation" };
+                }
+
+                const approvalYear =
+                    options?.approvalYear ?? new Date().getUTCFullYear();
+                const nomor = await allocateDocumentNumber(client, approvalYear);
+
+                const updatedDoc: QuotationDocument = {
+                    ...stored.document,
+                    nomor,
+                };
+
+                const result = await client.query(
+                    `update documents
+                     set nomor = $2,
+                         data_json = $3,
+                         status = 'disetujui',
+                         approved_at = now(),
+                         approved_by = $4,
+                         updated_at = now()
+                     where id = $1::uuid
+                     returning ${DOCUMENT_COLUMNS}`,
+                    [id, nomor, JSON.stringify(updatedDoc), userId]
+                );
+                await client.query("commit");
+                return { ok: true, document: toStored(result.rows[0]) };
+            } catch (cause) {
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
+                throw cause;
+            } finally {
+                if (!clientReleased) client.release();
+            }
+        },
+
+        async setPdfPath(id, pdfPath) {
+            if (!UUID_RE.test(id)) return;
+            // Accept raw legacy 'siap' too: it reads back as 'disetujui' and
+            // the approve retry path must persist the regenerated PDF for it.
+            await pool.query(
+                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid and status in ('disetujui', 'siap')`,
+                [id, pdfPath]
+            );
+        },
+
+        async createVersion(id, options) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
+            const client = await pool.connect();
+            let clientReleased = false;
+            try {
+                await client.query("begin");
+                const locked = await client.query(
+                    `select ${DOCUMENT_COLUMNS}
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "not_found" };
+                }
+                const parent = toStored(locked.rows[0]);
+
+                // Concurrent double create: the parent was already superseded
+                // while this transaction waited on the row lock.
+                if (parent.supersededBy) {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: parent.status,
+                    };
+                }
+
+                // Rejects unapproved drafts (status: "draf")
+                if (parent.status === "draf") {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: parent.status,
+                    };
+                }
+
+                const newId = randomUUID();
+                const nextVersion = parent.version + 1;
+                const rootId = parent.rootId;
+                const parentId = parent.id;
+                const rawUserId = options?.userId ?? parent.userId;
+                const userId =
+                    rawUserId && UUID_RE.test(rawUserId) ? rawUserId : null;
+                const locale = parent.document.locale ?? "id";
+                const turnsHash = locked.rows[0].turns_hash ?? "";
+
+                const clonedDoc: QuotationDocument = {
+                    ...parent.document,
+                    nomor: null,
+                };
+
+                // Insert new document row
+                let insertRes;
+                try {
+                    insertRes = await client.query(
+                        `insert into documents (
+                        id, session_id, locale, nomor, status, turns_hash,
+                        data_json, user_id, field_changes, version,
+                        root_id, parent_id
+                     ) values (
+                        $1::uuid, $2, $3, null, 'draf', $4,
+                        $5, $6, $7, $8,
+                        $9::uuid, $10::uuid
+                     )
+                     returning ${DOCUMENT_COLUMNS}`,
+                        [
+                            newId,
+                            parent.sessionId,
+                            locale,
+                            turnsHash,
+                            JSON.stringify(clonedDoc),
+                            userId,
+                            JSON.stringify(parent.fieldChanges),
+                            nextVersion,
+                            rootId,
+                            parentId,
+                        ]
+                    );
+                } catch (insertCause) {
+                    // Concurrent double create that slipped past the
+                    // superseded_by guard: the (root_id, version) unique
+                    // index rejects the second insert. Map it to a 409
+                    // conflict instead of a 500.
+                    await client.query("rollback");
+                    const code =
+                        insertCause &&
+                        typeof insertCause === "object" &&
+                        "code" in insertCause
+                            ? (insertCause as { code?: unknown }).code
+                            : undefined;
+                    if (code === "23505") {
+                        return {
+                            ok: false,
+                            reason: "invalid_state",
+                            status: parent.status,
+                        } as const;
+                    }
+                    throw insertCause;
+                }
+
+                // Update parent row with superseded_by
+                await client.query(
+                    `update documents set superseded_by = $2::uuid, updated_at = now() where id = $1::uuid`,
+                    [parentId, newId]
+                );
+
+                await client.query("commit");
+                return { ok: true, document: toStored(insertRes.rows[0]) };
+            } catch (cause) {
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
+                throw cause;
+            } finally {
+                if (!clientReleased) client.release();
+            }
+        },
+
         async listByUser(userId: string): Promise<StoredDocument[]> {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id
+                `select ${DOCUMENT_COLUMNS}
                  from documents
                  where user_id = $1
                  order by created_at desc`,
@@ -346,9 +675,21 @@ export function createPostgresDocumentStore(
             return result.rows.map(toStored);
         },
 
+        async listByRootId(rootId: string): Promise<StoredDocument[]> {
+            const result = await pool.query(
+                `select ${DOCUMENT_COLUMNS}
+                 from documents
+                 where root_id = $1::uuid
+                 order by version desc`,
+                [rootId]
+            );
+            return result.rows.map(toStored);
+        },
+
         async listAll(): Promise<AdminDocument[]> {
             const result = await pool.query(
-                `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id,
+                `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id, d.field_changes,
+                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash,
                         u.email as user_email, u.name as user_name
                  from documents d
                  left join auth_user u on d.user_id = u.id

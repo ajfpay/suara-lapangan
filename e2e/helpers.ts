@@ -6,6 +6,7 @@ import { expect, type Page } from "@playwright/test";
 // `pg` is the app's own PostgreSQL driver; using it keeps row reads typed
 // instead of parsing psql's text output.
 import { Pool } from "pg";
+import { E2E_USER_ID } from "./auth-setup";
 
 /**
  * A session id for one run, matching the app's `^[A-Za-z0-9_-]{1,64}$`.
@@ -66,6 +67,8 @@ export const SEEDED_TURNS = [
  * `turn_index` counting from 1, because `turn_N` is what a document cites.
  * The session row is all the POST /api/documents route reads (`findSession`),
  * so the rest of the chain runs against the real routes.
+ * The row carries `user_id` = the e2e auth user seeded by `auth-setup.ts`, because the turns
+ * route refuses a session whose owner is unset (403) to the browser that owns the e2e cookie.
  */
 export async function seedSession(sessionId: string): Promise<void> {
     const transcript = SEEDED_TURNS.map((turn) => turn.transcript).join(" ");
@@ -76,9 +79,9 @@ export async function seedSession(sessionId: string): Promise<void> {
 
     await runSql(`
         insert into sessions
-            (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, updated_at)
+            (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, user_id, updated_at)
         values
-            (${sqlLiteral(sessionId)}, 'en', ${sqlLiteral(`e2e-${sessionId}`)}, 32044, 'e2e-seeded', ${sqlLiteral(transcript)}, 8200, now());
+            (${sqlLiteral(sessionId)}, 'en', ${sqlLiteral(`e2e-${sessionId}`)}, 32044, 'e2e-seeded', ${sqlLiteral(transcript)}, 8200, ${sqlLiteral(E2E_USER_ID)}, now());
 
         insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final)
         values
@@ -146,7 +149,8 @@ export async function query<T extends Record<string, unknown>>(
  *
  * Checks:
  * - exactly one `documents` row for the session;
- * - status is one of the allowed set;
+ * - status is `disetujui` (or a legacy `siap`/`terkirim`): the caller must have approved the
+ *   document first, because that is what issues the number this helper also asserts;
  * - locale is `en` or `id`;
  * - `nomor` matches `SL/QTN/YYYY/NNNN`;
  * - `turns_hash` is non-empty;
@@ -183,7 +187,7 @@ export async function assertStoredDocument(
     expect(docRows, "exactly one stored document per session").toHaveLength(1);
     const doc = docRows[0]!;
 
-    expect(doc.status).toMatch(/^(perlu_konfirmasi|siap|terkirim)$/);
+    expect(doc.status).toMatch(/^(disetujui|siap|terkirim)$/);
     expect(doc.locale).toMatch(/^(en|id)$/);
     expect(doc.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
     expect(doc.turns_hash).toBeTruthy();

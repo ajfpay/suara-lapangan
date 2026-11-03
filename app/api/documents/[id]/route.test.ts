@@ -34,7 +34,8 @@ function withUser(role: "user" | "admin", userId: string): void {
 }
 import { GET, PATCH } from "./route";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
-import type { QuotationDocument } from "@/lib/server/guard/types";
+import type { CandidateDocument, QuotationDocument } from "@/lib/server/guard/types";
+import { applyGuard } from "@/lib/server/guard/rules";
 
 /**
  * PATCH /api/documents/[id] against the test Postgres (`ASR_TEST_DATABASE_URL`).
@@ -102,6 +103,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
             "0004_email_sends.sql",
             "0007_auth_tables.sql",
             "0008_documents_user_id.sql",
+            "0009_review_before_pdf.sql",
         ]) {
             const sql = await import("node:fs/promises").then((fs) =>
                 fs.readFile(`db/migrations/${file}`, "utf8")
@@ -119,6 +121,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
     });
 
     beforeEach(async () => {
+        resetRateLimits();
         await pool.query("truncate documents, sessions cascade");
         seededIds = [];
         await pool.query(
@@ -132,17 +135,15 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
 
     async function seedDocument(
         document: QuotationDocument,
-        options?: { userId?: string | null }
+        options?: { userId?: string | null; status?: string }
     ): Promise<string> {
         const result = await pool.query<{ id: string }>(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
              values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
             [
                 document.locale,
-                document.nomor + "#" + seededIds.length,
-                document.butuh_konfirmasi.length > 0
-                    ? "perlu_konfirmasi"
-                    : "siap",
+                document.nomor ? document.nomor + "#" + seededIds.length : null,
+                options?.status ?? "draf",
                 "hash-" + seededIds.length,
                 JSON.stringify(document),
                 options?.userId ?? null,
@@ -367,7 +368,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         expect(data.document.pekerjaan[1].jumlah).toBe(200000);
         expect(data.document.total_nominal).toBe(1200000);
         expect(data.document.terbilang).toBe("Satu juta dua ratus ribu rupiah");
-        expect(data.status).toBe("siap");
+        expect(data.status).toBe("draf");
 
         // The patch reached Postgres, not just the response.
         const stored = await readDocument(id);
@@ -422,7 +423,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         expect(data.document.pekerjaan[0].jumlah).toBe(122);
         expect(data.document.total_nominal).toBe(122);
         expect(data.document.terbilang).toBe("One hundred twenty-two US dollars");
-        expect(data.status).toBe("siap");
+        expect(data.status).toBe("draf");
     });
 
     it("patches string fields (satuan and uraian)", async () => {
@@ -461,7 +462,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         );
     });
 
-    it("removes matching entry from butuh_konfirmasi and status flips from perlu_konfirmasi to siap only when empty", async () => {
+    it("removes matching entry from butuh_konfirmasi while status remains draf until approval", async () => {
         const id = await seedDocument(
             createTestDocument({
                 butuh_konfirmasi: [
@@ -494,9 +495,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         });
         expect(res1.status).toBe(200);
         const data1 = await res1.json();
-
-        // pekerjaan[0].volume removed, but pekerjaan[0].harga_satuan remains -> status still "perlu_konfirmasi"
-        expect(data1.status).toBe("perlu_konfirmasi");
+        // pekerjaan[0].volume removed, but pekerjaan[0].harga_satuan remains -> status remains "draf"
+        expect(data1.status).toBe("draf");
         expect(data1.butuh_konfirmasi).toHaveLength(1);
         expect(data1.butuh_konfirmasi[0].field).toBe("pekerjaan[0].harga_satuan");
         expect(data1.document.butuh_konfirmasi).toHaveLength(1);
@@ -516,9 +516,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         });
         expect(res2.status).toBe(200);
         const data2 = await res2.json();
-
-        // Both defects cleared -> status flips to "siap"
-        expect(data2.status).toBe("siap");
+        // Both defects cleared -> status remains "draf" until approval
+        expect(data2.status).toBe("draf");
         expect(data2.butuh_konfirmasi).toHaveLength(0);
         expect(data2.document.butuh_konfirmasi).toHaveLength(0);
     });
@@ -638,7 +637,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(10);
     });
 
-    it("rejects non-owner for non-existent document on PATCH with 403 (no existence leak)", async () => {
+    it("rejects non-owner for non-existent document on PATCH with 404 (consistent with approve)", async () => {
         withUser("user", otherUserId);
         const missingId = "00000000-0000-0000-0000-000000000099";
         const res = await PATCH(
@@ -649,8 +648,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
             }),
             { params: Promise.resolve({ id: missingId }) }
         );
-        expect(res.status).toBe(403);
-        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: "not_found", message: `Document '${missingId}' not found` });
     });
 
     it("allows owner to PATCH with 200 and mutates DB", async () => {
@@ -716,6 +715,487 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         expect(res.status).toBe(403);
         expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
     });
+
+    it("patches proyek.nama, proyek.lokasi, and proyek.klien without modifying line items or recalculating totals", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(
+            createTestDocument({
+                total_nominal: 700000,
+                terbilang: "Tujuh ratus ribu rupiah",
+            }),
+            { userId: ownerId }
+        );
+
+        const res1 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "proyek.nama", nilai: "Renovasi Gudang Modern" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res1.status).toBe(200);
+        const data1 = await res1.json();
+        expect(data1.document.proyek.nama).toBe("Renovasi Gudang Modern");
+        expect(data1.document.total_nominal).toBe(700000);
+        expect(data1.document.terbilang).toBe("Tujuh ratus ribu rupiah");
+
+        const res2 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "proyek.lokasi", nilai: "Jl. Kaliurang km 10" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res2.status).toBe(200);
+        const data2 = await res2.json();
+        expect(data2.document.proyek.lokasi).toBe("Jl. Kaliurang km 10");
+
+        const res3 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "proyek.klien", nilai: "Ibu Hartono" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res3.status).toBe(200);
+        const data3 = await res3.json();
+        expect(data3.document.proyek.klien).toBe("Ibu Hartono");
+    });
+
+    it("patches tanggal with valid ISO YYYY-MM-DD date and rejects invalid dates", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "tanggal", nilai: "2026-11-20" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.tanggal).toBe("2026-11-20");
+
+        // Invalid date string
+        const badRes1 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "tanggal", nilai: "not-a-date" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(badRes1.status).toBe(400);
+
+        // Invalid calendar date
+        const badRes2 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "tanggal", nilai: "2026-02-31" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(badRes2.status).toBe(400);
+    });
+
+    it("rejects PATCH on mata_uang with 400 invalid_request (derived from locale)", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "mata_uang", nilai: "USD" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(400);
+        const data = await res.json();
+        expect(data.error).toBe("invalid_request");
+    });
+
+    it("supports structural op add_line with sumber_kutipan: 'manual' and recomputes totals and terbilang", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(
+            createTestDocument({
+                pekerjaan: [
+                    {
+                        uraian: "Pemasangan hebel",
+                        volume: 10,
+                        satuan: "m2",
+                        harga_satuan: 50000,
+                        jumlah: 500000,
+                        sumber_kutipan: "turn_1",
+                    },
+                ],
+                total_nominal: 500000,
+                terbilang: "Lima ratus ribu rupiah",
+            }),
+            { userId: ownerId }
+        );
+
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "add_line",
+                    item: {
+                        uraian: "Transportasi material",
+                        volume: 1,
+                        satuan: "unit",
+                        harga_satuan: 150000,
+                    },
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan).toHaveLength(2);
+        expect(data.document.pekerjaan[1]).toEqual({
+            uraian: "Transportasi material",
+            volume: 1,
+            satuan: "unit",
+            harga_satuan: 150000,
+            jumlah: 150000,
+            sumber_kutipan: "manual",
+        });
+        expect(data.document.total_nominal).toBe(650000);
+        expect(data.document.terbilang).toBe("Enam ratus lima puluh ribu rupiah");
+    });
+
+    it("supports structural op remove_line and recomputes totals", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "remove_line",
+                    index: 1,
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan).toHaveLength(1);
+        expect(data.document.pekerjaan[0].uraian).toBe("Pemasangan hebel");
+        expect(data.document.total_nominal).toBe(500000);
+        expect(data.document.terbilang).toBe("Lima ratus ribu rupiah");
+
+        // Out of bounds index
+        const oobRes = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "remove_line",
+                    index: 99,
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(oobRes.status).toBe(400);
+    });
+
+    it("supports structural op move_line to reorder lines", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "move_line",
+                    fromIndex: 0,
+                    toIndex: 1,
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan[0].uraian).toBe("Plester aci");
+        expect(data.document.pekerjaan[1].uraian).toBe("Pemasangan hebel");
+
+        // Out of bounds
+        const oobRes = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "move_line",
+                    fromIndex: 0,
+                    toIndex: 10,
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(oobRes.status).toBe(400);
+    });
+
+    it("remove_line shifts indices for butuh_konfirmasi and field_changes", async () => {
+        withUser("user", ownerId);
+        // 3 items (indices 0, 1, 2)
+        const id = await seedDocument(
+            createTestDocument({
+                pekerjaan: [
+                    { uraian: "Item 0", volume: 1, satuan: "unit", harga_satuan: 100, jumlah: 100, sumber_kutipan: "turn_1" },
+                    { uraian: "Item 1", volume: 2, satuan: "unit", harga_satuan: 200, jumlah: 400, sumber_kutipan: "turn_2" },
+                    { uraian: "Item 2", volume: 3, satuan: "unit", harga_satuan: 300, jumlah: 900, sumber_kutipan: "turn_3" },
+                ],
+                butuh_konfirmasi: [
+                    { field: "pekerjaan[1].volume", alasan: "Check item 1", sumber_kutipan: "turn_2" },
+                    { field: "pekerjaan[2].harga_satuan", alasan: "Check item 2", sumber_kutipan: "turn_3" },
+                ],
+            }),
+            { userId: ownerId }
+        );
+
+        // Edit item 2 first to create a field_change
+        await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[2].volume", nilai: 5 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+
+        // Remove item 0
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ op: "remove_line", index: 0 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan).toHaveLength(2);
+        // What was item 1 is now item 0
+        expect(data.document.pekerjaan[0].uraian).toBe("Item 1");
+        expect(data.document.pekerjaan[1].uraian).toBe("Item 2");
+        // butuh_konfirmasi fields shifted from [1]->[0] and [2]->[1]
+        expect(data.butuh_konfirmasi).toHaveLength(2);
+        expect(data.butuh_konfirmasi[0].field).toBe("pekerjaan[0].volume");
+        expect(data.butuh_konfirmasi[1].field).toBe("pekerjaan[1].harga_satuan");
+        // field_changes shifted from [2]->[1]
+        expect(data.field_changes).toHaveLength(1);
+        expect(data.field_changes[0].field).toBe("pekerjaan[1].volume");
+    });
+
+    it("move_line remaps indices for butuh_konfirmasi and field_changes", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(
+            createTestDocument({
+                pekerjaan: [
+                    { uraian: "Item 0", volume: 1, satuan: "unit", harga_satuan: 100, jumlah: 100, sumber_kutipan: "turn_1" },
+                    { uraian: "Item 1", volume: 2, satuan: "unit", harga_satuan: 200, jumlah: 400, sumber_kutipan: "turn_2" },
+                ],
+                butuh_konfirmasi: [
+                    { field: "pekerjaan[0].uraian", alasan: "Check item 0", sumber_kutipan: "turn_1" },
+                ],
+            }),
+            { userId: ownerId }
+        );
+
+        // Edit item 0 to record field_change
+        await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 10 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+
+        // Move item 0 to position 1
+        const res = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ op: "move_line", fromIndex: 0, toIndex: 1 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.document.pekerjaan[1].uraian).toBe("Item 0");
+        // butuh_konfirmasi remapped to pekerjaan[1].volume
+        expect(data.butuh_konfirmasi[0].field).toBe("pekerjaan[1].uraian");
+        // field_changes remapped to pekerjaan[1].volume
+        expect(data.field_changes[0].field).toBe("pekerjaan[1].volume");
+    });
+
+    it("tracks provenance in field_changes when modifying transcript-derived fields and preserves original on re-edit", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        // Edit volume of line 0 (sumber_kutipan: "turn_1") from 10 to 15
+        const res1 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 15 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res1.status).toBe(200);
+        const data1 = await res1.json();
+        expect(data1.field_changes).toHaveLength(1);
+        expect(data1.field_changes[0]).toEqual({
+            field: "pekerjaan[0].volume",
+            original: 10,
+            current: 15,
+            changed_by: ownerId,
+            changed_at: expect.any(String),
+        });
+
+        // Re-edit volume of line 0 from 15 to 20: original remains 10!
+        const res2 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 20 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res2.status).toBe(200);
+        const data2 = await res2.json();
+        expect(data2.field_changes).toHaveLength(1);
+        expect(data2.field_changes[0]).toEqual({
+            field: "pekerjaan[0].volume",
+            original: 10,
+            current: 20,
+            changed_by: ownerId,
+            changed_at: expect.any(String),
+        });
+
+        // Add a manual line, then edit it: manual lines are not tracked in field_changes
+        await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    op: "add_line",
+                    item: { uraian: "Cat", volume: 2, satuan: "sak", harga_satuan: 10000 },
+                }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        const res3 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[2].volume", nilai: 4 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res3.status).toBe(200);
+        const data3 = await res3.json();
+        // field_changes still has only 1 entry (line 0)
+        expect(data3.field_changes).toHaveLength(1);
+        expect(data3.field_changes[0].field).toBe("pekerjaan[0].volume");
+    });
+
+    it("clears butuh_konfirmasi when editing any matching field (header or line item)", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(
+            createTestDocument({
+                butuh_konfirmasi: [
+                    {
+                        field: "proyek.lokasi",
+                        alasan: "Lokasi tidak disebutkan",
+                        sumber_kutipan: null,
+                    },
+                    {
+                        field: "pekerjaan[0].volume",
+                        alasan: "Volume tidak yakin",
+                        sumber_kutipan: "turn_1",
+                    },
+                ],
+            }),
+            { userId: ownerId }
+        );
+
+        // Edit proyek.lokasi -> clears proyek.lokasi from butuh_konfirmasi
+        const res1 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "proyek.lokasi", nilai: "Bantul" }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res1.status).toBe(200);
+        const data1 = await res1.json();
+        expect(data1.butuh_konfirmasi).toHaveLength(1);
+        expect(data1.butuh_konfirmasi[0].field).toBe("pekerjaan[0].volume");
+
+        // Edit pekerjaan[0].volume -> clears remaining item
+        const res2 = await PATCH(
+            new Request(`http://localhost/api/documents/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 10 }),
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res2.status).toBe(200);
+        const data2 = await res2.json();
+        expect(data2.butuh_konfirmasi).toHaveLength(0);
+    });
+
+    it("rejects PATCH on locked documents (status disetujui or terkirim) with 409 locked", async () => {
+        withUser("user", ownerId);
+        const idApproved = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "disetujui",
+        });
+
+        const resApproved = await PATCH(
+            new Request(`http://localhost/api/documents/${idApproved}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 99 }),
+            }),
+            { params: Promise.resolve({ id: idApproved }) }
+        );
+        expect(resApproved.status).toBe(409);
+        const dataApproved = await resApproved.json();
+        expect(dataApproved.error).toBe("locked");
+
+        const idSent = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "terkirim",
+        });
+
+        const resSent = await PATCH(
+            new Request(`http://localhost/api/documents/${idSent}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pekerjaan[0].volume", nilai: 99 }),
+            }),
+            { params: Promise.resolve({ id: idSent }) }
+        );
+        expect(resSent.status).toBe(409);
+        const dataSent = await resSent.json();
+        expect(dataSent.error).toBe("locked");
+    });
 });
 
 describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route handler", () => {
@@ -731,6 +1211,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
             "0004_email_sends.sql",
             "0007_auth_tables.sql",
             "0008_documents_user_id.sql",
+            "0009_review_before_pdf.sql",
         ]) {
             const sql = await import("node:fs/promises").then((fs) =>
                 fs.readFile(`db/migrations/${file}`, "utf8")
@@ -762,20 +1243,32 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
 
     async function seedDocument(
         document: QuotationDocument,
-        options?: { userId?: string | null }
+        options?: {
+            userId?: string | null;
+            version?: number;
+            rootId?: string;
+            parentId?: string | null;
+            supersededBy?: string | null;
+            status?: string;
+        }
     ): Promise<string> {
         const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
-             values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id, version, root_id, parent_id, superseded_by)
+             values ('seed-session', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
             [
                 document.locale,
                 document.nomor + "#" + seededIds.length,
-                document.butuh_konfirmasi.length > 0
-                    ? "perlu_konfirmasi"
-                    : "siap",
+                options?.status ??
+                    (document.butuh_konfirmasi.length > 0
+                        ? "perlu_konfirmasi"
+                        : "siap"),
                 "hash-" + seededIds.length,
                 JSON.stringify(document),
                 options?.userId ?? null,
+                options?.version ?? 1,
+                options?.rootId ?? null,
+                options?.parentId ?? null,
+                options?.supersededBy ?? null,
             ]
         );
         const id = result.rows[0].id;
@@ -804,7 +1297,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         expect(data.document.nomor).toBe(doc.nomor);
         expect(data.document.total_nominal).toBe(700000);
         expect(data.butuh_konfirmasi).toHaveLength(1);
-        expect(data.status).toBe("perlu_konfirmasi");
+        expect(data.status).toBe("draf");
     });
 
     it("returns 404 for an unknown id", async () => {
@@ -911,14 +1404,14 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
     });
 
-    it("rejects non-owner for non-existent document on GET with 403 (no existence leak)", async () => {
+    it("rejects non-owner for non-existent document on GET with 404 (consistent with approve)", async () => {
         withUser("user", otherUserId);
         const missingId = "00000000-0000-0000-0000-000000000099";
         const res = await GET(new Request(`http://localhost/api/documents/${missingId}`), {
             params: Promise.resolve({ id: missingId }),
         });
-        expect(res.status).toBe(403);
-        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: "not_found", message: `Document '${missingId}' not found` });
     });
 
     it("serves owner with 200 on GET", async () => {
@@ -958,5 +1451,129 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         });
         expect(res.status).toBe(403);
         expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+    });
+
+    it("returns field_changes in response envelope alongside document, butuh_konfirmasi, and status", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data).toHaveProperty("document");
+        expect(data).toHaveProperty("butuh_konfirmasi");
+        expect(data).toHaveProperty("status");
+        expect(data).toHaveProperty("field_changes");
+        expect(Array.isArray(data.field_changes)).toBe(true);
+    });
+
+    it("exposes version lineage fields for a lone root: version=1, root_id=id, superseded_by=null, versions=[self]", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.version).toBe(1);
+        expect(data.root_id).toBe(id);
+        expect(data.superseded_by).toBeNull();
+        expect(Array.isArray(data.versions)).toBe(true);
+        expect(data.versions).toHaveLength(1);
+        expect(data.versions[0]).toMatchObject({
+            id,
+            version: 1,
+            superseded_by: null,
+        });
+        const row = await pool.query(
+            "select nomor from documents where id = $1::uuid",
+            [id]
+        );
+        expect(data.versions[0].nomor).toBe(row.rows[0].nomor);
+        expect(data.versions[0].status).toBe(data.status);
+    });
+
+    it("reports superseded_by on an approved superseded doc and exposes sibling lineage ordered by version desc", async () => {
+        withUser("user", ownerId);
+        const v1 = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "disetujui",
+        });
+        const v2 = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "draf",
+            version: 2,
+            rootId: v1,
+            parentId: v1,
+            supersededBy: null,
+        });
+        // v1 is now superseded by v2
+        await pool.query(
+            "update documents set superseded_by = $2::uuid where id = $1::uuid",
+            [v1, v2]
+        );
+
+        const resV1 = await GET(new Request(`http://localhost/api/documents/${v1}`), {
+            params: Promise.resolve({ id: v1 }),
+        });
+        expect(resV1.status).toBe(200);
+        const dataV1 = await resV1.json();
+        expect(dataV1.version).toBe(1);
+        expect(dataV1.root_id).toBe(v1);
+        expect(dataV1.superseded_by).toBe(v2);
+        expect(dataV1.versions.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+        expect(dataV1.versions[0].id).toBe(v2);
+        expect(dataV1.versions[0].superseded_by).toBeNull();
+        expect(dataV1.versions[1].id).toBe(v1);
+        expect(dataV1.versions[1].superseded_by).toBe(v2);
+
+        const resV2 = await GET(new Request(`http://localhost/api/documents/${v2}`), {
+            params: Promise.resolve({ id: v2 }),
+        });
+        expect(resV2.status).toBe(200);
+        const dataV2 = await resV2.json();
+        expect(dataV2.version).toBe(2);
+        expect(dataV2.root_id).toBe(v1);
+        expect(dataV2.superseded_by).toBeNull();
+        expect(dataV2.versions.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+        expect(dataV2.versions[0].id).toBe(v2);
+        expect(dataV2.versions[1].id).toBe(v1);
+    });
+});
+
+describe("Guard rules manual lines", () => {
+    it("evaluates turn transcript only for ^turn_ citations; manual lines pass without error", () => {
+        const candidate: CandidateDocument = {
+            jenis: "surat_penawaran",
+            locale: "id",
+            mata_uang: "IDR",
+            tanggal: "2026-11-02",
+            proyek: {
+                nama: "Proyek Test",
+                lokasi: "Sleman",
+                klien: "Pak Budi",
+            },
+            pekerjaan: [
+                {
+                    uraian: "Pemasangan paving manual",
+                    volume: 50,
+                    satuan: "m2",
+                    harga_satuan: 80000,
+                    jumlah: 4000000,
+                    sumber_kutipan: "manual",
+                },
+            ],
+            total_nominal: 4000000,
+            terbilang: "Empat juta rupiah",
+            butuh_konfirmasi: [],
+        };
+        // turns list is empty - if manual line checked turns, it would fail
+        const result = applyGuard(candidate, []);
+        expect(result.document.pekerjaan[0].sumber_kutipan).toBe("manual");
+        expect(result.document.pekerjaan[0].jumlah).toBe(4000000);
+        expect(result.butuh_konfirmasi).toHaveLength(0);
     });
 });
