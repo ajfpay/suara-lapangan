@@ -25,7 +25,7 @@ function canAccessDocument(
 
 async function handleGet(
     _request: Request,
-    context?: RouteContext
+    context: RouteContext
 ): Promise<Response> {
     const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
@@ -91,7 +91,4 @@ async function handleGet(
     });
 }
 
-export const GET = handleGet as (
-    request: Request,
-    context: RouteContext
-) => Promise<Response>;
+export const GET = handleGet;
