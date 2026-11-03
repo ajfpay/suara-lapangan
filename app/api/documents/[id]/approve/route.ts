@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { existsSync } from "node:fs";
 import path from "node:path";
 import puppeteer from "puppeteer-core";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
@@ -13,6 +12,7 @@ import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import {
+    resolveChromiumPath,
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
@@ -32,22 +32,6 @@ function canAccessDocument(
 
 function shell(html: string): string {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
-}
-
-export function resolveChromiumPath(exists: (p: string) => boolean = existsSync): string {
-    const candidates = [
-        process.env.CHROME_PATH,
-        "/usr/bin/chromium",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/google-chrome",
-        "/usr/bin/google-chrome-stable",
-        "/home/ubuntu/.local/bin/chromium",
-        "/home/ubuntu/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome",
-    ];
-    for (const candidate of candidates) {
-        if (candidate && exists(candidate)) return candidate;
-    }
-    throw new Error("no Chromium found: set CHROME_PATH to a Chromium binary");
 }
 
 async function renderPdf(html: string): Promise<Buffer> {
@@ -124,28 +108,33 @@ async function handleApprove(
     }
 
     if (existing.status === "disetujui") {
-        return NextResponse.json(
-            {
-                document: toResponseDocument({
-                    ...existing.document,
-                    id: existing.id,
-                }),
-                status: existing.status,
-                butuh_konfirmasi: existing.document.butuh_konfirmasi ?? [],
-                field_changes: existing.fieldChanges ?? [],
-                approved_at: existing.approvedAt?.toISOString() ?? null,
-                approved_by: existing.approvedBy ?? null,
-                version: existing.version,
-                root_id: existing.rootId,
-                parent_id: existing.parentId ?? null,
-                superseded_by: existing.supersededBy ?? null,
-                pdf_path: existing.pdfPath ?? null,
-            },
-            { status: 200 }
-        );
+        if (existing.pdfPath) {
+            return NextResponse.json(
+                {
+                    document: toResponseDocument({
+                        ...existing.document,
+                        id: existing.id,
+                    }),
+                    status: existing.status,
+                    butuh_konfirmasi: existing.document.butuh_konfirmasi ?? [],
+                    field_changes: existing.fieldChanges ?? [],
+                    approved_at: existing.approvedAt?.toISOString() ?? null,
+                    approved_by: existing.approvedBy ?? null,
+                    version: existing.version,
+                    root_id: existing.rootId,
+                    parent_id: existing.parentId ?? null,
+                    superseded_by: existing.supersededBy ?? null,
+                    pdf_path: existing.pdfPath ?? null,
+                },
+                { status: 200 }
+            );
+        }
+        // Approved but the PDF never landed (render or write failed on the
+        // first attempt): fall through and regenerate it below instead of
+        // returning the already-approved early return with pdf_path null.
     }
 
-    if (existing.status !== "draf") {
+    if (existing.status !== "draf" && !(existing.status === "disetujui" && !existing.pdfPath)) {
         return NextResponse.json(
             {
                 error: "invalid_state",
@@ -156,8 +145,9 @@ async function handleApprove(
     }
 
     if (
-        existing.document.butuh_konfirmasi &&
-        existing.document.butuh_konfirmasi.length > 0
+        existing.rawStatus === "perlu_konfirmasi" ||
+        (existing.document.butuh_konfirmasi &&
+            existing.document.butuh_konfirmasi.length > 0)
     ) {
         return NextResponse.json(
             {
@@ -170,44 +160,53 @@ async function handleApprove(
 
     const approvalYear = new Date().getUTCFullYear();
     let approvalResult;
-    try {
-        approvalResult = await docStore.approve(id, session.user.id, {
-            approvalYear,
-        });
-    } catch (cause) {
-        console.error(redactSecrets(`[approve] error: ${String(cause)}`));
-        return NextResponse.json(
-            { error: "store_failure", message: "Failed to approve document" },
-            { status: 500 }
-        );
-    }
-
-    if (!approvalResult.ok) {
-        if (approvalResult.reason === "not_found") {
+    let approvedDoc;
+    let pdfFailed = false;
+    if (existing.status === "disetujui" && !existing.pdfPath) {
+        // Retry path: the document is already approved (nomor allocated on
+        // the first attempt) but the PDF never landed. Reuse the approved
+        // row so no new sequence number is consumed.
+        approvedDoc = existing;
+    } else {
+        try {
+            approvalResult = await docStore.approve(id, session.user.id, {
+                approvalYear,
+            });
+        } catch (cause) {
+            console.error(redactSecrets(`[approve] error: ${String(cause)}`));
             return NextResponse.json(
-                { error: "not_found", message: `Document '${id}' not found` },
-                { status: 404 }
+                { error: "store_failure", message: "Failed to approve document" },
+                { status: 500 }
             );
         }
-        if (approvalResult.reason === "needs_confirmation") {
+
+        if (!approvalResult.ok) {
+            if (approvalResult.reason === "not_found") {
+                return NextResponse.json(
+                    { error: "not_found", message: `Document '${id}' not found` },
+                    { status: 404 }
+                );
+            }
+            if (approvalResult.reason === "needs_confirmation") {
+                return NextResponse.json(
+                    {
+                        error: "needs_confirmation",
+                        message: "Document requires confirmation before it can be approved",
+                    },
+                    { status: 409 }
+                );
+            }
             return NextResponse.json(
                 {
-                    error: "needs_confirmation",
-                    message: "Document requires confirmation before it can be approved",
+                    error: "invalid_state",
+                    message: `Document '${id}' cannot be approved in status '${approvalResult.status}'`,
                 },
                 { status: 409 }
             );
         }
-        return NextResponse.json(
-            {
-                error: "invalid_state",
-                message: `Document '${id}' cannot be approved in status '${approvalResult.status}'`,
-            },
-            { status: 409 }
-        );
-    }
 
-    const approvedDoc = approvalResult.document;
+        approvedDoc = approvalResult.document;
+    }
 
     // Following transaction commit, generate PDF and store in PDF_STORAGE_DIR
     try {
@@ -223,6 +222,32 @@ async function handleApprove(
     } catch (cause) {
         console.error(
             redactSecrets(`[approve] PDF generation failed: ${String(cause)}`)
+        );
+        pdfFailed = true;
+    }
+
+    if (pdfFailed) {
+        return NextResponse.json(
+            {
+                document: toResponseDocument({
+                    ...approvedDoc.document,
+                    id: approvedDoc.id,
+                }),
+                status: approvedDoc.status,
+                butuh_konfirmasi: approvedDoc.document.butuh_konfirmasi ?? [],
+                field_changes: approvedDoc.fieldChanges ?? [],
+                approved_at: approvedDoc.approvedAt?.toISOString() ?? null,
+                approved_by: approvedDoc.approvedBy ?? null,
+                version: approvedDoc.version,
+                root_id: approvedDoc.rootId,
+                parent_id: approvedDoc.parentId ?? null,
+                superseded_by: approvedDoc.supersededBy ?? null,
+                pdf_path: approvedDoc.pdfPath ?? null,
+                error: "pdf_failed",
+                message:
+                    "Document approved but PDF generation failed; re-POST to regenerate",
+            },
+            { status: 500 }
         );
     }
 

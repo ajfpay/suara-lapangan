@@ -637,7 +637,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
         expect(row.rows[0].data_json.pekerjaan[0].volume).toBe(10);
     });
 
-    it("rejects non-owner for non-existent document on PATCH with 403 (no existence leak)", async () => {
+    it("rejects non-owner for non-existent document on PATCH with 404 (consistent with approve)", async () => {
         withUser("user", otherUserId);
         const missingId = "00000000-0000-0000-0000-000000000099";
         const res = await PATCH(
@@ -648,8 +648,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("PATCH /api/documents/[id] route 
             }),
             { params: Promise.resolve({ id: missingId }) }
         );
-        expect(res.status).toBe(403);
-        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: "not_found", message: `Document '${missingId}' not found` });
     });
 
     it("allows owner to PATCH with 200 and mutates DB", async () => {
@@ -1392,14 +1392,14 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
     });
 
-    it("rejects non-owner for non-existent document on GET with 403 (no existence leak)", async () => {
+    it("rejects non-owner for non-existent document on GET with 404 (consistent with approve)", async () => {
         withUser("user", otherUserId);
         const missingId = "00000000-0000-0000-0000-000000000099";
         const res = await GET(new Request(`http://localhost/api/documents/${missingId}`), {
             params: Promise.resolve({ id: missingId }),
         });
-        expect(res.status).toBe(403);
-        expect(await res.json()).toEqual({ error: "forbidden", message: "You do not have access to this document" });
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: "not_found", message: `Document '${missingId}' not found` });
     });
 
     it("serves owner with 200 on GET", async () => {

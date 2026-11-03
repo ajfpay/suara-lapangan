@@ -245,8 +245,10 @@ export function createPostgresDocumentStore(
                  from documents
                  where session_id = $1
                    and turns_hash = $2
+                   and version = 1
                    and (created_at at time zone 'UTC')::date
                        = (now() at time zone 'UTC')::date
+                 order by created_at asc
                  limit 1`,
                 [sessionId, turnsHash]
             );
@@ -272,8 +274,10 @@ export function createPostgresDocumentStore(
                      from documents
                      where session_id = $1
                        and turns_hash = $2
+                       and version = 1
                        and (created_at at time zone 'UTC')::date
                            = (now() at time zone 'UTC')::date
+                     order by created_at asc
                      limit 1`,
                     [input.sessionId, input.turnsHash]
                 );
@@ -340,9 +344,7 @@ export function createPostgresDocumentStore(
                     return null;
                 }
                 const stored = toStored(locked.rows[0]);
-                const isLocked =
-                    stored.status === "terkirim" ||
-                    (stored.status === "disetujui" && stored.rawStatus !== "siap");
+                const isLocked = stored.status === "terkirim" || stored.status === "disetujui";
                 if (isLocked) {
                     await client.query("rollback");
                     throw new DocumentLockedError(stored.status);
@@ -371,10 +373,7 @@ export function createPostgresDocumentStore(
                     "status" in transformRes &&
                     transformRes.status
                         ? transformRes.status
-                        : updated.butuh_konfirmasi &&
-                            updated.butuh_konfirmasi.length > 0
-                          ? "perlu_konfirmasi"
-                          : "siap";
+                        : "draf";
                 const result = await client.query(
                     `update documents
                      set data_json = $2,
@@ -485,10 +484,13 @@ export function createPostgresDocumentStore(
                     };
                 }
 
-                // Must not have open confirmations
+                // Must not have open confirmations. Legacy rows carry the
+                // raw status 'perlu_konfirmasi' with an empty
+                // butuh_konfirmasi array, so the raw status gates too.
                 if (
-                    stored.document.butuh_konfirmasi &&
-                    stored.document.butuh_konfirmasi.length > 0
+                    stored.rawStatus === "perlu_konfirmasi" ||
+                    (stored.document.butuh_konfirmasi &&
+                        stored.document.butuh_konfirmasi.length > 0)
                 ) {
                     await client.query("rollback");
                     return { ok: false, reason: "needs_confirmation" };
@@ -531,7 +533,7 @@ export function createPostgresDocumentStore(
         async setPdfPath(id, pdfPath) {
             if (!UUID_RE.test(id)) return;
             await pool.query(
-                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid`,
+                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid and status = 'disetujui'`,
                 [id, pdfPath]
             );
         },
@@ -555,6 +557,17 @@ export function createPostgresDocumentStore(
                 }
                 const parent = toStored(locked.rows[0]);
 
+                // Concurrent double create: the parent was already superseded
+                // while this transaction waited on the row lock.
+                if (parent.supersededBy) {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: parent.status,
+                    };
+                }
+
                 // Rejects unapproved drafts (status: "draf")
                 if (parent.status === "draf") {
                     await client.query("rollback");
@@ -569,7 +582,9 @@ export function createPostgresDocumentStore(
                 const nextVersion = parent.version + 1;
                 const rootId = parent.rootId;
                 const parentId = parent.id;
-                const userId = options?.userId ?? parent.userId;
+                const rawUserId = options?.userId ?? parent.userId;
+                const userId =
+                    rawUserId && UUID_RE.test(rawUserId) ? rawUserId : null;
                 const locale = parent.document.locale ?? "id";
                 const turnsHash = locked.rows[0].turns_hash ?? "";
 
@@ -579,8 +594,10 @@ export function createPostgresDocumentStore(
                 };
 
                 // Insert new document row
-                const insertRes = await client.query(
-                    `insert into documents (
+                let insertRes;
+                try {
+                    insertRes = await client.query(
+                        `insert into documents (
                         id, session_id, locale, nomor, status, turns_hash,
                         data_json, user_id, field_changes, version,
                         root_id, parent_id
@@ -590,19 +607,40 @@ export function createPostgresDocumentStore(
                         $9::uuid, $10::uuid
                      )
                      returning ${DOCUMENT_COLUMNS}`,
-                    [
-                        newId,
-                        parent.sessionId,
-                        locale,
-                        turnsHash,
-                        JSON.stringify(clonedDoc),
-                        userId,
-                        JSON.stringify(parent.fieldChanges),
-                        nextVersion,
-                        rootId,
-                        parentId,
-                    ]
-                );
+                        [
+                            newId,
+                            parent.sessionId,
+                            locale,
+                            turnsHash,
+                            JSON.stringify(clonedDoc),
+                            userId,
+                            JSON.stringify(parent.fieldChanges),
+                            nextVersion,
+                            rootId,
+                            parentId,
+                        ]
+                    );
+                } catch (insertCause) {
+                    // Concurrent double create that slipped past the
+                    // superseded_by guard: the (root_id, version) unique
+                    // index rejects the second insert. Map it to a 409
+                    // conflict instead of a 500.
+                    await client.query("rollback");
+                    const code =
+                        insertCause &&
+                        typeof insertCause === "object" &&
+                        "code" in insertCause
+                            ? (insertCause as { code?: unknown }).code
+                            : undefined;
+                    if (code === "23505") {
+                        return {
+                            ok: false,
+                            reason: "invalid_state",
+                            status: parent.status,
+                        } as const;
+                    }
+                    throw insertCause;
+                }
 
                 // Update parent row with superseded_by
                 await client.query(

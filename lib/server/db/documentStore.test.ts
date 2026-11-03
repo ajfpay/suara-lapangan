@@ -218,6 +218,29 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         ).toMatchObject({ id: second.id });
     });
 
+    it("findByIdempotencyKey converges on version 1, never a version child", async () => {
+        await seedSession("s-idem-child");
+        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const first = await store.create(input("s-idem-child", doc(), hash));
+        const approved = await store.approve(
+            first.id,
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(approved.ok).toBe(true);
+        if (!approved.ok) return;
+        const child = await store.createVersion(first.id, {
+            userId: "00000000-0000-0000-0000-000000000001",
+        });
+        expect(child.ok).toBe(true);
+        if (!child.ok) return;
+        // Same-day identical create must converge on the v1 root, not the
+        // version-2 child that shares the same session+hash.
+        const found = await store.findByIdempotencyKey("s-idem-child", hash);
+        expect(found).not.toBeNull();
+        expect(found!.id).toBe(first.id);
+        expect(found!.version).toBe(1);
+    });
+
     it("converges on one document for a second create with the same session, hash, and day", async () => {
         await seedSession("s-unique");
         const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
@@ -248,7 +271,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(rows.rows[0].n).toBe(1);
     }, 30000);
 
-    it("persists a patch and recomputes the status", async () => {
+    it("persists a patch and keeps status draf (approval only via approve)", async () => {
         await seedSession("s-patch");
         const created = await store.create(input("s-patch", doc()));
         const patched = await store.update(created.id, (document) => ({
@@ -265,10 +288,73 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         }));
 
         expect(patched!.document.pekerjaan[0].volume).toBe(20);
-        expect(patched!.status).toBe("disetujui");
+        expect(patched!.status).toBe("draf");
 
         const reread = await store.get(created.id);
         expect(reread!.document.total_nominal).toBe(1000000);
+        expect(reread!.status).toBe("draf");
+    });
+
+    it("clearing butuh_konfirmasi via PATCH keeps status draf, never approves-on-read", async () => {
+        await seedSession("s-patch-confirm");
+        const created = await store.create(
+            input(
+                "s-patch-confirm",
+                doc({
+                    butuh_konfirmasi: [
+                        { field: "pekerjaan[0].volume", alasan: "unclear", sumber_kutipan: null },
+                    ],
+                })
+            )
+        );
+        const patched = await store.update(created.id, (document) => ({
+            ...document,
+            butuh_konfirmasi: [],
+        }));
+        expect(patched!.status).toBe("draf");
+        const reread = await store.get(created.id);
+        expect(reread!.status).toBe("draf");
+    });
+
+    it("legacy siap rows are locked against PATCH", async () => {
+        await seedSession("s-legacy-lock");
+        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy lock" }]);
+        const res = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('s-legacy-lock', 'id', 'SL/QTN/2026/0099', 'siap', $1, $2)
+             returning id`,
+            [hash, JSON.stringify(doc({ nomor: "SL/QTN/2026/0099" }))]
+        );
+        const legacyId = res.rows[0].id as string;
+        await expect(
+            store.update(legacyId, (document) => ({ ...document }))
+        ).rejects.toMatchObject({ name: "DocumentLockedError" });
+    });
+
+    it("concurrent double createVersion converges on 409 conflict, not 500", async () => {
+        await seedSession("s-version-race");
+        const created = await store.create(input("s-version-race", doc()));
+        const approved = await store.approve(
+            created.id,
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(approved.ok).toBe(true);
+        if (!approved.ok) return;
+
+        const [first, second] = await Promise.all([
+            store.createVersion(created.id, {
+                userId: "00000000-0000-0000-0000-000000000001",
+            }),
+            store.createVersion(created.id, {
+                userId: "00000000-0000-0000-0000-000000000001",
+            }),
+        ]);
+        const oks = [first, second].filter((r) => r.ok);
+        const conflicts = [first, second].filter(
+            (r) => !r.ok && (r as { reason: string }).reason === "invalid_state"
+        );
+        expect(oks).toHaveLength(1);
+        expect(conflicts).toHaveLength(1);
     });
 
     it("get and update answer null for unknown or malformed ids", async () => {
@@ -299,6 +385,23 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                     ],
                 })
             )
+        );
+        const res = await store.approve(created.id, "user-1");
+        expect(res).toEqual({ ok: false, reason: "needs_confirmation" });
+    });
+
+    it("approve: rejects legacy perlu_konfirmasi row even when butuh_konfirmasi array is empty", async () => {
+        await seedSession("s-approve-legacy-confirm");
+        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const created = await store.create(
+            input("s-approve-legacy-confirm", doc({ butuh_konfirmasi: [] }), hash)
+        );
+        // Force the raw status to legacy 'perlu_konfirmasi' with an empty
+        // butuh_konfirmasi array — the exact shape a pre-review-before-pdf
+        // row carries.
+        await pool.query(
+            "update documents set status = 'perlu_konfirmasi' where id = $1::uuid",
+            [created.id]
         );
         const res = await store.approve(created.id, "user-1");
         expect(res).toEqual({ ok: false, reason: "needs_confirmation" });
@@ -411,9 +514,18 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(seqRow.rows[0].last_number).toBe(1);
     });
 
-    it("setPdfPath: updates documents.pdf_path", async () => {
+    it("setPdfPath: updates documents.pdf_path for an approved document, ignores drafts", async () => {
         await seedSession("s-pdf-path");
         const created = await store.create(input("s-pdf-path", doc()));
+        // Guarded by status='disetujui': a draft is left untouched.
+        await store.setPdfPath(created.id, "draft.pdf");
+        expect((await store.get(created.id))?.pdfPath).toBeNull();
+
+        const approved = await store.approve(
+            created.id,
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(approved.ok).toBe(true);
         await store.setPdfPath(created.id, `${created.id}.pdf`);
         const fetched = await store.get(created.id);
         expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);

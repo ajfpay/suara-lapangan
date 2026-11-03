@@ -133,13 +133,6 @@ async function handlePatch(
     }
 
     const ownerUserId = existing?.userId ?? null;
-    if (!canAccessDocument(session, ownerUserId)) {
-        return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
-            { status: 403 }
-        );
-    }
-
     if (!existing) {
         return NextResponse.json(
             {
@@ -150,9 +143,15 @@ async function handlePatch(
         );
     }
 
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
+        );
+    }
+
     const isLocked =
-        existing.status === "terkirim" ||
-        (existing.status === "disetujui" && existing.rawStatus !== "siap");
+        existing.status === "terkirim" || existing.status === "disetujui";
     if (isLocked) {
         return NextResponse.json(
             {
@@ -505,13 +504,6 @@ async function handleGet(
         );
     }
     const ownerUserId = stored?.userId ?? null;
-    if (!canAccessDocument(session, ownerUserId)) {
-        return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
-            { status: 403 }
-        );
-    }
-
     if (!stored) {
         return NextResponse.json(
             {
@@ -519,6 +511,13 @@ async function handleGet(
                 message: `Document '${id}' not found`,
             },
             { status: 404 }
+        );
+    }
+
+    if (!canAccessDocument(session, ownerUserId)) {
+        return NextResponse.json(
+            { error: "forbidden", message: "You do not have access to this document" },
+            { status: 403 }
         );
     }
 

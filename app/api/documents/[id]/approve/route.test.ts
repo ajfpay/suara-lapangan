@@ -207,6 +207,23 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("POST /api/documents/[id]/approve
         expect(await res.json()).toMatchObject({ error: "needs_confirmation" });
     });
 
+    it("returns 409 needs_confirmation for legacy perlu_konfirmasi status with empty array", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "perlu_konfirmasi",
+        });
+
+        const res = await POST(
+            new Request(`http://localhost/api/documents/${id}/approve`, {
+                method: "POST",
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res.status).toBe(409);
+        expect(await res.json()).toMatchObject({ error: "needs_confirmation" });
+    });
+
     it("returns 409 invalid_state when document status is not draf (e.g. terkirim)", async () => {
         withUser("user", ownerId);
         const id = await seedDocument(createTestDocument(), {
@@ -320,6 +337,49 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("POST /api/documents/[id]/approve
         expect(data2.document.nomor).toBe(allocatedNomor);
 
         // Sequence counter must still be 1
+        const year = new Date().getUTCFullYear();
+        const seqRow = await pool.query<{ last_number: number }>(
+            "select last_number from document_sequences where year = $1",
+            [year]
+        );
+        expect(seqRow.rows[0].last_number).toBe(1);
+    });
+
+    it("PDF failure is recoverable: 500 with approved doc, re-approve regenerates PDF with no new sequence", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        // Simulate PDF failure via monkey-patched renderQuotationHtml throwing.
+        const pdfMod = await import("@/lib/server/pdf/renderQuotation");
+        const renderSpy = vi
+            .spyOn(pdfMod, "renderQuotationHtml")
+            .mockImplementationOnce(() => {
+                throw new Error("pdf render boom");
+            });
+        const res1 = await POST(
+            new Request(`http://localhost/api/documents/${id}/approve`, {
+                method: "POST",
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        renderSpy.mockRestore();
+        expect(res1.status).toBe(500);
+        const data1 = await res1.json();
+        expect(data1.status).toBe("disetujui");
+        expect(data1.document.nomor).toBeTruthy();
+        const nomor = data1.document.nomor as string;
+
+        const res2 = await POST(
+            new Request(`http://localhost/api/documents/${id}/approve`, {
+                method: "POST",
+            }),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(res2.status).toBe(200);
+        const data2 = await res2.json();
+        expect(data2.document.nomor).toBe(nomor);
+        expect(data2.pdf_path).toBeTruthy();
+
         const year = new Date().getUTCFullYear();
         const seqRow = await pool.query<{ last_number: number }>(
             "select last_number from document_sequences where year = $1",
