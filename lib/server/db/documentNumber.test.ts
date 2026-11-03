@@ -184,6 +184,36 @@ describe.skipIf(!TEST_DATABASE_URL)("document number allocator", () => {
             /exhausted/
         );
     });
+
+    it("allocates inside an active transaction on a PoolClient and rolls back if transaction aborts", async () => {
+        const client = await pool.connect();
+        try {
+            await client.query("begin");
+            const allocated = await allocateDocumentNumber(client, YEAR);
+            expect(allocated).toBe(`SL/QTN/${YEAR}/0001`);
+            await client.query("rollback");
+        } finally {
+            client.release();
+        }
+
+        // After rollback, the sequence row should either not exist or be 0
+        const rows = await pool.query<{ last_number: number }>(
+            "select last_number from document_sequences where year = $1",
+            [YEAR]
+        );
+        expect(rows.rowCount === 0 || rows.rows[0].last_number === 0).toBe(true);
+
+        // Subsequent allocation starts fresh at 0001
+        const fresh = await allocateDocumentNumber(pool, YEAR);
+        expect(fresh).toBe(`SL/QTN/${YEAR}/0001`);
+    });
+
+    it("allocates sequence numbers independently per year (year rollover)", async () => {
+        const seq2026 = await allocateDocumentNumber(pool, 2026);
+        const seq2027 = await allocateDocumentNumber(pool, 2027);
+        expect(seq2026).toBe("SL/QTN/2026/0001");
+        expect(seq2027).toBe("SL/QTN/2027/0001");
+    });
 });
 
 describe.skipIf(!TEST_DATABASE_URL)("0003 renumber migration", () => {

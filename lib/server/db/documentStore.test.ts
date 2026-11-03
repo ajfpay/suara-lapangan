@@ -73,11 +73,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
              on conflict (id) do nothing`
         );
         store = createPostgresDocumentStore(TEST_DATABASE_URL!);
-        await pool.query("truncate documents, sessions cascade");
+        await pool.query("truncate documents, sessions, document_sequences cascade");
     });
 
     beforeEach(async () => {
-        await pool.query("truncate documents, sessions cascade");
+        await pool.query("truncate documents, sessions, document_sequences cascade");
     });
 
     afterAll(async () => {
@@ -281,6 +281,194 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             (document) => document
         );
         expect(patched).toBeNull();
+    });
+
+    it("approve: rejects non-existent id with not_found", async () => {
+        const res = await store.approve("00000000-0000-0000-0000-000000000000", "user-1");
+        expect(res).toEqual({ ok: false, reason: "not_found" });
+    });
+
+    it("approve: rejects draft with open butuh_konfirmasi with needs_confirmation", async () => {
+        await seedSession("s-approve-confirm");
+        const created = await store.create(
+            input(
+                "s-approve-confirm",
+                doc({
+                    butuh_konfirmasi: [
+                        { field: "pekerjaan[0].volume", alasan: "unclear", sumber_kutipan: null },
+                    ],
+                })
+            )
+        );
+        const res = await store.approve(created.id, "user-1");
+        expect(res).toEqual({ ok: false, reason: "needs_confirmation" });
+    });
+
+    it("approve: rejects non-draft status with invalid_state", async () => {
+        await seedSession("s-approve-state");
+        const created = await store.create(input("s-approve-state", doc()));
+        // Force status to terkirim
+        await pool.query("update documents set status = 'terkirim' where id = $1::uuid", [created.id]);
+        const res = await store.approve(created.id, "user-1");
+        expect(res).toMatchObject({ ok: false, reason: "invalid_state" });
+    });
+
+    it("approve: atomically allocates sequence number, sets status='disetujui', approved_at, approved_by", async () => {
+        await seedSession("s-approve-happy");
+        const created = await store.create(input("s-approve-happy", doc()));
+        expect(created.status).toBe("draf");
+        expect(created.nomor).toBeNull();
+
+        const res = await store.approve(created.id, "00000000-0000-0000-0000-000000000001");
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+
+        const currentYear = new Date().getUTCFullYear();
+        const expectedNomor = `SL/QTN/${currentYear}/0001`;
+        expect(res.document.status).toBe("disetujui");
+        expect(res.document.nomor).toBe(expectedNomor);
+        expect(res.document.document.nomor).toBe(expectedNomor);
+        expect(res.document.approvedBy).toBe("00000000-0000-0000-0000-000000000001");
+        expect(res.document.approvedAt).toBeInstanceOf(Date);
+
+        // Verify directly in DB
+        const dbRow = await pool.query<{
+            status: string;
+            nomor: string;
+            data_json: QuotationDocument;
+            approved_by: string;
+            approved_at: Date;
+        }>(
+            "select status, nomor, data_json, approved_by, approved_at from documents where id = $1::uuid",
+            [created.id]
+        );
+        expect(dbRow.rows[0].status).toBe("disetujui");
+        expect(dbRow.rows[0].nomor).toBe(expectedNomor);
+        expect(dbRow.rows[0].data_json.nomor).toBe(expectedNomor);
+        expect(dbRow.rows[0].approved_by).toBe("00000000-0000-0000-0000-000000000001");
+        expect(dbRow.rows[0].approved_at).not.toBeNull();
+    });
+
+    it("approve: uses approval calendar year (UTC) for sequence allocation (Dec 2026 draft approved Jan 2027)", async () => {
+        await seedSession("s-approve-year");
+        const created = await store.create(input("s-approve-year", doc()));
+        // Draft created in Dec 2026
+        await pool.query(
+            "update documents set created_at = '2026-12-25T12:00:00Z' where id = $1::uuid",
+            [created.id]
+        );
+
+        // Approved with approval year 2027
+        const res = await store.approve(created.id, "user-1", { approvalYear: 2027 });
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        expect(res.document.nomor).toBe("SL/QTN/2027/0001");
+        expect(res.document.document.nomor).toBe("SL/QTN/2027/0001");
+    });
+
+    it("approve: idempotent re-approve returns existing document without allocating new sequence", async () => {
+        await seedSession("s-approve-idem");
+        const created = await store.create(input("s-approve-idem", doc()));
+        const first = await store.approve(created.id, "user-1");
+        expect(first.ok).toBe(true);
+        if (!first.ok) return;
+        const allocatedNomor = first.document.nomor;
+
+        // Second approve call
+        const second = await store.approve(created.id, "user-1");
+        expect(second.ok).toBe(true);
+        if (!second.ok) return;
+        expect(second.document.nomor).toBe(allocatedNomor);
+
+        // document_sequences last_number must remain 1
+        const year = new Date().getUTCFullYear();
+        const seqRow = await pool.query<{ last_number: number }>(
+            "select last_number from document_sequences where year = $1",
+            [year]
+        );
+        expect(seqRow.rows[0].last_number).toBe(1);
+    });
+
+    it("approve: concurrent approvals serialize and allocate exactly one sequence number", async () => {
+        await seedSession("s-approve-race");
+        const created = await store.create(input("s-approve-race", doc()));
+        const results = await Promise.all([
+            store.approve(created.id, "user-1"),
+            store.approve(created.id, "user-1"),
+            store.approve(created.id, "user-1"),
+        ]);
+        for (const res of results) {
+            expect(res.ok).toBe(true);
+        }
+        const nomors = new Set(results.map((r) => (r.ok ? r.document.nomor : null)));
+        expect(nomors.size).toBe(1);
+
+        const year = new Date().getUTCFullYear();
+        const seqRow = await pool.query<{ last_number: number }>(
+            "select last_number from document_sequences where year = $1",
+            [year]
+        );
+        expect(seqRow.rows[0].last_number).toBe(1);
+    });
+
+    it("setPdfPath: updates documents.pdf_path", async () => {
+        await seedSession("s-pdf-path");
+        const created = await store.create(input("s-pdf-path", doc()));
+        await store.setPdfPath(created.id, `${created.id}.pdf`);
+        const fetched = await store.get(created.id);
+        expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);
+    });
+
+    it("createVersion: rejects unapproved draft with invalid_state", async () => {
+        await seedSession("s-ver-draft");
+        const created = await store.create(input("s-ver-draft", doc()));
+        const res = await store.createVersion(created.id);
+        expect(res).toMatchObject({ ok: false, reason: "invalid_state" });
+    });
+
+    it("createVersion: creates version 2 with nomor=null, status='draf', sets parent superseded_by", async () => {
+        await seedSession("s-ver-happy");
+        const created = await store.create(input("s-ver-happy", doc()));
+        // Add a field change to parent
+        await store.update(created.id, (d) => ({
+            document: d,
+            fieldChanges: [
+                {
+                    field: "pekerjaan[0].volume",
+                    original: 10,
+                    current: 12,
+                    changed_by: "user-1",
+                    changed_at: "2026-11-01T00:00:00Z",
+                },
+            ],
+        }));
+        // Approve parent
+        const approved = await store.approve(created.id, "user-1");
+        expect(approved.ok).toBe(true);
+        if (!approved.ok) return;
+
+        const res = await store.createVersion(created.id);
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+
+        const v2 = res.document;
+        expect(v2.id).not.toBe(created.id);
+        expect(v2.version).toBe(2);
+        expect(v2.rootId).toBe(created.id);
+        expect(v2.parentId).toBe(created.id);
+        expect(v2.nomor).toBeNull();
+        expect(v2.status).toBe("draf");
+        expect(v2.approvedAt).toBeNull();
+        expect(v2.approvedBy).toBeNull();
+        expect(v2.document.nomor).toBeNull();
+        expect(v2.fieldChanges).toEqual(approved.document.fieldChanges);
+
+        // Verify parent is updated with superseded_by
+        const parentReread = await store.get(created.id);
+        expect(parentReread?.supersededBy).toBe(v2.id);
+        // Parent remains disetujui with original nomor
+        expect(parentReread?.status).toBe("disetujui");
+        expect(parentReread?.nomor).toBe(approved.document.nomor);
     });
 
 

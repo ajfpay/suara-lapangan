@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { allocateDocumentNumber } from "./documentNumber";
 
 import { Pool } from "pg";
 
@@ -35,7 +36,30 @@ export type StoredDocument = {
     sentAt?: Date | null;
     userId?: string | null;
     fieldChanges: FieldChange[];
+    approvedAt?: Date | null;
+    approvedBy?: string | null;
+    version: number;
+    rootId: string;
+    parentId?: string | null;
+    supersededBy?: string | null;
+    turnsHash?: string;
 };
+
+export type ApproveResult =
+    | { ok: true; document: StoredDocument }
+    | {
+          ok: false;
+          reason: "not_found" | "needs_confirmation" | "invalid_state";
+          status?: DocumentStatus;
+      };
+
+export type CreateVersionResult =
+    | { ok: true; document: StoredDocument }
+    | {
+          ok: false;
+          reason: "not_found" | "invalid_state";
+          status?: DocumentStatus;
+      };
 
 export type AdminDocument = StoredDocument & {
     userEmail?: string | null;
@@ -104,6 +128,16 @@ export interface DocumentStore {
         sentTo: string,
         contentHash: string
     ): Promise<MarkSentResult>;
+    approve(
+        id: string,
+        userId: string,
+        options?: { approvalYear?: number }
+    ): Promise<ApproveResult>;
+    setPdfPath(id: string, pdfPath: string): Promise<void>;
+    createVersion(
+        id: string,
+        options?: { userId?: string }
+    ): Promise<CreateVersionResult>;
     listByUser(userId: string): Promise<StoredDocument[]>;
     listAll(): Promise<AdminDocument[]>;
 }
@@ -126,6 +160,9 @@ export function turnsHashOf(
     }
     return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
+
+const DOCUMENT_COLUMNS =
+    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -152,6 +189,13 @@ export function createPostgresDocumentStore(
         created_at: Date;
         user_id?: string | null;
         field_changes?: unknown;
+        approved_at?: Date | string | null;
+        approved_by?: string | null;
+        version?: number | null;
+        root_id?: string | null;
+        parent_id?: string | null;
+        superseded_by?: string | null;
+        turns_hash?: string | null;
     }): StoredDocument {
         // Read normalization (ticket 01): legacy vocabulary is mapped to the
         // review-before-pdf vocabulary on every read.
@@ -180,13 +224,24 @@ export function createPostgresDocumentStore(
             fieldChanges: Array.isArray(row.field_changes)
                 ? (row.field_changes as FieldChange[])
                 : [],
+            approvedAt: row.approved_at
+                ? row.approved_at instanceof Date
+                    ? row.approved_at
+                    : new Date(row.approved_at)
+                : null,
+            approvedBy: row.approved_by ?? null,
+            version: row.version ?? 1,
+            rootId: row.root_id ?? row.id,
+            parentId: row.parent_id ?? null,
+            supersededBy: row.superseded_by ?? null,
+            turnsHash: row.turns_hash ?? undefined,
         };
     }
 
     return {
         async findByIdempotencyKey(sessionId, turnsHash) {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                `select ${DOCUMENT_COLUMNS}
                  from documents
                  where session_id = $1
                    and turns_hash = $2
@@ -213,7 +268,7 @@ export function createPostgresDocumentStore(
                     input.sessionId,
                 ]);
                 const existing = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                    `select ${DOCUMENT_COLUMNS}
                      from documents
                      where session_id = $1
                        and turns_hash = $2
@@ -229,7 +284,7 @@ export function createPostgresDocumentStore(
                 const result = await client.query(
                     `insert into documents (session_id, locale, status, turns_hash, data_json, user_id)
                      values ($1, $2, 'draf', $3, $4, $5)
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes`,
+                     returning ${DOCUMENT_COLUMNS}`,
                     [
                         input.sessionId,
                         input.locale,
@@ -258,7 +313,7 @@ export function createPostgresDocumentStore(
         async get(id) {
             if (!UUID_RE.test(id)) return null;
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                `select ${DOCUMENT_COLUMNS}
                  from documents where id = $1::uuid`,
                 [id]
             );
@@ -276,7 +331,7 @@ export function createPostgresDocumentStore(
                 // one reads the first one's committed payload, so its recomputed
                 // totals build on the corrected numbers instead of overwriting.
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                    `select ${DOCUMENT_COLUMNS}
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -329,7 +384,7 @@ export function createPostgresDocumentStore(
                          sent_at = null,
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes`,
+                     returning ${DOCUMENT_COLUMNS}`,
                     [
                         id,
                         JSON.stringify(updated),
@@ -359,7 +414,7 @@ export function createPostgresDocumentStore(
             try {
                 await client.query("begin");
                 const locked = await client.query(
-                    `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                    `select ${DOCUMENT_COLUMNS}
                      from documents where id = $1::uuid for update`,
                     [id]
                 );
@@ -379,7 +434,7 @@ export function createPostgresDocumentStore(
                          sent_at = now(),
                          updated_at = now()
                      where id = $1::uuid
-                     returning id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes`,
+                     returning ${DOCUMENT_COLUMNS}`,
                     [id, sentTo]
                 );
                 await client.query("commit");
@@ -395,9 +450,182 @@ export function createPostgresDocumentStore(
             }
         },
 
+        async approve(id, userId, options) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
+            const client = await pool.connect();
+            let clientReleased = false;
+            try {
+                await client.query("begin");
+                const locked = await client.query(
+                    `select ${DOCUMENT_COLUMNS}
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "not_found" };
+                }
+                const stored = toStored(locked.rows[0]);
+
+                // Idempotent: already approved
+                if (stored.status === "disetujui") {
+                    await client.query("commit");
+                    return { ok: true, document: stored };
+                }
+
+                // Invalid state if not draf
+                if (stored.status !== "draf") {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: stored.status,
+                    };
+                }
+
+                // Must not have open confirmations
+                if (
+                    stored.document.butuh_konfirmasi &&
+                    stored.document.butuh_konfirmasi.length > 0
+                ) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "needs_confirmation" };
+                }
+
+                const approvalYear =
+                    options?.approvalYear ?? new Date().getUTCFullYear();
+                const nomor = await allocateDocumentNumber(client, approvalYear);
+
+                const updatedDoc: QuotationDocument = {
+                    ...stored.document,
+                    nomor,
+                };
+
+                const result = await client.query(
+                    `update documents
+                     set nomor = $2,
+                         data_json = $3,
+                         status = 'disetujui',
+                         approved_at = now(),
+                         approved_by = $4,
+                         updated_at = now()
+                     where id = $1::uuid
+                     returning ${DOCUMENT_COLUMNS}`,
+                    [id, nomor, JSON.stringify(updatedDoc), userId]
+                );
+                await client.query("commit");
+                return { ok: true, document: toStored(result.rows[0]) };
+            } catch (cause) {
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
+                throw cause;
+            } finally {
+                if (!clientReleased) client.release();
+            }
+        },
+
+        async setPdfPath(id, pdfPath) {
+            if (!UUID_RE.test(id)) return;
+            await pool.query(
+                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid`,
+                [id, pdfPath]
+            );
+        },
+
+        async createVersion(id, options) {
+            if (!UUID_RE.test(id)) {
+                return { ok: false, reason: "not_found" };
+            }
+            const client = await pool.connect();
+            let clientReleased = false;
+            try {
+                await client.query("begin");
+                const locked = await client.query(
+                    `select ${DOCUMENT_COLUMNS}
+                     from documents where id = $1::uuid for update`,
+                    [id]
+                );
+                if (locked.rowCount === 0) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "not_found" };
+                }
+                const parent = toStored(locked.rows[0]);
+
+                // Rejects unapproved drafts (status: "draf")
+                if (parent.status === "draf") {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason: "invalid_state",
+                        status: parent.status,
+                    };
+                }
+
+                const newId = randomUUID();
+                const nextVersion = parent.version + 1;
+                const rootId = parent.rootId;
+                const parentId = parent.id;
+                const userId = options?.userId ?? parent.userId;
+                const locale = parent.document.locale ?? "id";
+                const turnsHash = locked.rows[0].turns_hash ?? "";
+
+                const clonedDoc: QuotationDocument = {
+                    ...parent.document,
+                    nomor: null,
+                };
+
+                // Insert new document row
+                const insertRes = await client.query(
+                    `insert into documents (
+                        id, session_id, locale, nomor, status, turns_hash,
+                        data_json, user_id, field_changes, version,
+                        root_id, parent_id
+                     ) values (
+                        $1::uuid, $2, $3, null, 'draf', $4,
+                        $5, $6, $7, $8,
+                        $9::uuid, $10::uuid
+                     )
+                     returning ${DOCUMENT_COLUMNS}`,
+                    [
+                        newId,
+                        parent.sessionId,
+                        locale,
+                        turnsHash,
+                        JSON.stringify(clonedDoc),
+                        userId,
+                        JSON.stringify(parent.fieldChanges),
+                        nextVersion,
+                        rootId,
+                        parentId,
+                    ]
+                );
+
+                // Update parent row with superseded_by
+                await client.query(
+                    `update documents set superseded_by = $2::uuid, updated_at = now() where id = $1::uuid`,
+                    [parentId, newId]
+                );
+
+                await client.query("commit");
+                return { ok: true, document: toStored(insertRes.rows[0]) };
+            } catch (cause) {
+                await client.query("rollback").catch(() => {
+                    client.release(cause instanceof Error ? cause : undefined);
+                    clientReleased = true;
+                });
+                throw cause;
+            } finally {
+                if (!clientReleased) client.release();
+            }
+        },
+
         async listByUser(userId: string): Promise<StoredDocument[]> {
             const result = await pool.query(
-                `select id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes
+                `select ${DOCUMENT_COLUMNS}
                  from documents
                  where user_id = $1
                  order by created_at desc`,
@@ -409,6 +637,7 @@ export function createPostgresDocumentStore(
         async listAll(): Promise<AdminDocument[]> {
             const result = await pool.query(
                 `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id, d.field_changes,
+                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash,
                         u.email as user_email, u.name as user_name
                  from documents d
                  left join auth_user u on d.user_id = u.id
