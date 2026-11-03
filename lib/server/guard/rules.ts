@@ -162,27 +162,32 @@ export function applyGuard(
                 ? rawItem.sumber_kutipan
                 : "";
 
-        // Rule 1: Citation isolation
-        const citedTurn = turnById.get(sumber_kutipan);
+        // Rule 1: Citation isolation (evaluated for non-manual citations; manual lines pass)
+        const isManual = sumber_kutipan === "manual";
+        const isTurnCitation = /^turn_[1-9][0-9]*$/.test(sumber_kutipan);
+        let citedTurn: Turn | undefined;
         let turnValid = false;
 
-        if (!sumber_kutipan || !citedTurn) {
-            butuh_konfirmasi.push({
-                field: `${itemFieldPrefix}.sumber_kutipan`,
-                alasan: `sumber_kutipan '${sumber_kutipan || "null"}' bukan giliran dari sesi ini`,
-                sumber_kutipan: sumber_kutipan || null,
-            });
-        } else if (citedTurn.final !== true) {
-            butuh_konfirmasi.push({
-                field: `${itemFieldPrefix}.sumber_kutipan`,
-                alasan: `sumber_kutipan '${sumber_kutipan}' bukan giliran final (final = false)`,
-                sumber_kutipan,
-            });
-        } else {
-            turnValid = true;
+        if (!isManual) {
+            citedTurn = turnById.get(sumber_kutipan);
+            if (!sumber_kutipan || !citedTurn) {
+                butuh_konfirmasi.push({
+                    field: `${itemFieldPrefix}.sumber_kutipan`,
+                    alasan: `sumber_kutipan '${sumber_kutipan || "null"}' bukan giliran dari sesi ini`,
+                    sumber_kutipan: sumber_kutipan || null,
+                });
+            } else if (citedTurn.final !== true) {
+                butuh_konfirmasi.push({
+                    field: `${itemFieldPrefix}.sumber_kutipan`,
+                    alasan: `sumber_kutipan '${sumber_kutipan}' bukan giliran final (final = false)`,
+                    sumber_kutipan,
+                });
+            } else {
+                turnValid = true;
+            }
         }
 
-        if (turnValid && citedTurn) {
+        if (turnValid && citedTurn && isTurnCitation) {
             const transcript = citedTurn.transcript;
 
             // Rule 2: Spoken unit check
