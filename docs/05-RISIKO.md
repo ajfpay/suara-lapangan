@@ -148,10 +148,10 @@ tersimpan tanpa sinyal" akan terlihat menipu di video.
 | Item | Status | Catatan |
 |---|---|---|
 | Repo publik di bawah `ajfpay` | **Belum dibuat** — wajib persetujuan tertulis pemilik (`Pre-Flight #7`) | Kredensial `gh` tersedia |
-| Tanda jelas "dibuat 27 Okt–4 Nov" di README | Wajib di Hari 1 (`GD1`) saat repo dibuat | Belum ada kode |
+| Tanda jelas "dibuat 19 Jan–27 Jan" di README | Wajib di Hari 1 (`GD1`) saat repo dibuat | Belum ada kode |
 | Lisensi paket pihak ketiga (§4 Guide: kode tanpa hak = diskualifikasi) | **Terverifikasi aman** (`next-intl` MIT, `puppeteer-core` Apache-2.0, `@playwright/test` Apache-2.0; daftar lengkap paket terpasang + lisensinya dijaga `THIRD-PARTY.md` dan `npm run check:third-party` di repo aplikasi). `@fastify/websocket@5` (MIT) dan `@react-pdf/renderer` (MIT) tidak lagi di jalur utama — `@react-pdf/renderer` hanya fallback dan belum terpasang | `extendable-media-recorder` & `vad` dibuang dari jalur demo |
 | Larangan kategori (medis, RAG, gambar, edukasi, lamaran, gizi, kepribadian, olahraga, politik, perang) | Tidak tersentuh | Cakupan dokumen sudah diperiksa |
-| Video 3 menit & Tenggat Internal | Kalender aktif **GD1–GD4**, submit terkunci **Sel 3 Nov 2026 16:59 UTC (23:59 WIB)** | Video v1 selesai di Hari 3 (`GD3`) |
+| Video 3 menit & Tenggat Internal | Kalender aktif **GD1–GD4**, submit terkunci **Sel 26 Jan 2027 16:59 UTC (23:59 WIB)** | Video v1 selesai di Hari 3 (`GD3`) |
 | Model Meta yang dipakai sesuai dokumentasi | `Spark 1.3` untuk dokumen (`text.format: json_schema`), `Voice Transcribe` untuk audio (16 kHz), `1.2` fallback | Audio di 1.3 dihindari |
 
 ---

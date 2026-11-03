@@ -105,10 +105,10 @@ Teks layar: logo, tautan repo publik, satu kalimat —
 
 | Tahap | Kapan (Kalender Aktif GD1–GD4) | Pemilik |
 |---|---|---|
-| Rekaman lokasi mentah + spesifikasi variabel template PDF (`K6`) | **Hari 1 (29 Okt — GD1)** | D |
-| Rekaman layar alur nyata E2E (`Surat Penawaran` + Guard §B2) | **Hari 2 (30 Okt — GD2)** | D dibantu A & B |
-| **Versi 1 (≤ 3:00, tanpa layar palsu) + tontonan uji 3 orang non-teknis** | **Hari 3 (2 Nov — GD3)** | D |
-| **Versi final terkirim bersama repo (sebelum 16:59 UTC / 23:59 WIB)** | **Hari 4 (3 Nov — GD4)** | D + Pemilik |
+| Rekaman lokasi mentah + spesifikasi variabel template PDF (`K6`) | **Hari 1 (21 Jan — GD1)** | D |
+| Rekaman layar alur nyata E2E (`Surat Penawaran` + Guard §B2) | **Hari 2 (22 Jan — GD2)** | D dibantu A & B |
+| **Versi 1 (≤ 3:00, tanpa layar palsu) + tontonan uji 3 orang non-teknis** | **Hari 3 (25 Jan — GD3)** | D |
+| **Versi final terkirim bersama repo (sebelum 16:59 UTC / 23:59 WIB)** | **Hari 4 (26 Jan — GD4)** | D + Pemilik |
 ## Pemeriksaan sebelum serah
 
 - [ ] Durasi ≤ 3:00; tidak ada bagian yang terasa menunggu.
