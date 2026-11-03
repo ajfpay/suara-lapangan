@@ -60,11 +60,11 @@ export type QuotationDocument = {
 };
 
 export type DocumentStatus =
-  | "draf"
-  | "disetujui"
-  | "terkirim"
-  | "perlu_konfirmasi" // legacy: normalized to "draf" on read
-  | "siap"; // legacy: normalized to "disetujui" on read
+    | "draf"
+    | "disetujui"
+    | "terkirim"
+    | "perlu_konfirmasi" // legacy: normalized to "draf" on read
+    | "siap"; // legacy: normalized to "disetujui" on read
 
 export type DocumentResult = {
     document: QuotationDocument;

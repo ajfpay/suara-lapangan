@@ -323,8 +323,18 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         } as const;
 
         const [a, b] = await Promise.all([
-            store.claimSessionOwner!("sess-claim-race-same", user, false, create),
-            store.claimSessionOwner!("sess-claim-race-same", user, false, create),
+            store.claimSessionOwner!(
+                "sess-claim-race-same",
+                user,
+                false,
+                create
+            ),
+            store.claimSessionOwner!(
+                "sess-claim-race-same",
+                user,
+                false,
+                create
+            ),
         ]);
 
         // The verdict keys on whether OUR insert landed, never on a re-read

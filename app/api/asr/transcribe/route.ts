@@ -29,9 +29,7 @@ import { getTurnsStore } from "@/lib/server/db/store";
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Billed duration of a completed transcription: the last turn's end. */
-function turnsAudioSeconds(
-    turns: Array<{ endMs: number }>
-): number {
+function turnsAudioSeconds(turns: Array<{ endMs: number }>): number {
     let end = 0;
     for (const turn of turns) {
         if (turn.endMs > end) end = turn.endMs;
@@ -140,8 +138,7 @@ async function handlePost(request: Request): Promise<Response> {
         // The estimate is the same one transcribeSession reserves with
         // (bytes / 32000 s per byte at $0.18/h); it is released below when
         // the upload path does not reach transcription.
-        const estimatedCost =
-            (upload.audio.byteLength / 32000 / 3600) * 0.18;
+        const estimatedCost = (upload.audio.byteLength / 32000 / 3600) * 0.18;
         await reserveQuota({
             locale,
             userId: authSession.user.id,
@@ -250,7 +247,10 @@ async function handlePost(request: Request): Promise<Response> {
                 error.status === 404
                     ? "Session not found"
                     : "Session ownership cannot be proven";
-            return Response.json({ error: { code, message } }, { status: error.status });
+            return Response.json(
+                { error: { code, message } },
+                { status: error.status }
+            );
         }
         if (error instanceof QuotaExceededError) {
             logAsrFailure(
