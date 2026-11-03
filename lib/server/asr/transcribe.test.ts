@@ -2,15 +2,21 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { Pool } from "pg";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StoredSession, TranscriptionRecord, TurnsStore } from "@/lib/server/db/store";
-import { resetMemoryUsageStore, setUsageStore } from "@/lib/server/quota/usage-meter";
+import {
+    getUsageStore,
+    PostgresUsageStore,
+    resetMemoryUsageStore,
+    setUsageStore,
+} from "@/lib/server/quota/usage-meter";
 
 import { SessionOwnershipError, transcribeSession } from "./transcribe";
 
 const FIXTURE_DIR = join(__dirname, "__fixtures__");
 const audio = new Uint8Array(readFileSync(join(FIXTURE_DIR, "sample-16k.wav")));
+const TEST_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 const sessionStore = new Map<string, StoredSession>();
 
@@ -36,24 +42,42 @@ vi.mock("@/lib/server/db/store", () => ({
 describe("transcribeSession mode-aware cache", () => {
     let fetchMock: ReturnType<typeof vi.fn>;
 
+    const origDatabaseUrl = process.env.DATABASE_URL;
+
+    afterAll(() => {
+        if (origDatabaseUrl !== undefined) {
+            process.env.DATABASE_URL = origDatabaseUrl;
+        } else {
+            delete process.env.DATABASE_URL;
+        }
+        setUsageStore(null);
+    });
+
     beforeEach(async () => {
         sessionStore.clear();
-        // transcribeSession records real usage via DATABASE_URL; clear the
-        // shared table so a hard-stopped row from another suite cannot 429 us.
         const dbUrl =
             process.env.ASR_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
-        if (dbUrl) {
-            const pool = new Pool({ connectionString: dbUrl });
-            try {
-                await pool.query("truncate usage_meter");
-            } catch {
-                // usage_meter may not exist in suites that never ran migrations.
-            } finally {
-                await pool.end();
-            }
+        if (!dbUrl) {
+            throw new Error(
+                "Database-backed suite cannot reach Postgres: ASR_TEST_DATABASE_URL or DATABASE_URL must be set"
+            );
+        }
+        process.env.DATABASE_URL = dbUrl;
+        const pool = new Pool({ connectionString: dbUrl });
+        try {
+            await pool.query("truncate usage_meter");
+            await pool.query(
+                `insert into auth_user (id, email, email_verified, name, role)
+                 values ($1, 'transcribe-test@suara-lapangan.local', true, 'Test User', 'admin')
+                 on conflict (id) do nothing`,
+                [TEST_USER_ID]
+            );
+        } finally {
+            await pool.end();
         }
         setUsageStore(null);
         resetMemoryUsageStore();
+        expect(getUsageStore()).toBeInstanceOf(PostgresUsageStore);
         process.env.MODEL_API_KEY = "test-meta-key";
 
         fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
@@ -136,7 +160,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
 
@@ -166,7 +190,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
 
@@ -179,7 +203,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
 
@@ -209,7 +233,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
 
@@ -245,7 +269,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
         expect(fetchMock).not.toHaveBeenCalled();
@@ -266,7 +290,7 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
-            userId: "test-user",
+            userId: TEST_USER_ID,
             isAdmin: true,
         });
         expect(fetchMock).toHaveBeenCalledTimes(1);
