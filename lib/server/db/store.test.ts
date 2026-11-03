@@ -308,4 +308,34 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         expect(check?.userId).toBe(originalOwner);
         expect(check?.audioSha256).toBe(record.audioSha256);
     });
+
+    it("two simultaneous first uploads on an unseen session id converge: one claims, one is foreign", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const userA = "00000000-0000-0000-0000-0000000000a1";
+        const userB = "00000000-0000-0000-0000-0000000000b2";
+        for (const [id, email] of [
+            [userA, "race-a@suara-lapangan.local"],
+            [userB, "race-b@suara-lapangan.local"],
+        ] as const) {
+            await pool.query(
+                "insert into auth_user (id, email, email_verified, name, role) values ($1, $2, true, 'Race', 'user') on conflict (id) do nothing",
+                [id, email]
+            );
+        }
+        const create = {
+            locale: "id",
+            audioSha256: "race-sha",
+            audioBytes: 16000,
+        } as const;
+
+        const [a, b] = await Promise.all([
+            store.claimSessionOwner!("sess-claim-race", userA, false, create),
+            store.claimSessionOwner!("sess-claim-race", userB, false, create),
+        ]);
+
+        expect([a, b].sort()).toEqual(["claimed", "foreign"]);
+        const row = await store.findSession("sess-claim-race");
+        const winner = a === "claimed" ? userA : userB;
+        expect(row?.userId).toBe(winner);
+    });
 });

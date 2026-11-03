@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { AsrError, httpStatusFor, userMessage } from "@/lib/server/asr/errors";
 import {
     DEFAULT_ASR_LOCALE,
@@ -118,16 +120,31 @@ async function handlePost(request: Request): Promise<Response> {
         const store = getTurnsStore();
         const admin = isAdmin(authSession);
         // Quota first: a denied caller must never adopt (or create) a
-        // session row it cannot use.
-        await assertQuotaAvailable({ locale });
+        // session row it cannot use. The caller's own bucket is checked, so
+        // one heavy user cannot exhaust the shared daily cap for everyone.
+        await assertQuotaAvailable({
+            locale,
+            userId: authSession.user.id,
+        });
         // First-writer-wins claim BEFORE any transcription work: the loser
-        // never pays for Meta or quota. 'missing' means no row exists yet —
-        // the caller may create it below.
+        // never pays for Meta or quota. The claim atomically inserts a
+        // placeholder row when none exists (insert-or-claim with an
+        // ownership re-read), so two simultaneous first uploads on an
+        // unseen session id converge: the winner proceeds, the loser gets
+        // 404 without a paid transcription.
         if (store.claimSessionOwner) {
+            const audioSha256 = createHash("sha256")
+                .update(upload.audio)
+                .digest("hex");
             const claim = await store.claimSessionOwner(
                 sessionId,
                 authSession.user.id,
-                admin
+                admin,
+                {
+                    locale,
+                    audioSha256,
+                    audioBytes: upload.audio.byteLength,
+                }
             );
             if (claim === "foreign") {
                 return Response.json(

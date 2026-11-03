@@ -484,6 +484,7 @@ describe("POST /api/asr/transcribe", () => {
 
     it("returns 429 with X-Quota-Hard-Stop header when daily cap is reached", async () => {
         await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
             estCost: 6.0,
         });
 
@@ -617,6 +618,7 @@ describe("POST /api/asr/transcribe", () => {
 
     it("checks quota before claiming: exhausted quota answers 429 without adopting the session", async () => {
         await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
             estCost: 6.0,
         });
 
@@ -644,6 +646,36 @@ describe("POST /api/asr/transcribe", () => {
         const response = await POST(upload({ sessionId: "sess-legacy" }));
 
         expect(response.status).toBe(403);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("quota is per-user: another user's exhausted bucket does not block this caller", async () => {
+        await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000002",
+            estCost: 6.0,
+        });
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-other-bucket" }));
+
+        expect(response.status).toBe(200);
+        expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it("quota is per-user: this caller's exhausted bucket blocks even when the shared bucket is empty", async () => {
+        await recordUsage({
+            userId: "00000000-0000-0000-0000-000000000001",
+            estCost: 6.0,
+        });
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+
+        const response = await POST(
+            upload({ sessionId: "sess-own-bucket" })
+        );
+
+        expect(response.status).toBe(429);
+        expect(storeStub.claimSessionOwner).not.toHaveBeenCalled();
         expect(fetchMock).not.toHaveBeenCalled();
     });
 });

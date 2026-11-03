@@ -40,14 +40,20 @@ export interface TurnsStore {
     setSessionOwner?(sessionId: string, userId: string): Promise<void>;
     /**
      * First-writer-wins claim: sets owner only when the row exists and is
-     * ownerless. Returns 'claimed' when the caller now owns the row,
-     * 'foreign' when another user owns it, 'missing' when no row exists yet
-     * (a new session the caller may create).
+     * ownerless. When `create` is provided and no row exists yet, the claim
+     * atomically inserts a placeholder row owned by the caller
+     * (INSERT ... ON CONFLICT DO NOTHING) and re-reads ownership, so two
+     * simultaneous first uploads converge: the winner gets 'claimed', the
+     * loser gets 'foreign'. Without `create`, a missing row returns
+     * 'missing' and the caller must create it. Returns 'claimed' when the
+     * caller now owns the row, 'foreign' when another user owns it,
+     * 'orphan' when the row is ownerless and the caller is not an admin.
      */
     claimSessionOwner?(
         sessionId: string,
         userId: string,
-        isAdmin?: boolean
+        isAdmin?: boolean,
+        create?: { locale: Locale; audioSha256: string; audioBytes: number }
     ): Promise<"claimed" | "foreign" | "missing" | "orphan">;
 }
 
@@ -176,12 +182,46 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             );
         },
 
-        async claimSessionOwner(sessionId, userId, isAdmin = false) {
+        async claimSessionOwner(
+            sessionId: string,
+            userId: string,
+            isAdmin = false,
+            create?: { locale: string; audioSha256: string; audioBytes: number }
+        ) {
             const existing = await pool.query<{ user_id: string | null }>(
                 "select user_id from sessions where id = $1",
                 [sessionId]
             );
-            if (existing.rowCount === 0) return "missing";
+            if (existing.rowCount === 0) {
+                // No row yet: atomically insert a placeholder owned by the
+                // caller so two simultaneous first uploads converge. The
+                // winner's insert lands and gets 'claimed'; the loser's
+                // insert conflicts and the re-read below reports 'foreign'.
+                // Without create data there is nothing to insert, so report
+                // 'missing' and let the caller create the row.
+                if (!create) return "missing";
+                await pool.query(
+                    `insert into sessions
+                        (id, locale, audio_sha256, audio_bytes, transcript, user_id, updated_at)
+                     values ($1, $2, $3, $4, '', $5, now())
+                     on conflict (id) do nothing`,
+                    [
+                        sessionId,
+                        create.locale,
+                        create.audioSha256,
+                        create.audioBytes,
+                        userId,
+                    ]
+                );
+                const raced = await pool.query<{ user_id: string | null }>(
+                    "select user_id from sessions where id = $1",
+                    [sessionId]
+                );
+                if (raced.rowCount === 0) return "missing";
+                return raced.rows[0].user_id === userId
+                    ? "claimed"
+                    : "foreign";
+            }
             const owner = existing.rows[0].user_id;
             if (owner != null) return owner === userId ? "claimed" : "foreign";
             // Ownerless legacy row: only an admin may adopt it. A non-admin

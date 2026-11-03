@@ -76,8 +76,10 @@ export async function transcribeSession({
         checkSessionOwnership(stored.userId, userId, isAdmin);
     }
 
-    // Hard-stop check: reject NEW session when daily cap reached
-    await assertQuotaAvailable({ locale });
+    // Hard-stop check: reject NEW session when the caller's own daily cap
+    // is reached. The user id keeps one heavy caller from exhausting a
+    // shared bucket for everyone else.
+    await assertQuotaAvailable({ locale, userId: userId ?? undefined });
 
     const apiKey = process.env.MODEL_API_KEY;
     if (!apiKey) {
@@ -119,6 +121,7 @@ export async function transcribeSession({
             : audio.byteLength / 32000;
 
     await recordUsage({
+        userId: userId ?? undefined,
         audioSeconds,
         tokens: 0,
         estCost: (audioSeconds / 3600) * 0.18,
