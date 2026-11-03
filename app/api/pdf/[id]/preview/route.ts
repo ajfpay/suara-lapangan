@@ -69,4 +69,7 @@ async function handleGet(_request: Request, context?: RouteContext): Promise<Res
     });
 }
 
-export const GET = handleGet;
+export const GET = handleGet as (
+    request: Request,
+    context: RouteContext
+) => Promise<Response>;
