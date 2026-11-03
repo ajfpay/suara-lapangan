@@ -5,6 +5,20 @@
  * Handles offline storage and idempotent upload per sessionId.
  */
 
+import { DEFAULT_LOCALE, LOCALES } from "@/lib/variables";
+
+const SHIPPED_LOCALES = new Set<string>(LOCALES.map((l) => l.code));
+
+/**
+ * Resolve the locale a recording uploads with. Unknown or missing values
+ * fall back to the default shipped locale so the record uploads instead of
+ * pending forever on a server 400.
+ */
+export function resolveUploadLocale(locale?: string): string {
+  if (locale && SHIPPED_LOCALES.has(locale)) return locale;
+  return DEFAULT_LOCALE;
+}
+
 const DB_NAME = "suara-lapangan";
 const DB_VERSION = 1;
 const STORE_NAME = "recordings";
@@ -20,6 +34,13 @@ export interface StoredRecording {
   status: RecordingStatus;
   uploadedAt?: number;
   mode?: AsrMode;
+  /**
+   * Route locale ("en" | "id") the recording was made under. Stored per
+   * record so a recording made before cross-locale navigation still uploads
+   * with its own locale. Records written before this field existed upload
+   * with the queue default.
+   */
+  locale?: string;
 }
 
 export interface RecordQueueOptions {
@@ -43,12 +64,20 @@ export interface RecordQueueOptions {
  */
 export class RecordQueue {
   private readonly uploadUrl: string;
-  private readonly locale: string;
+  private locale: string;
   private db: IDBDatabase | null = null;
 
-  constructor({ uploadUrl, locale = "id" }: RecordQueueOptions) {
+  constructor({ uploadUrl, locale = DEFAULT_LOCALE }: RecordQueueOptions) {
     this.uploadUrl = uploadUrl;
-    this.locale = locale;
+    this.locale = resolveUploadLocale(locale);
+  }
+
+  /**
+   * Refresh the queue default locale (the current route locale). Per-record
+   * locales passed to add() still win at upload time.
+   */
+  setLocale(locale: string): void {
+    this.locale = resolveUploadLocale(locale);
   }
 
   private async openDb(): Promise<IDBDatabase> {
@@ -94,7 +123,7 @@ export class RecordQueue {
    * @param sessionId - Unique session identifier (used for idempotency).
    * @returns The assigned id of the stored recording.
    */
-  async add(blob: Blob, sessionId: string, mode: AsrMode = "ENDPOINTING"): Promise<string> {
+  async add(blob: Blob, sessionId: string, mode: AsrMode = "ENDPOINTING", locale?: string): Promise<string> {
     const all = (await this.tx("readonly", (store) => store.getAll())) as StoredRecording[];
     const existing = all.find((r) => r.sessionId === sessionId && r.status === "pending");
     if (existing) {
@@ -103,6 +132,7 @@ export class RecordQueue {
         blob,
         createdAt: Date.now(),
         mode,
+        locale: locale ?? existing.locale,
       };
       await this.tx("readwrite", (store) => store.put(updated));
       return existing.id;
@@ -119,6 +149,7 @@ export class RecordQueue {
       createdAt: Date.now(),
       status: "pending",
       mode,
+      locale,
     };
     await this.tx("readwrite", (store) => store.add(record));
     return record.id;
@@ -168,7 +199,7 @@ export class RecordQueue {
       const form = new FormData();
       form.append("audio", record.blob, "recording.wav");
       form.append("sessionId", record.sessionId);
-      form.append("locale", this.locale);
+      form.append("locale", resolveUploadLocale(record.locale ?? this.locale));
       form.append("mode", record.mode ?? "ENDPOINTING");
       try {
         const res = await fetch(this.uploadUrl, { method: "POST", body: form });
@@ -205,12 +236,16 @@ let _instance: RecordQueue | null = null;
 
 /**
  * Get the singleton RecordQueue instance.
- * Pass the route locale ("en" | "id") once so uploads carry a locale the
- * server accepts; later calls keep the first instance.
+ * Passing the current route locale ("en" | "id") refreshes the queue
+ * default, so uploads after cross-locale navigation carry the new locale.
+ * Individual recordings keep the locale passed to add(), which wins over
+ * this default at upload time.
  */
 export function getRecordQueue(locale?: string): RecordQueue {
   if (!_instance) {
     _instance = new RecordQueue({ uploadUrl: "/api/asr/transcribe", locale });
+  } else if (locale !== undefined) {
+    _instance.setLocale(locale);
   }
   return _instance;
 }

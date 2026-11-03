@@ -16,9 +16,10 @@ const nextConfig = {
      * middleware redirects proxy the request (TLS to plain HTTP -> EPROTO),
      * so /en/login and /en/register 500 through the public URL. With this
      * flag the middleware sees the init URL directly and redirects stay
-     * same-origin.
+     * same-origin. Scoped to development only: production middleware keeps
+     * the default URL normalization for auth redirects and i18n routing.
      */
-    skipMiddlewareUrlNormalize: true,
+    ...(process.env.NODE_ENV === "development" ? { skipMiddlewareUrlNormalize: true } : {}),
 };
 
 module.exports = withNextIntl(nextConfig);

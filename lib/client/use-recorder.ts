@@ -82,7 +82,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       clearInterval(durationTimerRef.current as NodeJS.Timeout);
       clearTimeout(pressTimerRef.current as NodeJS.Timeout);
     };
-  }, [refreshPendingCount]);
+  }, [refreshPendingCount, options.locale]);
   const startRecording = useCallback(async () => {
     try {
       setError(null);
@@ -167,7 +167,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
         // Generating a fresh id per recording guarantees all audio is preserved and uploaded.
         const prefix = options.sessionId ?? "";
         const recordingSessionId = `${prefix}${crypto.randomUUID()}`;
-        await queue.add(wavBlob, recordingSessionId, modeRef.current);
+        await queue.add(wavBlob, recordingSessionId, modeRef.current, options.locale);
         await refreshPendingCount();
 
         if (navigator.onLine) {
@@ -197,7 +197,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
 
     recorder.stop();
     return promise;
-  }, [onRecordingComplete, refreshPendingCount, options.sessionId]);
+  }, [onRecordingComplete, refreshPendingCount, options.sessionId, options.locale]);
   const toggleRecording = useCallback(() => {
     if (status === "recording") {
       stopRecording();

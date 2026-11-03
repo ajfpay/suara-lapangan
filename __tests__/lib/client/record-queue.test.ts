@@ -350,4 +350,48 @@ describe("RecordQueue", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(await q.isPending()).toBe(false);
   });
+
+  // ── Per-recording locale ───────────────────────────────────────────────────
+
+  it("uploadPending() sends each recording's own locale after cross-locale navigation", async () => {
+    const mod = await import("@/lib/client/record-queue");
+    mod.resetRecordQueue();
+    const blob = makeBlob(1);
+    mod.getRecordQueue("en");
+    const q = mod.getRecordQueue("id");
+    await q.add(blob, "session-id-locale", "ENDPOINTING", "id");
+    const fetch = vi.mocked(global.fetch);
+    await q.uploadPending();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = fetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get("locale")).toBe("id");
+    mod.resetRecordQueue();
+  });
+
+  it("uploadPending() falls back to the default locale for unexpected stored locales", async () => {
+    const q = new RecordQueue({ uploadUrl: "/api/asr/transcribe" });
+    const blob = makeBlob(1);
+    await q.add(blob, "session-bad-locale", "ENDPOINTING", "xx");
+    const fetch = vi.mocked(global.fetch);
+    await q.uploadPending();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = fetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get("locale")).toBe("en");
+    expect(await q.isPending()).toBe(false);
+  });
+
+  it("getRecordQueue() validates the queue default locale so legacy records cannot pend forever", async () => {
+    const mod = await import("@/lib/client/record-queue");
+    mod.resetRecordQueue();
+    const q = mod.getRecordQueue("xx");
+    const blob = makeBlob(1);
+    await q.add(blob, "session-legacy-locale");
+    const fetch = vi.mocked(global.fetch);
+    await q.uploadPending();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = fetch.mock.calls[0][1]?.body as FormData;
+    expect(body.get("locale")).toBe("en");
+    expect(await q.isPending()).toBe(false);
+    mod.resetRecordQueue();
+  });
 });
