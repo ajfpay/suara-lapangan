@@ -38,8 +38,19 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     handlePointerCancel,
     mode,
     setMode,
+    stopRecording,
   } = useRecorder({ locale });
   const { data: authSession, isPending } = useSession();
+
+  // Auth race (spec R40/S3): if the session resolves to null while our own
+  // recorder is still running, stop it (stopRecording stops all MediaStream
+  // tracks and releases the stream) so audio is never captured without a
+  // visible stop control.
+  React.useEffect(() => {
+    if (!isPending && !authSession && isRecording) {
+      void stopRecording();
+    }
+  }, [isPending, authSession, isRecording, stopRecording]);
   const formatDuration = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -61,7 +72,9 @@ export function RecorderControl({ copy }: RecorderControlProps) {
     </div>
   ) : null;
 
-  if (!isPending && !authSession) {
+  // Never show the logged-out notice while our own recorder is still
+  // running — its stop control would be gone while capture continues.
+  if (!isPending && !authSession && !isRecording) {
     return (
       <div
         className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-border bg-card p-6 sm:p-10"
@@ -123,7 +136,7 @@ export function RecorderControl({ copy }: RecorderControlProps) {
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerCancel}
-          disabled={isProcessing}
+          disabled={isProcessing || isPending}
           className={cn(
             "relative flex h-32 w-32 min-h-[96px] min-w-[96px] select-none items-center justify-center rounded-full font-bold shadow-lg transition-[transform,background-color] duration-150 active:scale-95 sm:h-36 sm:w-36",
             isRecording
