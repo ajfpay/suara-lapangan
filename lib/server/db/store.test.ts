@@ -284,7 +284,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         expect(check?.userId).toBe(originalOwner);
     });
 
-    it("does not overwrite existing session owner when saveTranscription is called again with another user", async () => {
+    it("saveTranscription by a foreign user throws ownership error and keeps original audio", async () => {
         const store = createPostgresStore(TEST_DATABASE_URL!);
         const originalOwner = "00000000-0000-0000-0000-000000000000";
         const foreignOwner = "00000000-0000-0000-0000-000000000002";
@@ -295,13 +295,17 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
             userId: originalOwner,
         });
 
-        await store.saveTranscription({
-            ...record,
-            sessionId: "sess-resave-owner",
-            userId: foreignOwner,
-        });
+        await expect(
+            store.saveTranscription({
+                ...record,
+                sessionId: "sess-resave-owner",
+                audioSha256: "different-audio-sha",
+                userId: foreignOwner,
+            })
+        ).rejects.toMatchObject({ name: "SessionOwnershipError" });
 
         const check = await store.findSession("sess-resave-owner");
         expect(check?.userId).toBe(originalOwner);
+        expect(check?.audioSha256).toBe(record.audioSha256);
     });
 });

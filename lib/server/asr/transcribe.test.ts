@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { Pool } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StoredSession, TranscriptionRecord, TurnsStore } from "@/lib/server/db/store";
 import { resetMemoryUsageStore, setUsageStore } from "@/lib/server/quota/usage-meter";
 
-import { transcribeSession } from "./transcribe";
+import { SessionOwnershipError, transcribeSession } from "./transcribe";
 
 const FIXTURE_DIR = join(__dirname, "__fixtures__");
 const audio = new Uint8Array(readFileSync(join(FIXTURE_DIR, "sample-16k.wav")));
@@ -35,8 +36,22 @@ vi.mock("@/lib/server/db/store", () => ({
 describe("transcribeSession mode-aware cache", () => {
     let fetchMock: ReturnType<typeof vi.fn>;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         sessionStore.clear();
+        // transcribeSession records real usage via DATABASE_URL; clear the
+        // shared table so a hard-stopped row from another suite cannot 429 us.
+        const dbUrl =
+            process.env.ASR_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+        if (dbUrl) {
+            const pool = new Pool({ connectionString: dbUrl });
+            try {
+                await pool.query("truncate usage_meter");
+            } catch {
+                // usage_meter may not exist in suites that never ran migrations.
+            } finally {
+                await pool.end();
+            }
+        }
         setUsageStore(null);
         resetMemoryUsageStore();
         process.env.MODEL_API_KEY = "test-meta-key";
@@ -121,6 +136,8 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
+            userId: "test-user",
+            isAdmin: true,
         });
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -149,6 +166,8 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
+            userId: "test-user",
+            isAdmin: true,
         });
 
         expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -160,6 +179,8 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
+            userId: "test-user",
+            isAdmin: true,
         });
 
         expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -188,6 +209,8 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
+            userId: "test-user",
+            isAdmin: true,
         });
 
         expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -222,6 +245,8 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "ENDPOINTING",
+            userId: "test-user",
+            isAdmin: true,
         });
         expect(fetchMock).not.toHaveBeenCalled();
         expect(cachedTurns).toEqual([
@@ -241,8 +266,74 @@ describe("transcribeSession mode-aware cache", () => {
             locale: "id",
             audio,
             mode: "DIARIZATION",
+            userId: "test-user",
+            isAdmin: true,
         });
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(diarTurns[0].speaker).toBe("A");
+    });
+
+    it("cache hit denies foreign owner with 404 and spends no quota", async () => {
+        const { createHash } = await import("node:crypto");
+        const audioSha256 = createHash("sha256").update(audio).digest("hex");
+        sessionStore.set("sess-owned-cache", {
+            sessionId: "sess-owned-cache",
+            locale: "id",
+            audioSha256,
+            mode: "ENDPOINTING",
+            userId: "owner-A",
+            turns: [
+                { turn_id: "turn_1", startMs: 0, endMs: 500, transcript: "Teks lama", final: true, speaker: null },
+            ],
+        });
+
+        await expect(
+            transcribeSession({ sessionId: "sess-owned-cache", locale: "id", audio, mode: "ENDPOINTING", userId: "owner-B", isAdmin: false })
+        ).rejects.toMatchObject({ name: "SessionOwnershipError", status: 404 });
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("cache hit denies legacy null-owner to non-admin with 403, allows admin", async () => {
+        const { createHash } = await import("node:crypto");
+        const audioSha256 = createHash("sha256").update(audio).digest("hex");
+        sessionStore.set("sess-legacy-cache", {
+            sessionId: "sess-legacy-cache",
+            locale: "id",
+            audioSha256,
+            mode: "ENDPOINTING",
+            userId: null,
+            turns: [
+                { turn_id: "turn_1", startMs: 0, endMs: 500, transcript: "Teks lama", final: true, speaker: null },
+            ],
+        });
+
+        await expect(
+            transcribeSession({ sessionId: "sess-legacy-cache", locale: "id", audio, mode: "ENDPOINTING", userId: "someone", isAdmin: false })
+        ).rejects.toMatchObject({ status: 403 });
+        const adminTurns = await transcribeSession({ sessionId: "sess-legacy-cache", locale: "id", audio, mode: "ENDPOINTING", userId: "admin", isAdmin: true });
+        expect(adminTurns).toHaveLength(1);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("overwrite of existing session by foreign caller is denied", async () => {
+        const { createHash } = await import("node:crypto");
+        const otherAudio = new Uint8Array(audio);
+        otherAudio[44] ^= 0xff;
+        const audioSha256 = createHash("sha256").update(audio).digest("hex");
+        sessionStore.set("sess-owned-overwrite", {
+            sessionId: "sess-owned-overwrite",
+            locale: "id",
+            audioSha256,
+            mode: "ENDPOINTING",
+            userId: "owner-A",
+            turns: [
+                { turn_id: "turn_1", startMs: 0, endMs: 500, transcript: "Teks lama", final: true, speaker: null },
+            ],
+        });
+
+        await expect(
+            transcribeSession({ sessionId: "sess-owned-overwrite", locale: "id", audio: otherAudio, mode: "ENDPOINTING", userId: "owner-B", isAdmin: false })
+        ).rejects.toBeInstanceOf(SessionOwnershipError);
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

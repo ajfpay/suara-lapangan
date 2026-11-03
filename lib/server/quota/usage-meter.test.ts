@@ -20,9 +20,20 @@ import {
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
 
 describe("usage-meter (in-memory)", () => {
+    let savedDatabaseUrl: string | undefined;
     beforeEach(() => {
+        // Force the in-memory store: the full suite exports DATABASE_URL,
+        // which would otherwise route these tests to the shared Postgres.
+        savedDatabaseUrl = process.env.DATABASE_URL;
+        delete process.env.DATABASE_URL;
         setUsageStore(null);
         resetMemoryUsageStore();
+    });
+
+    afterAll(() => {
+        if (savedDatabaseUrl !== undefined) {
+            process.env.DATABASE_URL = savedDatabaseUrl;
+        }
     });
 
     it("returns zeroes and hardStop false for a new day", async () => {

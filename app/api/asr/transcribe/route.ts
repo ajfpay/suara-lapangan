@@ -6,10 +6,16 @@ import {
 } from "@/lib/server/asr/locale";
 import { logAsrFailure } from "@/lib/server/asr/log";
 import { MAX_AUDIO_BYTES, type AsrMode } from "@/lib/server/asr/meta";
-import { transcribeSession } from "@/lib/server/asr/transcribe";
+import {
+    SessionOwnershipError,
+    transcribeSession,
+} from "@/lib/server/asr/transcribe";
 import { withRateLimit } from "@/lib/server/quota/rate-limit";
-import { QuotaExceededError } from "@/lib/server/quota/usage-meter";
-import { getSession } from "@/lib/server/auth";
+import {
+    assertQuotaAvailable,
+    QuotaExceededError,
+} from "@/lib/server/quota/usage-meter";
+import { getSession, isAdmin } from "@/lib/server/auth";
 import { getTurnsStore } from "@/lib/server/db/store";
 
 /**
@@ -109,12 +115,77 @@ async function handlePost(request: Request): Promise<Response> {
         sessionId = upload.sessionId;
         locale = upload.locale;
 
-        const turns = await transcribeSession(upload);
         const store = getTurnsStore();
+        const admin = isAdmin(authSession);
+        // Quota first: a denied caller must never adopt (or create) a
+        // session row it cannot use.
+        await assertQuotaAvailable({ locale });
+        // First-writer-wins claim BEFORE any transcription work: the loser
+        // never pays for Meta or quota. 'missing' means no row exists yet —
+        // the caller may create it below.
+        if (store.claimSessionOwner) {
+            const claim = await store.claimSessionOwner(
+                sessionId,
+                authSession.user.id
+            );
+            if (claim === "foreign") {
+                return Response.json(
+                    {
+                        error: {
+                            code: "not_found",
+                            message: "Session not found",
+                        },
+                    },
+                    { status: 404 }
+                );
+            }
+            if (claim === "claimed") {
+                const owned = await store.findSession(sessionId);
+                if (
+                    owned?.userId != null &&
+                    owned.userId !== authSession.user.id
+                ) {
+                    return Response.json(
+                        {
+                            error: {
+                                code: "not_found",
+                                message: "Session not found",
+                            },
+                        },
+                        { status: 404 }
+                    );
+                }
+                if (owned?.userId == null && !admin) {
+                    return Response.json(
+                        {
+                            error: {
+                                code: "forbidden",
+                                message: "Session ownership cannot be proven",
+                            },
+                        },
+                        { status: 403 }
+                    );
+                }
+            }
+        }
+
+        const turns = await transcribeSession({
+            ...upload,
+            userId: authSession.user.id,
+            isAdmin: admin,
+        });
         await store.setSessionOwner?.(sessionId, authSession.user.id);
 
         return Response.json({ sessionId, turns }, { status: 200 });
     } catch (error) {
+        if (error instanceof SessionOwnershipError) {
+            const code = error.status === 404 ? "not_found" : "forbidden";
+            const message =
+                error.status === 404
+                    ? "Session not found"
+                    : "Session ownership cannot be proven";
+            return Response.json({ error: { code, message } }, { status: error.status });
+        }
         if (error instanceof QuotaExceededError) {
             logAsrFailure(
                 new AsrError("rate_limited", { detail: error.message }),

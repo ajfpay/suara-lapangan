@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { Pool } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
@@ -25,12 +26,17 @@ const { storeStub, mockGetSession } = vi.hoisted(() => ({
         findSession: vi.fn(),
         saveTranscription: vi.fn(),
         setSessionOwner: vi.fn(),
+        claimSessionOwner: vi.fn(),
     },
     mockGetSession: vi.fn(),
 }));
 
 vi.mock("@/lib/server/db/store", () => ({ getTurnsStore: () => storeStub }));
-vi.mock("@/lib/server/auth", () => ({ getSession: mockGetSession }));
+vi.mock("@/lib/server/auth", () => ({
+    getSession: mockGetSession,
+    isAdmin: (session: { user?: { role?: string } } | null) =>
+        session?.user?.role === "admin",
+}));
 
 const FIXTURE_DIR = join(__dirname, "../../../../lib/server/asr/__fixtures__");
 const audio = new Uint8Array(readFileSync(join(FIXTURE_DIR, "sample-16k.wav")));
@@ -104,10 +110,24 @@ function upload({
         body,
     });
 }
-beforeEach(() => {
+beforeEach(async () => {
     resetRateLimits();
     setUsageStore(null);
     resetMemoryUsageStore();
+    // The route resolves the real Postgres usage store via DATABASE_URL; a
+    // hard-stopped row left by another suite would 429 every test here.
+    const dbUrl =
+        process.env.ASR_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+    if (dbUrl) {
+        const pool = new Pool({ connectionString: dbUrl });
+        try {
+            await pool.query("truncate usage_meter");
+        } catch {
+            // usage_meter may not exist in suites that never ran migrations.
+        } finally {
+            await pool.end();
+        }
+    }
     mockGetSession.mockReset().mockResolvedValue({
         user: {
             id: "00000000-0000-0000-0000-000000000001",
@@ -119,6 +139,7 @@ beforeEach(() => {
     storeStub.findSession.mockReset().mockResolvedValue(null);
     storeStub.saveTranscription.mockReset().mockResolvedValue(undefined);
     storeStub.setSessionOwner.mockReset().mockResolvedValue(undefined);
+    storeStub.claimSessionOwner.mockReset().mockResolvedValue("missing");
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -243,6 +264,7 @@ describe("POST /api/asr/transcribe", () => {
             audioDurationMs: 1000,
             mode: "ENDPOINTING",
             turns: TURNS,
+            userId: "00000000-0000-0000-0000-000000000001",
         });
     });
 
@@ -251,6 +273,7 @@ describe("POST /api/asr/transcribe", () => {
             sessionId: "sess-route-1",
             locale: "id",
             audioSha256: createHash("sha256").update(audio).digest("hex"),
+            userId: "00000000-0000-0000-0000-000000000001",
             turns: TURNS,
         });
         metaAnswers(metaResponse);
@@ -273,6 +296,7 @@ describe("POST /api/asr/transcribe", () => {
             sessionId: "sess-route-1",
             locale: "id",
             audioSha256: createHash("sha256").update(audio).digest("hex"),
+            userId: "00000000-0000-0000-0000-000000000001",
             turns: TURNS,
         });
         metaAnswers({
@@ -558,5 +582,68 @@ describe("POST /api/asr/transcribe", () => {
                 speaker: "B",
             },
         ]);
+    });
+
+    it("claims ownership before transcription: foreign-owned session gets 404 without Meta call", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("foreign");
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-foreign" }));
+
+        expect(response.status).toBe(404);
+        expect(await response.json()).toEqual({
+            error: { code: "not_found", message: "Session not found" },
+        });
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+    });
+
+    it("claim-race loser is denied even when claim reports claimed but row belongs to another user", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("claimed");
+        storeStub.findSession.mockResolvedValue({
+            sessionId: "sess-race",
+            locale: "id",
+            audioSha256: "x",
+            userId: "other-user",
+            turns: [],
+        });
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-race" }));
+
+        expect(response.status).toBe(404);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("checks quota before claiming: exhausted quota answers 429 without adopting the session", async () => {
+        await recordUsage({
+            estCost: 6.0,
+        });
+
+        const response = await POST(
+            upload({ sessionId: "sess-quota-before-claim" })
+        );
+
+        expect(response.status).toBe(429);
+        expect(storeStub.claimSessionOwner).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("legacy null-owner session is denied to non-admin with 403 before transcription", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("claimed");
+        storeStub.findSession.mockResolvedValue({
+            sessionId: "sess-legacy",
+            locale: "id",
+            audioSha256: "x",
+            userId: null,
+            turns: [],
+        });
+        metaAnswers(metaResponse);
+
+        const response = await POST(upload({ sessionId: "sess-legacy" }));
+
+        expect(response.status).toBe(403);
+        expect(fetchMock).not.toHaveBeenCalled();
     });
 });

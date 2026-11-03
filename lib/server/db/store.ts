@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 
-import { AsrError } from "@/lib/server/asr/errors";
+import { AsrError, SessionOwnershipError } from "@/lib/server/asr/errors";
 import type { Locale } from "@/lib/server/asr/locale";
 import type { Turn } from "@/lib/server/asr/turns";
 
@@ -38,6 +38,16 @@ export interface TurnsStore {
     findSession(sessionId: string): Promise<StoredSession | null>;
     saveTranscription(record: TranscriptionRecord): Promise<void>;
     setSessionOwner?(sessionId: string, userId: string): Promise<void>;
+    /**
+     * First-writer-wins claim: sets owner only when the row exists and is
+     * ownerless. Returns 'claimed' when the caller now owns the row,
+     * 'foreign' when another user owns it, 'missing' when no row exists yet
+     * (a new session the caller may create).
+     */
+    claimSessionOwner?(
+        sessionId: string,
+        userId: string
+    ): Promise<"claimed" | "foreign" | "missing">;
 }
 
 export function createPostgresStore(connectionString: string): TurnsStore {
@@ -87,6 +97,22 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             const client = await pool.connect();
             try {
                 await client.query("begin");
+                // Race guard: the claim check in the route happens before the
+                // (paid) transcription, so a second caller can create the row
+                // in between. Re-check ownership inside this transaction: a
+                // foreign-owned row must never be overwritten with our audio.
+                const ownerRow = await client.query<{
+                    user_id: string | null;
+                }>("select user_id from sessions where id = $1 for update", [
+                    record.sessionId,
+                ]);
+                if (ownerRow.rowCount === 1) {
+                    const owner = ownerRow.rows[0].user_id;
+                    if (owner != null && owner !== (record.userId ?? null)) {
+                        await client.query("rollback");
+                        throw new SessionOwnershipError(404);
+                    }
+                }
                 await client.query(
                     `insert into sessions
                         (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, user_id, updated_at)
@@ -147,6 +173,24 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 "update sessions set user_id = $1 where id = $2 and user_id is null",
                 [userId, sessionId]
             );
+        },
+
+        async claimSessionOwner(sessionId, userId) {
+            const result = await pool.query<{
+                user_id: string | null;
+            }>(
+                `update sessions set user_id = $1
+                 where id = $2 and user_id is null
+                 returning user_id`,
+                [userId, sessionId]
+            );
+            if (result.rowCount === 1) return "claimed";
+            const existing = await pool.query<{ user_id: string | null }>(
+                "select user_id from sessions where id = $1",
+                [sessionId]
+            );
+            if (existing.rowCount === 0) return "missing";
+            return existing.rows[0].user_id === userId ? "claimed" : "foreign";
         },
     };
 }

@@ -6,7 +6,8 @@ import {
     recordUsage,
 } from "@/lib/server/quota/usage-meter";
 
-import { AsrError } from "./errors";
+import { AsrError, SessionOwnershipError } from "./errors";
+export { SessionOwnershipError } from "./errors";
 import type { Locale } from "./locale";
 import { transcribeWithMeta, type AsrMode } from "./meta";
 import { normalizeTurns, type Turn } from "./turns";
@@ -17,7 +18,24 @@ export type TranscribeInput = {
     locale: Locale;
     audio: Uint8Array;
     mode?: AsrMode;
+    /** Caller identity for the cache-hit ownership check. */
+    userId?: string | null;
+    isAdmin?: boolean;
 };
+
+function checkSessionOwnership(
+    storedUserId: string | null | undefined,
+    callerUserId: string | null | undefined,
+    isAdmin: boolean
+): void {
+    if (storedUserId == null) {
+        if (!isAdmin) throw new SessionOwnershipError(403);
+        return;
+    }
+    if (callerUserId == null || storedUserId !== callerUserId) {
+        throw new SessionOwnershipError(404);
+    }
+}
 
 /**
  * One recording in, the session's turns out.
@@ -35,6 +53,8 @@ export async function transcribeSession({
     locale,
     audio,
     mode = "ENDPOINTING",
+    userId = null,
+    isAdmin = false,
 }: TranscribeInput): Promise<Turn[]> {
     const audioSha256 = createHash("sha256").update(audio).digest("hex");
     const store = getTurnsStore();
@@ -44,7 +64,16 @@ export async function transcribeSession({
     // transcribed with ENDPOINTING, which is the column default.
     const storedMode = stored?.mode ?? "ENDPOINTING";
     if (stored && stored.audioSha256 === audioSha256 && storedMode === mode) {
+        // Cache hit: verify the caller owns the session before replaying.
+        // No quota is spent on a denied hit.
+        checkSessionOwnership(stored.userId, userId, isAdmin);
         return stored.turns;
+    }
+    if (stored) {
+        // Different audio or mode overwrites the session: the existing row
+        // must already belong to the caller (or be a legacy ownerless row
+        // an admin may adopt).
+        checkSessionOwnership(stored.userId, userId, isAdmin);
     }
 
     // Hard-stop check: reject NEW session when daily cap reached
@@ -81,6 +110,7 @@ export async function transcribeSession({
                 : null,
         mode,
         turns,
+        userId: userId ?? null,
     });
 
     const audioSeconds =
