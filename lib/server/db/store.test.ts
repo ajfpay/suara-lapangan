@@ -309,6 +309,50 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         expect(check?.audioSha256).toBe(record.audioSha256);
     });
 
+    it("two simultaneous first uploads by the SAME user converge: exactly one claims, one is foreign", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const user = "00000000-0000-0000-0000-0000000000a1";
+        await pool.query(
+            "insert into auth_user (id, email, email_verified, name, role) values ($1, 'race-same@suara-lapangan.local', true, 'Race', 'user') on conflict (id) do nothing",
+            [user]
+        );
+        const create = {
+            locale: "id",
+            audioSha256: "race-same-sha",
+            audioBytes: 16000,
+        } as const;
+
+        const [a, b] = await Promise.all([
+            store.claimSessionOwner!("sess-claim-race-same", user, false, create),
+            store.claimSessionOwner!("sess-claim-race-same", user, false, create),
+        ]);
+
+        // The verdict keys on whether OUR insert landed, never on a re-read
+        // of the owner: both callers own the row, but only one may proceed
+        // to a paid transcription.
+        expect([a, b].sort()).toEqual(["claimed", "foreign"]);
+        const row = await store.findSession("sess-claim-race-same");
+        expect(row?.userId).toBe(user);
+    });
+
+    it("a claimed placeholder never satisfies the cache: its audio hash is a sentinel, not the upload's", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const user = "00000000-0000-0000-0000-0000000000a1";
+        const claim = await store.claimSessionOwner!(
+            "sess-claim-sentinel",
+            user,
+            false,
+            { locale: "id", audioSha256: "real-audio-sha", audioBytes: 16000 }
+        );
+        expect(claim).toBe("claimed");
+
+        const row = await store.findSession("sess-claim-sentinel");
+        // The winner must still transcribe: a placeholder whose stored hash
+        // equalled the upload's would cache-hit on zero turns and return []
+        // without ever calling Meta.
+        expect(row?.audioSha256).not.toBe("real-audio-sha");
+    });
+
     it("two simultaneous first uploads on an unseen session id converge: one claims, one is foreign", async () => {
         const store = createPostgresStore(TEST_DATABASE_URL!);
         const userA = "00000000-0000-0000-0000-0000000000a1";

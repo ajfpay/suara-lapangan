@@ -195,32 +195,28 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             if (existing.rowCount === 0) {
                 // No row yet: atomically insert a placeholder owned by the
                 // caller so two simultaneous first uploads converge. The
-                // winner's insert lands and gets 'claimed'; the loser's
-                // insert conflicts and the re-read below reports 'foreign'.
+                // verdict keys on whether OUR insert landed (rowCount 1),
+                // not on a re-read of the owner: two callers with the SAME
+                // user id would both re-read their own id and both proceed
+                // to a paid transcription. The winner's insert lands and
+                // gets 'claimed'; the loser conflicts and gets 'foreign',
+                // even when the row's owner is its own user id.
                 // Without create data there is nothing to insert, so report
                 // 'missing' and let the caller create the row.
                 if (!create) return "missing";
-                await pool.query(
+                // The placeholder's audio hash is a sentinel that can never
+                // equal a real upload's SHA-256, so the winner's own
+                // placeholder never satisfies transcribeSession's cache-hit
+                // check and the winner always proceeds to Meta.
+                const inserted = await pool.query(
                     `insert into sessions
                         (id, locale, audio_sha256, audio_bytes, transcript, user_id, updated_at)
                      values ($1, $2, $3, $4, '', $5, now())
                      on conflict (id) do nothing`,
-                    [
-                        sessionId,
-                        create.locale,
-                        create.audioSha256,
-                        create.audioBytes,
-                        userId,
-                    ]
+                    [sessionId, create.locale, "", create.audioBytes, userId]
                 );
-                const raced = await pool.query<{ user_id: string | null }>(
-                    "select user_id from sessions where id = $1",
-                    [sessionId]
-                );
-                if (raced.rowCount === 0) return "missing";
-                return raced.rows[0].user_id === userId
-                    ? "claimed"
-                    : "foreign";
+                if (inserted.rowCount === 1) return "claimed";
+                return "foreign";
             }
             const owner = existing.rows[0].user_id;
             if (owner != null) return owner === userId ? "claimed" : "foreign";
