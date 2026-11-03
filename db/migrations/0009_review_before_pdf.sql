@@ -12,6 +12,9 @@
 
 begin;
 
+-- gen_random_uuid() backs the root_id default below.
+create extension if not exists pgcrypto;
+
 -- 1. Relax nomor not-null constraint
 alter table documents alter column nomor drop not null;
 
@@ -27,12 +30,17 @@ alter table documents add column if not exists field_changes jsonb not null defa
 
 -- 4. Add versioning columns
 alter table documents add column if not exists version integer not null default 1;
-alter table documents add column if not exists root_id uuid;
+alter table documents add column if not exists root_id uuid default gen_random_uuid();
 alter table documents add column if not exists parent_id uuid references documents (id) on delete set null;
 alter table documents add column if not exists superseded_by uuid references documents (id) on delete set null;
 
--- 5. Backfill root_id for existing documents
+-- 5. Backfill root_id for existing documents, then enforce NOT NULL.
 update documents set root_id = id where root_id is null;
+-- No column DEFAULT: new rows omit root_id and the trigger below fills it
+-- with the row's own id (root is its own root). A DEFAULT
+-- gen_random_uuid() would fire before the BEFORE INSERT trigger and defeat
+-- its WHEN (new.root_id is null) clause, leaving root_id != id.
+alter table documents alter column root_id drop default;
 alter table documents alter column root_id set not null;
 
 -- 5a. New inserts set root_id to their own id (root is its own root). Postgres
