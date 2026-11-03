@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import {
+    getUsage,
     recordUsage,
     resetMemoryUsageStore,
     setUsageStore,
@@ -661,6 +662,23 @@ describe("POST /api/asr/transcribe", () => {
 
         expect(response.status).toBe(200);
         expect(fetchMock).toHaveBeenCalled();
+    });
+
+    it("a failed transcription releases the route-level reservation: no phantom charge remains", async () => {
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("missing");
+        metaAnswers(metaResponse);
+        // transcribeSession's own reservation succeeds but its Meta call
+        // fails: both reservations (route-level and inner) must be released.
+        fetchMock.mockImplementation(async () => new Response("boom", { status: 500 }));
+
+        const response = await POST(upload({ sessionId: "sess-quota-release" }));
+
+        expect(response.status).toBe(502);
+        const usage = await getUsage(
+            new Date().toISOString().slice(0, 10),
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(usage.estCost).toBeCloseTo(0, 4);
     });
 
     it("quota is per-user: this caller's exhausted bucket blocks even when the shared bucket is empty", async () => {

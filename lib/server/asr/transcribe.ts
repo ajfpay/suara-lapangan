@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 
 import { getTurnsStore } from "@/lib/server/db/store";
 import {
-    assertQuotaAvailable,
-    recordUsage,
+    reconcileQuota,
+    releaseQuota,
+    reserveQuota,
 } from "@/lib/server/quota/usage-meter";
 
 import { AsrError, SessionOwnershipError } from "./errors";
@@ -76,56 +77,73 @@ export async function transcribeSession({
         checkSessionOwnership(stored.userId, userId, isAdmin);
     }
 
-    // Hard-stop check: reject NEW session when the caller's own daily cap
-    // is reached. The user id keeps one heavy caller from exhausting a
-    // shared bucket for everyone else.
-    await assertQuotaAvailable({ locale, userId: userId ?? undefined });
-
-    const apiKey = process.env.MODEL_API_KEY;
-    if (!apiKey) {
-        throw new AsrError("not_configured", {
-            detail: "MODEL_API_KEY is not set",
-        });
-    }
-
-    const keywords = buildKeywords(locale, stored?.turns);
-    const meta = await transcribeWithMeta({
-        audio,
+    // Reserve-then-reconcile: the estimated cost lands in the caller's
+    // own bucket atomically, in the same statement that checks the cap, so
+    // two concurrent callers cannot both pass on the last remaining quota.
+    // A reservation that never runs (Meta failure, save failure) is
+    // released; a completed transcription reconciles the estimate to the
+    // actual duration. The user id keeps one heavy caller from exhausting
+    // a shared bucket for everyone else.
+    const estimatedSeconds = audio.byteLength / 32000;
+    const estimatedCost = (estimatedSeconds / 3600) * 0.18;
+    await reserveQuota({
         locale,
-        sessionId,
-        apiKey,
-        mode,
-        keywords,
-    });
-    const turns = normalizeTurns(meta);
-    await store.saveTranscription({
-        sessionId,
-        locale,
-        audioSha256,
-        audioBytes: audio.byteLength,
-        metaSessionId:
-            typeof meta.sessionId === "string" ? meta.sessionId : null,
-        transcript: meta.transcript ?? "",
-        audioDurationMs:
-            typeof meta.audioDurationMs === "number"
-                ? meta.audioDurationMs
-                : null,
-        mode,
-        turns,
-        userId: userId ?? null,
-    });
-
-    const audioSeconds =
-        typeof meta.audioDurationMs === "number"
-            ? meta.audioDurationMs / 1000
-            : audio.byteLength / 32000;
-
-    await recordUsage({
         userId: userId ?? undefined,
-        audioSeconds,
-        tokens: 0,
-        estCost: (audioSeconds / 3600) * 0.18,
+        estCost: estimatedCost,
     });
 
-    return turns;
+    try {
+        const apiKey = process.env.MODEL_API_KEY;
+        if (!apiKey) {
+            throw new AsrError("not_configured", {
+                detail: "MODEL_API_KEY is not set",
+            });
+        }
+
+        const keywords = buildKeywords(locale, stored?.turns);
+        const meta = await transcribeWithMeta({
+            audio,
+            locale,
+            sessionId,
+            apiKey,
+            mode,
+            keywords,
+        });
+        const turns = normalizeTurns(meta);
+        await store.saveTranscription({
+            sessionId,
+            locale,
+            audioSha256,
+            audioBytes: audio.byteLength,
+            metaSessionId:
+                typeof meta.sessionId === "string" ? meta.sessionId : null,
+            transcript: meta.transcript ?? "",
+            audioDurationMs:
+                typeof meta.audioDurationMs === "number"
+                    ? meta.audioDurationMs
+                    : null,
+            mode,
+            turns,
+            userId: userId ?? null,
+        });
+
+        const audioSeconds =
+            typeof meta.audioDurationMs === "number"
+                ? meta.audioDurationMs / 1000
+                : audio.byteLength / 32000;
+
+        await reconcileQuota({
+            userId: userId ?? undefined,
+            reservedCost: estimatedCost,
+            actualCost: (audioSeconds / 3600) * 0.18,
+        });
+
+        return turns;
+    } catch (error) {
+        await releaseQuota({
+            userId: userId ?? undefined,
+            estCost: estimatedCost,
+        });
+        throw error;
+    }
 }

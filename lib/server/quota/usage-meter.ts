@@ -88,9 +88,42 @@ export class QuotaExceededError extends Error {
     }
 }
 
+export type ReserveQuotaParams = {
+    userId?: string;
+    day?: string | Date;
+    /** Estimated cost of the work about to run. */
+    estCost: number;
+};
+
+export type ReconcileQuotaParams = {
+    userId?: string;
+    day?: string | Date;
+    /** Cost reserved up front. */
+    reservedCost: number;
+    /** Actual cost of the completed work. */
+    actualCost: number;
+};
+
 export interface UsageStore {
     recordUsage(params: RecordUsageParams): Promise<UsageSummary>;
     getUsage(day?: string | Date, userId?: string): Promise<UsageSummary>;
+    /**
+     * Atomically reserve quota for work about to run: the cost lands in the
+     * bucket only when the bucket still has room, in a single statement, so
+     * two concurrent callers cannot both pass on the last remaining quota.
+     * Returns `{ ok: false }` (without reserving) when the bucket is full.
+     */
+    reserveQuota(params: ReserveQuotaParams): Promise<{
+        ok: boolean;
+        usage: UsageSummary;
+    }>;
+    /** Return a reservation that never ran (failed transcription). */
+    releaseQuota(params: ReserveQuotaParams): Promise<UsageSummary>;
+    /**
+     * Swap a reservation for the actual cost after the work completes:
+     * one atomic add of `actualCost - reservedCost`.
+     */
+    reconcileQuota(params: ReconcileQuotaParams): Promise<UsageSummary>;
     reset?(): Promise<void> | void;
 }
 
@@ -144,6 +177,58 @@ class MemoryUsageStore implements UsageStore {
             hardStop,
         };
 
+        this.records.set(this.key(userId, dayStr), updated);
+        return updated;
+    }
+
+    async reserveQuota(
+        params: ReserveQuotaParams
+    ): Promise<{ ok: boolean; usage: UsageSummary }> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const estCost = Math.max(0, params.estCost);
+        const cap = getDailyCostCap();
+        const current = await this.getUsage(dayStr, userId);
+        if (current.hardStop || current.estCost + estCost > cap) {
+            return { ok: false, usage: current };
+        }
+        const updated = await this.recordUsage({
+            userId,
+            date: dayStr,
+            estCost,
+        });
+        return { ok: true, usage: updated };
+    }
+
+    async releaseQuota(params: ReserveQuotaParams): Promise<UsageSummary> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const estCost = Math.max(0, params.estCost);
+        const current = await this.getUsage(dayStr, userId);
+        const released = Number((current.estCost - estCost).toFixed(4));
+        const updated: UsageSummary = {
+            ...current,
+            estCost: Math.max(0, released),
+            hardStop: Math.max(0, released) >= getDailyCostCap(),
+        };
+        this.records.set(this.key(userId, dayStr), updated);
+        return updated;
+    }
+
+    async reconcileQuota(
+        params: ReconcileQuotaParams
+    ): Promise<UsageSummary> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const delta =
+            Math.max(0, params.actualCost) - Math.max(0, params.reservedCost);
+        const current = await this.getUsage(dayStr, userId);
+        const adjusted = Number((current.estCost + delta).toFixed(4));
+        const updated: UsageSummary = {
+            ...current,
+            estCost: Math.max(0, adjusted),
+            hardStop: Math.max(0, adjusted) >= getDailyCostCap(),
+        };
         this.records.set(this.key(userId, dayStr), updated);
         return updated;
     }
@@ -233,6 +318,131 @@ export class PostgresUsageStore implements UsageStore {
             [userId, dayStr, audioSeconds, tokens, estCost, cap]
         );
 
+        const row = result.rows[0];
+        return {
+            audioSeconds: Number(row.audio_seconds),
+            tokens: Number(row.tokens),
+            estCost: Number(row.est_cost),
+            hardStop: Boolean(row.hard_stop),
+        };
+    }
+
+    async reserveQuota(
+        params: ReserveQuotaParams
+    ): Promise<{ ok: boolean; usage: UsageSummary }> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const estCost = Math.max(0, params.estCost);
+        const cap = await this.getCapForUser(userId);
+
+        // One statement: the row lands (or grows) only when the bucket still
+        // has room and is not already hard-stopped. A concurrent caller on
+        // the last remaining quota finds no row to update and gets ok: false.
+        const result = await this.pool.query<{
+            audio_seconds: string | number;
+            tokens: string | number;
+            est_cost: string | number;
+            hard_stop: boolean;
+        }>(
+            `insert into usage_meter (user_id, day, audio_seconds, tokens, est_cost, hard_stop, updated_at)
+             values ($1, $2, 0, 0, $3, ($3::numeric >= $4::numeric), now())
+             on conflict (user_id, day) do update set
+                 est_cost = usage_meter.est_cost + excluded.est_cost,
+                 hard_stop = usage_meter.hard_stop
+                     or (usage_meter.est_cost + excluded.est_cost >= $4::numeric),
+                 updated_at = now()
+             where usage_meter.hard_stop = false
+               and usage_meter.est_cost + excluded.est_cost <= $4::numeric
+             returning audio_seconds, tokens, est_cost, hard_stop`,
+            [userId, dayStr, estCost, cap]
+        );
+
+        if (result.rowCount === 1) {
+            const row = result.rows[0];
+            return {
+                ok: true,
+                usage: {
+                    audioSeconds: Number(row.audio_seconds),
+                    tokens: Number(row.tokens),
+                    estCost: Number(row.est_cost),
+                    hardStop: Boolean(row.hard_stop),
+                },
+            };
+        }
+        // No row updated: the bucket is full (or already hard-stopped).
+        const usage = await this.getUsage(dayStr, userId);
+        return { ok: false, usage };
+    }
+
+    async releaseQuota(params: ReserveQuotaParams): Promise<UsageSummary> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const estCost = Math.max(0, params.estCost);
+
+        const result = await this.pool.query<{
+            audio_seconds: string | number;
+            tokens: string | number;
+            est_cost: string | number;
+            hard_stop: boolean;
+        }>(
+            `update usage_meter
+             set est_cost = greatest(est_cost - $3::numeric, 0),
+                 hard_stop = false,
+                 updated_at = now()
+             where user_id = $1 and day = $2
+             returning audio_seconds, tokens, est_cost, hard_stop`,
+            [userId, dayStr, estCost]
+        );
+        if (result.rowCount === 0) {
+            return {
+                audioSeconds: 0,
+                tokens: 0,
+                estCost: 0,
+                hardStop: false,
+            };
+        }
+        const row = result.rows[0];
+        return {
+            audioSeconds: Number(row.audio_seconds),
+            tokens: Number(row.tokens),
+            estCost: Number(row.est_cost),
+            hardStop: Boolean(row.hard_stop),
+        };
+    }
+
+    async reconcileQuota(
+        params: ReconcileQuotaParams
+    ): Promise<UsageSummary> {
+        const userId = params.userId || DEFAULT_USER_ID;
+        const dayStr = formatDay(params.day);
+        const delta =
+            Math.max(0, params.actualCost) - Math.max(0, params.reservedCost);
+        const cap = await this.getCapForUser(userId);
+
+        const result = await this.pool.query<{
+            audio_seconds: string | number;
+            tokens: string | number;
+            est_cost: string | number;
+            hard_stop: boolean;
+        }>(
+            `update usage_meter
+             set est_cost = greatest(est_cost + $3::numeric, 0),
+                 hard_stop = hard_stop
+                     or (greatest(est_cost + $3::numeric, 0) >= $4::numeric),
+                 updated_at = now()
+             where user_id = $1 and day = $2
+             returning audio_seconds, tokens, est_cost, hard_stop`,
+            [userId, dayStr, delta, cap]
+        );
+        if (result.rowCount === 0) {
+            // The reservation was released or never existed: record the
+            // actual cost as a plain add so completed work is never free.
+            return this.recordUsage({
+                userId,
+                date: dayStr,
+                estCost: Math.max(0, params.actualCost),
+            });
+        }
         const row = result.rows[0];
         return {
             audioSeconds: Number(row.audio_seconds),
@@ -368,6 +578,53 @@ export async function recordUsage(
     params: RecordUsageParams
 ): Promise<UsageSummary> {
     return getUsageStore().recordUsage(params);
+}
+
+export async function reserveQuota(options: {
+    userId?: string;
+    day?: string | Date;
+    estCost: number;
+    locale?: "en" | "id";
+}): Promise<UsageSummary> {
+    const { ok, usage } = await getUsageStore().reserveQuota({
+        userId: options.userId,
+        day: options.day,
+        estCost: options.estCost,
+    });
+    if (!ok) {
+        const message =
+            options.locale === "en"
+                ? "Daily quota limit reached. New sessions cannot be started today."
+                : "Batas kuota harian tercapai. Sesi baru tidak dapat dimulai hari ini.";
+        throw new QuotaExceededError(message, usage);
+    }
+    return usage;
+}
+
+export async function releaseQuota(options: {
+    userId?: string;
+    day?: string | Date;
+    estCost: number;
+}): Promise<UsageSummary> {
+    return getUsageStore().releaseQuota({
+        userId: options.userId,
+        day: options.day,
+        estCost: options.estCost,
+    });
+}
+
+export async function reconcileQuota(options: {
+    userId?: string;
+    day?: string | Date;
+    reservedCost: number;
+    actualCost: number;
+}): Promise<UsageSummary> {
+    return getUsageStore().reconcileQuota({
+        userId: options.userId,
+        day: options.day,
+        reservedCost: options.reservedCost,
+        actualCost: options.actualCost,
+    });
 }
 
 export async function getUsage(
