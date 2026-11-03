@@ -52,10 +52,6 @@ function hashDoc(doc: unknown): string {
     return createHash("sha256").update(JSON.stringify(doc)).digest("hex");
 }
 
-function shell(html: string): string {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
-}
-
 async function renderPdf(html: string): Promise<Buffer> {
     const puppeteer = (await import("puppeteer-core")).default;
     const browser = await puppeteer.launch({
@@ -64,7 +60,7 @@ async function renderPdf(html: string): Promise<Buffer> {
     });
     try {
         const page = await browser.newPage();
-        await page.setContent(shell(html), { waitUntil: "load" });
+        await page.setContent(html, { waitUntil: "load" });
         const pdf = await page.pdf({ format: "A4", printBackground: true });
         return Buffer.from(pdf);
     } finally {
@@ -89,10 +85,14 @@ async function handleGet(
     let doc: QuotationDocument | undefined;
     let storedPdfPath: string | null = null;
     let ownerUserId: string | null = null;
+    let docStatus: string | null = null;
+    let docVersion = 1;
     try {
         const stored = await getPostgresDocumentStore().get(id);
         doc = stored?.document;
         ownerUserId = stored?.userId ?? null;
+        docStatus = stored?.status ?? null;
+        docVersion = stored?.version ?? 1;
         if (doc) {
             storedPdfPath = await getDocumentPdfPath(id);
         }
@@ -131,6 +131,16 @@ async function handleGet(
             { status: 403 }
         );
     }
+    if (docStatus === "draf") {
+        return NextResponse.json(
+            {
+                error: "draft_not_approved",
+                message:
+                    "Document is still a draft. Approve it via POST /api/documents/{id}/approve before downloading the PDF.",
+            },
+            { status: 409 }
+        );
+    }
     if (doc.butuh_konfirmasi.length > 0) {
         return NextResponse.json(
             {
@@ -142,8 +152,9 @@ async function handleGet(
         );
     }
     const hash = hashDoc(doc);
+    const cacheKey = `${id}:${docVersion}:${hash}`;
     const docNomor = doc.nomor ?? "";
-    const cached = pdfCache.get(docNomor);
+    const cached = pdfCache.get(cacheKey);
     if (cached && cached.hash === hash) {
         return new Response(new Uint8Array(cached.pdf), {
             status: 200,
@@ -204,7 +215,7 @@ async function handleGet(
                 );
             }
         }
-        pdfCache.set(docNomor, {
+        pdfCache.set(cacheKey, {
             hash,
             pdf: snapshot.pdf,
         });
@@ -236,7 +247,7 @@ async function handleGet(
             { status: 500 }
         );
     }
-    pdfCache.set(docNomor, { hash, pdf });
+    pdfCache.set(cacheKey, { hash, pdf });
     return new Response(new Uint8Array(pdf), {
         status: 200,
         headers: {

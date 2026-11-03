@@ -247,7 +247,9 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             "0001_sessions_turns.sql",
             "0002_usage_meter.sql",
             "0003_documents.sql",
+            "0004_email_sends.sql",
             "0007_auth_tables.sql",
+            "0009_review_before_pdf.sql",
             "0008_documents_user_id.sql",
         ]) {
             const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
@@ -292,14 +294,17 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         }
     });
 
-    async function seed(document: QuotationDocument): Promise<string> {
+    async function seed(
+        document: QuotationDocument,
+        status = "disetujui"
+    ): Promise<string> {
         const result = await pool.query<{ id: string }>(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
              values ('seed-session', $1, $2, $3, $4, $5) returning id`,
             [
                 document.locale,
                 document.nomor,
-                document.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "draf",
+                status,
                 "pdf-hash-" + Math.random(),
                 JSON.stringify(document),
             ]
@@ -377,9 +382,20 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         expect(res.headers.get("X-Quota-Hard-Stop")).toBeNull();
     });
 
+    it("409 draft_not_approved for a draft document", async () => {
+        const id = await seed(doc({ nomor: null }), "draf");
+        const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(409);
+        const body = await res.json();
+        expect(body.error).toBe("draft_not_approved");
+    });
+
     it("409 when butuh_konfirmasi non-empty", async () => {
         const id = await seed(
-            doc({ butuh_konfirmasi: [{ field: "x", alasan: "y", sumber_kutipan: null }] })
+            doc({ butuh_konfirmasi: [{ field: "x", alasan: "y", sumber_kutipan: null }] }),
+            "disetujui"
         );
         const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
             params: Promise.resolve({ id }),
@@ -431,6 +447,64 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             [id]
         );
         expect(dbRes.rows[0].pdf_path).toBe(expectedRelativePath);
+    }, 60000);
+
+    it("cache key includes version and content hash: data change re-renders with MISS and different bytes", async () => {
+        const id = await seed(doc());
+        const ctx = { params: Promise.resolve({ id }) };
+        const r1 = await GET(new Request(`http://localhost/api/pdf/${id}`), ctx);
+        expect(r1.status).toBe(200);
+        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes1 = Buffer.from(await r1.arrayBuffer());
+
+        const updated = doc({ pekerjaan: [
+            {
+                uraian: "Hebel plus bata",
+                volume: 20,
+                satuan: "m2",
+                harga_satuan: 60000,
+                jumlah: 1200000,
+                sumber_kutipan: "turn_2",
+            },
+        ], total_nominal: 1200000, terbilang: "Satu juta dua ratus ribu rupiah" });
+        await pool.query(
+            "update documents set data_json = $1::jsonb, version = version + 1 where id = $2",
+            [JSON.stringify(updated), id]
+        );
+        resetPdfCacheForTesting();
+
+        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(r2.status).toBe(200);
+        expect(r2.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes2 = Buffer.from(await r2.arrayBuffer());
+        expect(bytes2.equals(bytes1)).toBe(false);
+    }, 60000);
+
+    it("generated PDF text contains total, terbilang, project metadata, and line items", async () => {
+        const id = await seed(doc());
+        const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const buf = Buffer.from(await res.arrayBuffer());
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), useWorkerFetch: false });
+        const pdfDoc = await loadingTask.promise;
+        let text = "";
+        for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+            const page = await pdfDoc.getPage(pageNum);
+            const content = await page.getTextContent();
+            text += content.items.map((item) => ("str" in item ? item.str : "")).join(" ") + "\n";
+        }
+        await (pdfDoc as unknown as { destroy?: () => Promise<void> }).destroy?.();
+        expect(text).toContain("500");
+        expect(text).toContain("Lima ratus ribu rupiah");
+        expect(text).toContain("Villa");
+        expect(text).toContain("Ubud");
+        expect(text).toContain("Pak Made");
+        expect(text).toContain("Hebel");
     }, 60000);
 
     it("second GET with memory cache cleared returns 200 with %PDF header and IDENTICAL bytes from disk", async () => {
@@ -579,20 +653,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
     }, 60000);
 
     it("PATCH then GET re-renders and overwrites the same id-keyed path", async () => {
-        const id = await seed(doc());
+        const id = await seed(doc(), "draf");
         const ctx = { params: Promise.resolve({ id }) };
-
-        const r1 = await GET(new Request(`http://localhost/api/pdf/${id}`), ctx);
-        expect(r1.status).toBe(200);
-        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes1 = Buffer.from(await r1.arrayBuffer());
-
-        const expectedDiskPath = path.join(
-            process.env.PDF_STORAGE_DIR!,
-            `${id}.pdf`
-        );
-        const diskBytes1 = await fs.readFile(expectedDiskPath);
-        expect(diskBytes1.equals(bytes1)).toBe(true);
 
         // PATCH through the real endpoint changes data_json.
         const patchRes = await PATCH(
@@ -607,6 +669,27 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             { params: Promise.resolve({ id }) }
         );
         expect(patchRes.status).toBe(200);
+
+        // Simulate approval so the PDF gate passes.
+        await pool.query("update documents set status = 'disetujui' where id = $1", [id]);
+
+        const r1 = await GET(new Request(`http://localhost/api/pdf/${id}`), ctx);
+        expect(r1.status).toBe(200);
+        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
+        const bytes1 = Buffer.from(await r1.arrayBuffer());
+
+        const expectedDiskPath = path.join(
+            process.env.PDF_STORAGE_DIR!,
+            `${id}.pdf`
+        );
+        const diskBytes1 = await fs.readFile(expectedDiskPath);
+        expect(diskBytes1.equals(bytes1)).toBe(true);
+
+        // A data change bumps the version, so the next GET re-renders.
+        await pool.query(
+            "update documents set data_json = jsonb_set(data_json, '{pekerjaan,0,volume}', '25'), version = version + 1 where id = $1",
+            [id]
+        );
 
         resetPdfCacheForTesting();
 
