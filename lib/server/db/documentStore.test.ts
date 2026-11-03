@@ -177,6 +177,38 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             expect(row.root_id).toBe(row.id);
         }
 
+        // Regression for the pre-fix revision of migration 0009, which
+        // declared root_id with a random-uuid column DEFAULT and backfilled
+        // only `where root_id is null`: rows migrated by that revision carry
+        // a random root_id and must be repaired when the fixed migration
+        // re-runs. Simulate that state, re-run the migration file, and
+        // assert the row is re-rooted at its own id.
+        const migration0009 = await import("node:fs/promises").then((fs) =>
+            fs.readFile("db/migrations/0009_review_before_pdf.sql", "utf8")
+        );
+        const res3 = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0003', 'draf', $1, $2)
+             returning id`,
+            [turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 3" }]), JSON.stringify(doc())]
+        );
+        const legacyId3 = res3.rows[0].id;
+        await pool.query(
+            "update documents set root_id = gen_random_uuid() where id = $1::uuid",
+            [legacyId3]
+        );
+        const before = await pool.query(
+            "select root_id from documents where id = $1::uuid",
+            [legacyId3]
+        );
+        expect(before.rows[0].root_id).not.toBe(legacyId3);
+        await pool.query(migration0009);
+        const after = await pool.query(
+            "select id, root_id from documents where id = $1::uuid",
+            [legacyId3]
+        );
+        expect(after.rows[0].root_id).toBe(after.rows[0].id);
+
         const foundByIdem1 = await store.findByIdempotencyKey("s-legacy", hash1);
         expect(foundByIdem1?.status).toBe("draf");
 
