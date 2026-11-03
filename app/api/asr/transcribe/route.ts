@@ -9,6 +9,8 @@ import { MAX_AUDIO_BYTES, type AsrMode } from "@/lib/server/asr/meta";
 import { transcribeSession } from "@/lib/server/asr/transcribe";
 import { withRateLimit } from "@/lib/server/quota/rate-limit";
 import { QuotaExceededError } from "@/lib/server/quota/usage-meter";
+import { getSession } from "@/lib/server/auth";
+import { getTurnsStore } from "@/lib/server/db/store";
 
 /**
  * Client-generated, so it must not be able to escape a query parameter or a log
@@ -90,11 +92,26 @@ async function handlePost(request: Request): Promise<Response> {
     let locale: Locale = DEFAULT_ASR_LOCALE;
 
     try {
+        const authSession = await getSession(request);
+        if (!authSession) {
+            return Response.json(
+                {
+                    error: {
+                        code: "unauthenticated",
+                        message: "Authentication required",
+                    },
+                },
+                { status: 401 }
+            );
+        }
+
         const upload = await parseUpload(request);
         sessionId = upload.sessionId;
         locale = upload.locale;
 
         const turns = await transcribeSession(upload);
+        const store = getTurnsStore();
+        await store.setSessionOwner?.(sessionId, authSession.user.id);
 
         return Response.json({ sessionId, turns }, { status: 200 });
     } catch (error) {

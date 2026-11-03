@@ -20,14 +20,17 @@ import { POST } from "./route";
  * K5 fixture. No key, no database and no network are needed to run this.
  */
 
-const { storeStub } = vi.hoisted(() => ({
+const { storeStub, mockGetSession } = vi.hoisted(() => ({
     storeStub: {
         findSession: vi.fn(),
         saveTranscription: vi.fn(),
+        setSessionOwner: vi.fn(),
     },
+    mockGetSession: vi.fn(),
 }));
 
 vi.mock("@/lib/server/db/store", () => ({ getTurnsStore: () => storeStub }));
+vi.mock("@/lib/server/auth", () => ({ getSession: mockGetSession }));
 
 const FIXTURE_DIR = join(__dirname, "../../../../lib/server/asr/__fixtures__");
 const audio = new Uint8Array(readFileSync(join(FIXTURE_DIR, "sample-16k.wav")));
@@ -105,8 +108,17 @@ beforeEach(() => {
     resetRateLimits();
     setUsageStore(null);
     resetMemoryUsageStore();
+    mockGetSession.mockReset().mockResolvedValue({
+        user: {
+            id: "00000000-0000-0000-0000-000000000001",
+            email: "user@suara.local",
+            name: "User",
+            role: "user",
+        },
+    });
     storeStub.findSession.mockReset().mockResolvedValue(null);
     storeStub.saveTranscription.mockReset().mockResolvedValue(undefined);
+    storeStub.setSessionOwner.mockReset().mockResolvedValue(undefined);
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -139,6 +151,67 @@ const MALFORMED_UPLOADS: Array<[string, MalformedUpload, number]> = [
 ];
 
 describe("POST /api/asr/transcribe", () => {
+    it("returns HTTP 401 unauthenticated when request carries no valid session, and performs no transcription work", async () => {
+        mockGetSession.mockResolvedValueOnce(null);
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(401);
+        const body = await response.json();
+        expect(body.error.code).toBe("unauthenticated");
+        expect(storeStub.findSession).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+    it("maps auth resolution failure to 500 internal_error and performs no transcription work", async () => {
+        mockGetSession.mockRejectedValueOnce(new Error("auth db down"));
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(500);
+        const body = await response.json();
+        expect(body.error.code).toBe("internal_error");
+        expect(storeStub.findSession).not.toHaveBeenCalled();
+        expect(storeStub.saveTranscription).not.toHaveBeenCalled();
+        expect(storeStub.setSessionOwner).not.toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+
+    it("persists authenticated caller's user id as session owner via setSessionOwner", async () => {
+        metaAnswers(metaResponse);
+        const callerUserId = "00000000-0000-0000-0000-000000000001";
+        mockGetSession.mockResolvedValueOnce({
+            user: {
+                id: callerUserId,
+                email: "user@suara.local",
+                name: "User",
+                role: "user",
+            },
+        });
+
+        const response = await POST(upload({ sessionId: "sess-owned-1" }));
+
+        expect(response.status).toBe(200);
+        expect(storeStub.setSessionOwner).toHaveBeenCalledWith(
+            "sess-owned-1",
+            callerUserId
+        );
+    });
+
+    it("maps setSessionOwner failure to 500 internal_error without leaking store text", async () => {
+        metaAnswers(metaResponse);
+        storeStub.setSessionOwner.mockRejectedValueOnce(new Error("postgres connection refused"));
+
+        const response = await POST(upload());
+
+        expect(response.status).toBe(500);
+        const body = await response.json();
+        expect(body.error.code).toBe("internal_error");
+        expect(JSON.stringify(body)).not.toContain("postgres connection refused");
+    });
+
     it("answers with the numbered turns Meta found", async () => {
         metaAnswers(metaResponse);
 

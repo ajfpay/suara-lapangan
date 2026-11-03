@@ -14,6 +14,8 @@ export type TranscriptionRecord = {
     audioDurationMs: number | null;
     /** Defaults to ENDPOINTING in the column when a caller omits it. */
     mode?: string;
+    /** Owner written to sessions.user_id; null for rows that predate auth. */
+    userId?: string | null;
     turns: Turn[];
 };
 
@@ -27,12 +29,15 @@ export type StoredSession = {
      * treats a missing mode as ENDPOINTING.
      */
     mode?: string;
+    /** Owner from sessions.user_id; null for rows created before migration 0010. */
+    userId?: string | null;
     turns: Turn[];
 };
 
 export interface TurnsStore {
     findSession(sessionId: string): Promise<StoredSession | null>;
     saveTranscription(record: TranscriptionRecord): Promise<void>;
+    setSessionOwner?(sessionId: string, userId: string): Promise<void>;
 }
 
 export function createPostgresStore(connectionString: string): TurnsStore {
@@ -44,7 +49,8 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 locale: Locale;
                 audio_sha256: string;
                 mode: string;
-            }>("select locale, audio_sha256, mode from sessions where id = $1", [
+                user_id: string | null;
+            }>("select locale, audio_sha256, mode, user_id from sessions where id = $1", [
                 sessionId,
             ]);
             if (session.rowCount === 0) return null;
@@ -65,6 +71,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 locale: session.rows[0].locale,
                 audioSha256: session.rows[0].audio_sha256,
                 mode: session.rows[0].mode,
+                userId: session.rows[0].user_id ?? null,
                 turns: stored.rows.map((row) => ({
                     turn_id: `turn_${row.turn_index}`,
                     startMs: row.start_ms,
@@ -82,8 +89,8 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 await client.query("begin");
                 await client.query(
                     `insert into sessions
-                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, updated_at)
-                     values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                        (id, locale, audio_sha256, audio_bytes, meta_session_id, transcript, audio_duration_ms, mode, user_id, updated_at)
+                     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
                      on conflict (id) do update set
                         locale = excluded.locale,
                         audio_sha256 = excluded.audio_sha256,
@@ -92,6 +99,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         transcript = excluded.transcript,
                         audio_duration_ms = excluded.audio_duration_ms,
                         mode = excluded.mode,
+                        user_id = coalesce(sessions.user_id, excluded.user_id),
                         updated_at = now()`,
                     [
                         record.sessionId,
@@ -102,6 +110,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                         record.transcript,
                         record.audioDurationMs,
                         record.mode ?? "ENDPOINTING",
+                        record.userId ?? null,
                     ]
                 );
 
@@ -131,6 +140,13 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             } finally {
                 client.release();
             }
+        },
+
+        async setSessionOwner(sessionId, userId) {
+            await pool.query(
+                "update sessions set user_id = $1 where id = $2 and user_id is null",
+                [userId, sessionId]
+            );
         },
     };
 }

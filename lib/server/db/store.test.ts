@@ -28,6 +28,14 @@ const migration0006 = readFileSync(
     join(__dirname, "../../../db/migrations/0006_asr_mode.sql"),
     "utf8"
 );
+const migration0007 = readFileSync(
+    join(__dirname, "../../../db/migrations/0007_auth_tables.sql"),
+    "utf8"
+);
+const migration0010 = readFileSync(
+    join(__dirname, "../../../db/migrations/0010_sessions_user_id.sql"),
+    "utf8"
+);
 
 const record: TranscriptionRecord = {
     sessionId: "sess-round-trip",
@@ -65,11 +73,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         await pool.query(migration0001);
         await pool.query(migration0005);
         await pool.query(migration0006);
+        await pool.query(migration0007);
+        await pool.query(migration0010);
         // The demo and CI both re-run the migration on a database that already
         // has the tables.
         await pool.query(migration0001);
         await pool.query(migration0005);
         await pool.query(migration0006);
+        await pool.query(migration0007);
+        await pool.query(migration0010);
     });
 
     beforeEach(async () => {
@@ -90,6 +102,7 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
             locale: "id",
             audioSha256: "9f2c1a",
             mode: "ENDPOINTING",
+            userId: null,
             turns: record.turns,
         });
     });
@@ -214,5 +227,81 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         });
         const def = await store.findSession("sess-mode-default");
         expect(def?.mode).toBe("ENDPOINTING");
+    });
+
+    it("persists userId on saveTranscription and reads back from findSession", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const ownerId = "00000000-0000-0000-0000-000000000000";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-owned-direct",
+            userId: ownerId,
+        });
+
+        const owned = await store.findSession("sess-owned-direct");
+        expect(owned?.userId).toBe(ownerId);
+    });
+
+    it("sets session owner via setSessionOwner when user_id is null", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const ownerId = "00000000-0000-0000-0000-000000000000";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-ownerless",
+        });
+
+        const before = await store.findSession("sess-ownerless");
+        expect(before?.userId).toBeNull();
+
+        await store.setSessionOwner!("sess-ownerless", ownerId);
+
+        const after = await store.findSession("sess-ownerless");
+        expect(after?.userId).toBe(ownerId);
+    });
+
+    it("does not overwrite existing session owner when setSessionOwner is called again with another user", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const originalOwner = "00000000-0000-0000-0000-000000000000";
+
+        // Insert a second user in auth_user to test foreign user id
+        const foreignOwner = "00000000-0000-0000-0000-000000000002";
+        await pool.query(
+            "insert into auth_user (id, email, email_verified, name, role) values ($1, $2, true, 'User 2', 'user') on conflict (id) do nothing",
+            [foreignOwner, "user2@suara-lapangan.local"]
+        );
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-first-writer",
+            userId: originalOwner,
+        });
+
+        await store.setSessionOwner!("sess-first-writer", foreignOwner);
+
+        const check = await store.findSession("sess-first-writer");
+        expect(check?.userId).toBe(originalOwner);
+    });
+
+    it("does not overwrite existing session owner when saveTranscription is called again with another user", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const originalOwner = "00000000-0000-0000-0000-000000000000";
+        const foreignOwner = "00000000-0000-0000-0000-000000000002";
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-resave-owner",
+            userId: originalOwner,
+        });
+
+        await store.saveTranscription({
+            ...record,
+            sessionId: "sess-resave-owner",
+            userId: foreignOwner,
+        });
+
+        const check = await store.findSession("sess-resave-owner");
+        expect(check?.userId).toBe(originalOwner);
     });
 });
