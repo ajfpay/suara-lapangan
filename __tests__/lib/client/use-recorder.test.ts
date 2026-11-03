@@ -519,4 +519,44 @@ describe("useRecorder / recorder logic", () => {
     // Tracks are released on unmount so the microphone is never left live.
     expect(trackStop).toHaveBeenCalledTimes(1);
   });
+
+  it("unmount during in-flight startRecording releases the late-arriving mic stream", async () => {
+    hookSlots = [];
+    hookIndex = 0;
+    capturedEffect = null;
+
+    const trackStop = vi.fn();
+    let resolveMic: (stream: unknown) => void = () => {};
+    const getUserMedia = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMic = resolve as (stream: unknown) => void;
+        })
+    );
+    vi.stubGlobal("indexedDB", createSimpleMockIDB());
+    vi.stubGlobal("navigator", {
+      onLine: true,
+      mediaDevices: { getUserMedia },
+    });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const recorder = useRecorder();
+    // Start, but keep getUserMedia pending: the stream is not assigned yet.
+    const started = recorder.startRecording();
+
+    // Simulate unmount while the mic request is in flight.
+    const effect = capturedEffect as (() => unknown) | null;
+    const cleanup = effect?.() as (() => void) | void;
+    (cleanup as (() => void) | undefined)?.();
+
+    // The mic resolves after unmount: the hook must release it, not leak it.
+    resolveMic({ getTracks: () => [{ stop: trackStop }] });
+    await started;
+    expect(trackStop).toHaveBeenCalledTimes(1);
+  });
 });

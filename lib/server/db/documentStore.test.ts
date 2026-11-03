@@ -167,6 +167,16 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(fetched2!.status).toBe("disetujui");
         expect(fetched2!.nomor).toBe("SL/QTN/2026/0002");
 
+        // Migration 0009 invariant: pre-existing rows get root_id = own id,
+        // not a random uuid from a column default.
+        const roots = await pool.query(
+            "select id, root_id from documents where id in ($1::uuid, $2::uuid)",
+            [legacyId1, legacyId2]
+        );
+        for (const row of roots.rows) {
+            expect(row.root_id).toBe(row.id);
+        }
+
         const foundByIdem1 = await store.findByIdempotencyKey("s-legacy", hash1);
         expect(foundByIdem1?.status).toBe("draf");
 

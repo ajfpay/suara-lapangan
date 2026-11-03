@@ -12,8 +12,8 @@
 
 begin;
 
--- gen_random_uuid() backs the root_id default below.
-create extension if not exists pgcrypto;
+-- gen_random_uuid() backs the id default in 0003; root_id needs no extension.
+-- (Earlier revisions created pgcrypto here; harmless if already present.)
 
 -- 1. Relax nomor not-null constraint
 alter table documents alter column nomor drop not null;
@@ -30,25 +30,25 @@ alter table documents add column if not exists field_changes jsonb not null defa
 
 -- 4. Add versioning columns
 alter table documents add column if not exists version integer not null default 1;
-alter table documents add column if not exists root_id uuid default gen_random_uuid();
+-- No DEFAULT on root_id: a DEFAULT would backfill pre-existing rows with
+-- random uuids (ADD COLUMN ... DEFAULT rewrites existing rows), defeating
+-- the backfill below. New rows are covered by the trigger in §5a.
+alter table documents add column if not exists root_id uuid;
 alter table documents add column if not exists parent_id uuid references documents (id) on delete set null;
 alter table documents add column if not exists superseded_by uuid references documents (id) on delete set null;
 
--- 5. Backfill root_id for existing documents, then enforce NOT NULL.
-update documents set root_id = id where root_id is null;
--- No column DEFAULT: new rows omit root_id and the trigger below fills it
--- with the row's own id (root is its own root). A DEFAULT
--- gen_random_uuid() would fire before the BEFORE INSERT trigger and defeat
--- its WHEN (new.root_id is null) clause, leaving root_id != id.
-alter table documents alter column root_id drop default;
+-- 5. Backfill root_id for pre-existing rows, then enforce NOT NULL.
+-- Unconditional: rows migrated by an earlier revision of this migration may
+-- already carry random uuids from a column default, so `where root_id is
+-- null` alone would leave them orphaned from their own lineage.
+update documents set root_id = id where root_id is null or root_id <> id;
 alter table documents alter column root_id set not null;
 
 -- 5a. New inserts set root_id to their own id (root is its own root). Postgres
--- evaluates column defaults before BEFORE INSERT triggers, so NEW.id is already
--- assigned here; the WHEN clause makes it a no-op for any INSERT that already
--- supplies root_id. This keeps root_id NOT NULL while never firing for the
--- application layer, which omits root_id and lets the default + this trigger
--- fill both.
+-- assigns the id column default before BEFORE INSERT triggers fire, so
+-- NEW.id is already assigned here; the WHEN clause makes it a no-op for any
+-- INSERT that already supplies root_id. The application layer omits root_id
+-- and this trigger fills it — no column DEFAULT involved.
 create or replace function documents_default_root_id() returns trigger
 language plpgsql as $$
 begin

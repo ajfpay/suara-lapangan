@@ -52,6 +52,9 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   // Synchronous in-flight flag: two startRecording calls before the first
   // getUserMedia resolves must share one mic request, not open two streams.
   const startingRef = useRef(false);
+  // Set on unmount: a getUserMedia that resolves after unmount must have its
+  // stream released immediately instead of starting a recording.
+  const unmountedRef = useRef(false);
 
   const refreshPendingCount = useCallback(async () => {
     try {
@@ -84,6 +87,7 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       window.removeEventListener("offline", handleOffline);
       clearInterval(durationTimerRef.current as NodeJS.Timeout);
       clearTimeout(pressTimerRef.current as NodeJS.Timeout);
+      unmountedRef.current = true;
       // Unmount while recording: detach handlers first so the forced stop
       // below cannot fire onstop into an unmounted hook, then stop the
       // recorder and release the mic.
@@ -121,6 +125,12 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       setError(null);
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (unmountedRef.current) {
+        // Unmounted while the mic request was in flight: release the
+        // late-arriving stream immediately; never start a recording.
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       streamRef.current = stream;
 
       const mediaRecorder = new MediaRecorder(stream);
