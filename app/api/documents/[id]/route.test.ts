@@ -1243,20 +1243,32 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
 
     async function seedDocument(
         document: QuotationDocument,
-        options?: { userId?: string | null }
+        options?: {
+            userId?: string | null;
+            version?: number;
+            rootId?: string;
+            parentId?: string | null;
+            supersededBy?: string | null;
+            status?: string;
+        }
     ): Promise<string> {
         const result = await pool.query<{ id: string }>(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id)
-             values ('seed-session', $1, $2, $3, $4, $5, $6) returning id`,
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, user_id, version, root_id, parent_id, superseded_by)
+             values ('seed-session', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning id`,
             [
                 document.locale,
                 document.nomor + "#" + seededIds.length,
-                document.butuh_konfirmasi.length > 0
-                    ? "perlu_konfirmasi"
-                    : "siap",
+                options?.status ??
+                    (document.butuh_konfirmasi.length > 0
+                        ? "perlu_konfirmasi"
+                        : "siap"),
                 "hash-" + seededIds.length,
                 JSON.stringify(document),
                 options?.userId ?? null,
+                options?.version ?? 1,
+                options?.rootId ?? null,
+                options?.parentId ?? null,
+                options?.supersededBy ?? null,
             ]
         );
         const id = result.rows[0].id;
@@ -1455,6 +1467,80 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/documents/[id] route ha
         expect(data).toHaveProperty("status");
         expect(data).toHaveProperty("field_changes");
         expect(Array.isArray(data.field_changes)).toBe(true);
+    });
+
+    it("exposes version lineage fields for a lone root: version=1, root_id=id, superseded_by=null, versions=[self]", async () => {
+        withUser("user", ownerId);
+        const id = await seedDocument(createTestDocument(), { userId: ownerId });
+
+        const res = await GET(new Request(`http://localhost/api/documents/${id}`), {
+            params: Promise.resolve({ id }),
+        });
+        expect(res.status).toBe(200);
+        const data = await res.json();
+        expect(data.version).toBe(1);
+        expect(data.root_id).toBe(id);
+        expect(data.superseded_by).toBeNull();
+        expect(Array.isArray(data.versions)).toBe(true);
+        expect(data.versions).toHaveLength(1);
+        expect(data.versions[0]).toMatchObject({
+            id,
+            version: 1,
+            superseded_by: null,
+        });
+        const row = await pool.query(
+            "select nomor from documents where id = $1::uuid",
+            [id]
+        );
+        expect(data.versions[0].nomor).toBe(row.rows[0].nomor);
+        expect(data.versions[0].status).toBe(data.status);
+    });
+
+    it("reports superseded_by on an approved superseded doc and exposes sibling lineage ordered by version desc", async () => {
+        withUser("user", ownerId);
+        const v1 = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "disetujui",
+        });
+        const v2 = await seedDocument(createTestDocument(), {
+            userId: ownerId,
+            status: "draf",
+            version: 2,
+            rootId: v1,
+            parentId: v1,
+            supersededBy: null,
+        });
+        // v1 is now superseded by v2
+        await pool.query(
+            "update documents set superseded_by = $2::uuid where id = $1::uuid",
+            [v1, v2]
+        );
+
+        const resV1 = await GET(new Request(`http://localhost/api/documents/${v1}`), {
+            params: Promise.resolve({ id: v1 }),
+        });
+        expect(resV1.status).toBe(200);
+        const dataV1 = await resV1.json();
+        expect(dataV1.version).toBe(1);
+        expect(dataV1.root_id).toBe(v1);
+        expect(dataV1.superseded_by).toBe(v2);
+        expect(dataV1.versions.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+        expect(dataV1.versions[0].id).toBe(v2);
+        expect(dataV1.versions[0].superseded_by).toBeNull();
+        expect(dataV1.versions[1].id).toBe(v1);
+        expect(dataV1.versions[1].superseded_by).toBe(v2);
+
+        const resV2 = await GET(new Request(`http://localhost/api/documents/${v2}`), {
+            params: Promise.resolve({ id: v2 }),
+        });
+        expect(resV2.status).toBe(200);
+        const dataV2 = await resV2.json();
+        expect(dataV2.version).toBe(2);
+        expect(dataV2.root_id).toBe(v1);
+        expect(dataV2.superseded_by).toBeNull();
+        expect(dataV2.versions.map((v: { version: number }) => v.version)).toEqual([2, 1]);
+        expect(dataV2.versions[0].id).toBe(v2);
+        expect(dataV2.versions[1].id).toBe(v1);
     });
 });
 

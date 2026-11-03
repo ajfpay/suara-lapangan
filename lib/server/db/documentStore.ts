@@ -139,6 +139,7 @@ export interface DocumentStore {
         options?: { userId?: string }
     ): Promise<CreateVersionResult>;
     listByUser(userId: string): Promise<StoredDocument[]>;
+    listByRootId(rootId: string): Promise<StoredDocument[]>;
     listAll(): Promise<AdminDocument[]>;
 }
 
@@ -670,6 +671,17 @@ export function createPostgresDocumentStore(
                  where user_id = $1
                  order by created_at desc`,
                 [userId]
+            );
+            return result.rows.map(toStored);
+        },
+
+        async listByRootId(rootId: string): Promise<StoredDocument[]> {
+            const result = await pool.query(
+                `select ${DOCUMENT_COLUMNS}
+                 from documents
+                 where root_id = $1::uuid
+                 order by version desc`,
+                [rootId]
             );
             return result.rows.map(toStored);
         },

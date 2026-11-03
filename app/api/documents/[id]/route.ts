@@ -521,6 +521,19 @@ async function handleGet(
         );
     }
 
+    let lineage: StoredDocument[];
+    try {
+        lineage = await getPostgresDocumentStore().listByRootId(stored.rootId);
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
+
     return NextResponse.json(
         {
             document: toResponseDocument({
@@ -532,6 +545,16 @@ async function handleGet(
             field_changes: stored.fieldChanges ?? [],
             sent_to: stored.sentTo ?? null,
             sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,
+            version: stored.version,
+            root_id: stored.rootId,
+            superseded_by: stored.supersededBy ?? null,
+            versions: lineage.map((sibling) => ({
+                id: sibling.id,
+                version: sibling.version,
+                nomor: sibling.nomor,
+                status: sibling.status,
+                superseded_by: sibling.supersededBy ?? null,
+            })),
         },
         { status: 200 }
     );

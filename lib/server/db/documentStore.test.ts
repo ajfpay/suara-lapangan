@@ -644,6 +644,47 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(parentReread?.nomor).toBe(approved.document.nomor);
     });
 
+    describe("listByRootId", () => {
+        it("returns [] for an unknown root", async () => {
+            const rows = await store.listByRootId(
+                "00000000-0000-0000-0000-000000000099"
+            );
+            expect(rows).toEqual([]);
+        });
+
+        it("returns a single-element list containing itself for a lone root", async () => {
+            await seedSession("s-list-single");
+            const created = await store.create(input("s-list-single", doc()));
+            const rows = await store.listByRootId(created.id);
+            expect(rows).toHaveLength(1);
+            expect(rows[0].id).toBe(created.id);
+            expect(rows[0].version).toBe(1);
+            expect(rows[0].rootId).toBe(created.id);
+            expect(rows[0].supersededBy).toBeNull();
+        });
+
+        it("orders siblings by version descending and carries id, version, nomor, status, superseded_by", async () => {
+            await seedSession("s-list-chain");
+            const created = await store.create(input("s-list-chain", doc()));
+            const approved = await store.approve(created.id, "user-1");
+            expect(approved.ok).toBe(true);
+            if (!approved.ok) return;
+            const v2res = await store.createVersion(created.id);
+            expect(v2res.ok).toBe(true);
+            if (!v2res.ok) return;
+
+            const rows = await store.listByRootId(created.id);
+            expect(rows.map((r) => r.version)).toEqual([2, 1]);
+            expect(rows[0].id).toBe(v2res.document.id);
+            expect(rows[0].nomor).toBeNull();
+            expect(rows[0].status).toBe("draf");
+            expect(rows[0].supersededBy).toBeNull();
+            expect(rows[1].id).toBe(created.id);
+            expect(rows[1].nomor).toBe(approved.document.nomor);
+            expect(rows[1].status).toBe("disetujui");
+            expect(rows[1].supersededBy).toBe(v2res.document.id);
+        });
+    });
 
 });
 
