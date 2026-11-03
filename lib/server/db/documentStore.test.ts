@@ -531,6 +531,25 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);
     });
 
+    it("setPdfPath: persists the PDF pointer for a legacy raw-'siap' row", async () => {
+        await seedSession("s-pdf-siap");
+        const created = await store.create(input("s-pdf-siap", doc()));
+        const approved = await store.approve(
+            created.id,
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(approved.ok).toBe(true);
+        // Simulate a legacy row whose stored status is still raw 'siap':
+        // the approve retry path must be able to persist the regenerated PDF.
+        await pool.query("update documents set status = 'siap' where id = $1::uuid", [
+            created.id,
+        ]);
+        await store.setPdfPath(created.id, `${created.id}.pdf`);
+        const fetched = await store.get(created.id);
+        expect(fetched?.status).toBe("disetujui");
+        expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);
+    });
+
     it("createVersion: rejects unapproved draft with invalid_state", async () => {
         await seedSession("s-ver-draft");
         const created = await store.create(input("s-ver-draft", doc()));

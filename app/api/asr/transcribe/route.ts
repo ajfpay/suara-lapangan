@@ -126,7 +126,8 @@ async function handlePost(request: Request): Promise<Response> {
         if (store.claimSessionOwner) {
             const claim = await store.claimSessionOwner(
                 sessionId,
-                authSession.user.id
+                authSession.user.id,
+                admin
             );
             if (claim === "foreign") {
                 return Response.json(
@@ -137,6 +138,18 @@ async function handlePost(request: Request): Promise<Response> {
                         },
                     },
                     { status: 404 }
+                );
+            }
+            if (claim === "orphan") {
+                // Legacy ownerless row — only an admin may adopt it.
+                return Response.json(
+                    {
+                        error: {
+                            code: "forbidden",
+                            message: "Session ownership cannot be proven",
+                        },
+                    },
+                    { status: 403 }
                 );
             }
             if (claim === "claimed") {
@@ -153,17 +166,6 @@ async function handlePost(request: Request): Promise<Response> {
                             },
                         },
                         { status: 404 }
-                    );
-                }
-                if (owned?.userId == null && !admin) {
-                    return Response.json(
-                        {
-                            error: {
-                                code: "forbidden",
-                                message: "Session ownership cannot be proven",
-                            },
-                        },
-                        { status: 403 }
                     );
                 }
             }

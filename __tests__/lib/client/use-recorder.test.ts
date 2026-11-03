@@ -447,6 +447,35 @@ describe("useRecorder / recorder logic", () => {
     await recorder.stopRecording();
   });
 
+  it("re-entry guard: concurrent startRecording calls without awaiting share one getUserMedia", async () => {
+    hookSlots = [];
+    hookIndex = 0;
+    let resolveMic: (stream: unknown) => void = () => {};
+    const getUserMedia = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveMic = resolve as (stream: unknown) => void;
+        })
+    );
+    vi.stubGlobal("navigator", { onLine: true, mediaDevices: { getUserMedia } });
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    vi.stubGlobal("window", {
+      AudioContext: FakeAudioContext,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    const recorder = useRecorder();
+    // Two rapid taps before either resolves: only one mic request may start.
+    const first = recorder.startRecording();
+    const second = recorder.startRecording();
+    resolveMic({ getTracks: () => [{ stop: vi.fn() }] });
+    await first;
+    await second;
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    await recorder.stopRecording();
+  });
+
   it("unmount cleanup nulls onstop and ondataavailable so a forced stop cannot fire into an unmounted hook", async () => {
     hookSlots = [];
     hookIndex = 0;

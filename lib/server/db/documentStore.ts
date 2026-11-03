@@ -532,8 +532,10 @@ export function createPostgresDocumentStore(
 
         async setPdfPath(id, pdfPath) {
             if (!UUID_RE.test(id)) return;
+            // Accept raw legacy 'siap' too: it reads back as 'disetujui' and
+            // the approve retry path must persist the regenerated PDF for it.
             await pool.query(
-                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid and status = 'disetujui'`,
+                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid and status in ('disetujui', 'siap')`,
                 [id, pdfPath]
             );
         },

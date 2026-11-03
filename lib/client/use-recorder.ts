@@ -49,6 +49,9 @@ export function useRecorder(options: UseRecorderOptions = {}) {
   const durationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const pressTriggeredRef = useRef(false);
+  // Synchronous in-flight flag: two startRecording calls before the first
+  // getUserMedia resolves must share one mic request, not open two streams.
+  const startingRef = useRef(false);
 
   const refreshPendingCount = useCallback(async () => {
     try {
@@ -112,6 +115,8 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       return;
     }
     if (status === "recording" || status === "processing") return;
+    if (startingRef.current) return;
+    startingRef.current = true;
     try {
       setError(null);
 
@@ -139,6 +144,8 @@ export function useRecorder(options: UseRecorderOptions = {}) {
       const message = err instanceof Error ? err.message : "Gagal mengakses mikrofon";
       setError(message);
       setStatus("error");
+    } finally {
+      startingRef.current = false;
     }
   }, [status]);
 

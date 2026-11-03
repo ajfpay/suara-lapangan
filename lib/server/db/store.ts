@@ -46,8 +46,9 @@ export interface TurnsStore {
      */
     claimSessionOwner?(
         sessionId: string,
-        userId: string
-    ): Promise<"claimed" | "foreign" | "missing">;
+        userId: string,
+        isAdmin?: boolean
+    ): Promise<"claimed" | "foreign" | "missing" | "orphan">;
 }
 
 export function createPostgresStore(connectionString: string): TurnsStore {
@@ -175,7 +176,18 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             );
         },
 
-        async claimSessionOwner(sessionId, userId) {
+        async claimSessionOwner(sessionId, userId, isAdmin = false) {
+            const existing = await pool.query<{ user_id: string | null }>(
+                "select user_id from sessions where id = $1",
+                [sessionId]
+            );
+            if (existing.rowCount === 0) return "missing";
+            const owner = existing.rows[0].user_id;
+            if (owner != null) return owner === userId ? "claimed" : "foreign";
+            // Ownerless legacy row: only an admin may adopt it. A non-admin
+            // caller must get the same 403 the cache/overwrite paths raise,
+            // never silently become the owner.
+            if (!isAdmin) return "orphan";
             const result = await pool.query<{
                 user_id: string | null;
             }>(
@@ -185,12 +197,12 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 [userId, sessionId]
             );
             if (result.rowCount === 1) return "claimed";
-            const existing = await pool.query<{ user_id: string | null }>(
+            const raced = await pool.query<{ user_id: string | null }>(
                 "select user_id from sessions where id = $1",
                 [sessionId]
             );
-            if (existing.rowCount === 0) return "missing";
-            return existing.rows[0].user_id === userId ? "claimed" : "foreign";
+            if (raced.rowCount === 0) return "missing";
+            return raced.rows[0].user_id === userId ? "claimed" : "foreign";
         },
     };
 }
