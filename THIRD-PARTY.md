@@ -28,6 +28,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `next-intl@4.3.9` | MIT |
 | `nodemailer@10.3.1` | MIT-0 |
 | `pg@8.23.1` | MIT |
+| `puppeteer-core@24.19.0` | Apache-2.0 |
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
 | `tailwind-merge@1.14.0` | MIT |
@@ -43,9 +44,9 @@ here, or listed but no longer installed. Regenerate the table with
 | `eslint@9.18.0` | MIT |
 | `eslint-config-next@15.3.8` | MIT |
 | `jsdom@30.1.3` | MIT |
+| `pdfjs-dist@6.5.438` | Apache-2.0 |
 | `postcss@8.4.31` | MIT |
 | `prettier@3.4.2` | MIT |
-| `puppeteer-core@24.19.0` | Apache-2.0 |
 | `tailwindcss@3.3.5` | MIT |
 | `tailwindcss-animate@1.0.7` | MIT |
 | `typescript@5.2.2` | Apache-2.0 |
