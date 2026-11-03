@@ -106,7 +106,12 @@ describe
         beforeEach(async () => {
             cleanup();
             resetRateLimits();
-            await pool.query("truncate documents, sessions cascade");
+            // document_sequences is truncated too: this suite seeds fixed
+            // numbers without touching the allocator, so leaving a stale
+            // sequence behind would desync it from these rows.
+            await pool.query(
+                "truncate documents, sessions, document_sequences cascade"
+            );
             await pool.query(
                 "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
             );
@@ -122,6 +127,12 @@ describe
         });
 
         afterAll(async () => {
+            // The last test's rows would otherwise survive into the next suite
+            // and into the e2e run, where the allocator would hand out a
+            // number one of them already holds (documents_nomor_uidx).
+            await pool.query(
+                "truncate documents, sessions, document_sequences cascade"
+            );
             await pool.end();
         });
 
