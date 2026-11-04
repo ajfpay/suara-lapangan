@@ -30,7 +30,8 @@ create table if not exists auth_session (
     updated_at      timestamptz not null default now(),
     ip_address      text,
     user_agent      text,
-    user_id         uuid not null references auth_user (id) on delete cascade
+    user_id         uuid not null references auth_user (id) on delete cascade,
+    impersonated_by text
 );
 
 create table if not exists auth_account (

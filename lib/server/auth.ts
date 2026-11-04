@@ -97,6 +97,11 @@ export const auth = betterAuth({
                         banExpires: "ban_expires",
                     },
                 },
+                session: {
+                    fields: {
+                        impersonatedBy: "impersonated_by",
+                    },
+                },
             },
         }),
     ],
