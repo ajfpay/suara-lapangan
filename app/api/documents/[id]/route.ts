@@ -344,7 +344,7 @@ async function handlePatch(
             }
 
             const match = field.match(
-                /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
+                /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian|sumber_kutipan)$/
             )!;
             const idx = parseInt(match[1], 10);
             const subfield = match[2];
@@ -358,6 +358,15 @@ async function handlePatch(
             }
 
             const lineItem = document.pekerjaan[idx];
+
+            if (subfield === "sumber_kutipan") {
+                lineItem.sumber_kutipan = String(nilai).trim();
+                document.butuh_konfirmasi = (
+                    document.butuh_konfirmasi || []
+                ).filter((item) => item.field !== field);
+                return { document, status: "draf" };
+            }
+
             const oldValue = lineItem[subfield as keyof PekerjaanItem];
             let newValue: string | number;
 

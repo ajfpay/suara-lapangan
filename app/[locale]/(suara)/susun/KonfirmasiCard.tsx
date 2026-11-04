@@ -3,7 +3,13 @@
 import React, { useState } from "react";
 import { Volume2 } from "lucide-react";
 
-import { fieldLabel, isNumericField, parseOptions } from "./konfirmasi";
+import {
+    citationOptions,
+    fieldLabel,
+    isCitationField,
+    isNumericField,
+    parseOptions,
+} from "./konfirmasi";
 
 export interface KonfirmasiItem {
     field: string;
@@ -36,7 +42,10 @@ export function KonfirmasiCard({
     documentId,
 }: Props) {
     const isIndo = locale === "id";
-    const options = parseOptions(item.alasan);
+    const isCitation = isCitationField(item.field);
+    const options = isCitation
+        ? citationOptions(item.sumber_kutipan)
+        : parseOptions(item.alasan);
     const numeric = isNumericField(item.field);
     const [manual, setManual] = useState("");
     const [saving, setSaving] = useState(false);

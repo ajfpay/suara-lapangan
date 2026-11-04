@@ -1363,6 +1363,116 @@ describe
             expect(data2.butuh_konfirmasi).toHaveLength(0);
         });
 
+        it("patches pekerjaan[0].sumber_kutipan with 'manual' and with a valid turn_N (200, item removed from butuh_konfirmasi, status draf), and rejects invalid values with 400", async () => {
+            withUser("user", ownerId);
+            const id = await seedDocument(
+                createTestDocument({
+                    pekerjaan: [
+                        {
+                            uraian: "Pemasangan hebel",
+                            volume: 10,
+                            satuan: "m2",
+                            harga_satuan: 50000,
+                            jumlah: 500000,
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                    butuh_konfirmasi: [
+                        {
+                            field: "pekerjaan[0].sumber_kutipan",
+                            alasan: "sumber_kutipan 'turn_99' bukan giliran dari sesi ini",
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                }),
+                { userId: ownerId }
+            );
+
+            // 1. Invalid values rejected with 400
+            const invalidValues = ["invalid", "turn_0", "turn_01", "", 123];
+            for (const badValue of invalidValues) {
+                const badRes = await PATCH(
+                    new Request(`http://localhost/api/documents/${id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            field: "pekerjaan[0].sumber_kutipan",
+                            nilai: badValue,
+                        }),
+                    }),
+                    { params: Promise.resolve({ id }) }
+                );
+                expect(badRes.status).toBe(400);
+                const err = await badRes.json();
+                expect(err.error).toBe("invalid_request");
+            }
+
+            // 2. Valid turn_N (e.g. turn_2): 200, butuh_konfirmasi removed, status draf, no field_changes added
+            const validTurnRes = await PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].sumber_kutipan",
+                        nilai: "turn_2",
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(validTurnRes.status).toBe(200);
+            const validTurnData = await validTurnRes.json();
+            expect(validTurnData.status).toBe("draf");
+            expect(validTurnData.document.pekerjaan[0].sumber_kutipan).toBe(
+                "turn_2"
+            );
+            expect(validTurnData.butuh_konfirmasi).toEqual([]);
+            expect(validTurnData.field_changes).toEqual([]);
+
+            // 3. Re-seed with confirmation item and patch with "manual": 200, item removed, status draf
+            const idManual = await seedDocument(
+                createTestDocument({
+                    pekerjaan: [
+                        {
+                            uraian: "Pemasangan hebel",
+                            volume: 10,
+                            satuan: "m2",
+                            harga_satuan: 50000,
+                            jumlah: 500000,
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                    butuh_konfirmasi: [
+                        {
+                            field: "pekerjaan[0].sumber_kutipan",
+                            alasan: "sumber_kutipan 'turn_99' bukan giliran dari sesi ini",
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                }),
+                { userId: ownerId }
+            );
+
+            const manualRes = await PATCH(
+                new Request(`http://localhost/api/documents/${idManual}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].sumber_kutipan",
+                        nilai: "manual",
+                    }),
+                }),
+                { params: Promise.resolve({ id: idManual }) }
+            );
+            expect(manualRes.status).toBe(200);
+            const manualData = await manualRes.json();
+            expect(manualData.status).toBe("draf");
+            expect(manualData.document.pekerjaan[0].sumber_kutipan).toBe(
+                "manual"
+            );
+            expect(manualData.butuh_konfirmasi).toEqual([]);
+            expect(manualData.field_changes).toEqual([]);
+        });
+
         it("rejects PATCH on locked documents (status disetujui or terkirim) with 409 locked", async () => {
             withUser("user", ownerId);
             const idApproved = await seedDocument(createTestDocument(), {

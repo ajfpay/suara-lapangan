@@ -153,7 +153,7 @@ export const patchScalarBodySchema = z
         }
 
         const match = field.match(
-            /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
+            /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian|sumber_kutipan)$/
         );
         if (match) {
             const subfield = match[2];
@@ -191,6 +191,18 @@ export const patchScalarBodySchema = z
                         code: z.ZodIssueCode.custom,
                         path: ["nilai"],
                         message: `Field '${val.field}' cannot be empty`,
+                    });
+                }
+            } else if (subfield === "sumber_kutipan") {
+                const trimmed = typeof val.nilai === "string" ? val.nilai.trim() : "";
+                const valid =
+                    typeof val.nilai === "string" &&
+                    (trimmed === "manual" || /^turn_[1-9][0-9]*$/.test(trimmed));
+                if (!valid) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ["nilai"],
+                        message: `Field '${val.field}' must be 'manual' or a valid turn identifier (e.g. 'turn_1')`,
                     });
                 }
             }
