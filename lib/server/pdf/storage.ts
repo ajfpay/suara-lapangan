@@ -99,8 +99,7 @@ export function isSafeStoredPdfPath(storedPath: string): boolean {
     const resolved = path.resolve(storageDirFromEnvOrDefault(), storedPath);
     const storageRoot = storageDirFromEnvOrDefault();
     return (
-        resolved === storageRoot ||
-        resolved.startsWith(storageRoot + path.sep)
+        resolved === storageRoot || resolved.startsWith(storageRoot + path.sep)
     );
 }
 

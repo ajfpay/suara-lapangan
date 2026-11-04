@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, canAccessDocument, type AuthSession } from "@/lib/server/auth";
+import {
+    getSession,
+    canAccessDocument,
+    type AuthSession,
+} from "@/lib/server/auth";
 import {
     documentIdSchema,
     formatZodError,
@@ -23,7 +27,6 @@ import {
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
-
 
 async function handleApprove(
     request: Request,

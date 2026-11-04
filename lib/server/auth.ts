@@ -168,7 +168,9 @@ export type AuthSession = {
  * Resolves the session carried by a request's cookies. Answers `null` when the
  * request is unauthenticated, so callers decide the status code.
  */
-export async function getSession(request: Request): Promise<AuthSession | null> {
+export async function getSession(
+    request: Request
+): Promise<AuthSession | null> {
     let session: Awaited<ReturnType<typeof auth.api.getSession>>;
     try {
         session = await auth.api.getSession({ headers: request.headers });

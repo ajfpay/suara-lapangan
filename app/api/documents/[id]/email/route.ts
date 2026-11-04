@@ -44,9 +44,7 @@ async function handlePost(
 ): Promise<Response> {
     const reqLocale = detectRequestLocale(request);
 
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -70,7 +68,9 @@ async function handlePost(
         stored = await store.get(id);
     } catch (cause) {
         console.error(
-            redactSecrets(`[email] document store access failed: ${String(cause)}`)
+            redactSecrets(
+                `[email] document store access failed: ${String(cause)}`
+            )
         );
         return NextResponse.json(
             {
@@ -87,14 +87,13 @@ async function handlePost(
     const ownerUserId = stored?.userId ?? null;
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }
-
-
-
-
 
     let rawBody: unknown;
     try {
@@ -158,7 +157,6 @@ async function handlePost(
             { status: 404 }
         );
     }
-
 
     if (
         stored.status === "perlu_konfirmasi" ||
@@ -290,7 +288,10 @@ async function handlePost(
     }
 
     const docLocale = stored.document.locale === "en" ? "en" : "id";
-    const emailContent = buildDocumentEmail(stored.document.nomor ?? "", docLocale);
+    const emailContent = buildDocumentEmail(
+        stored.document.nomor ?? "",
+        docLocale
+    );
 
     try {
         await sendEmail(smtpConfig, {
@@ -332,7 +333,11 @@ async function handlePost(
 
     const sentAt = new Date();
     try {
-        const result = await store.markSent(id, parsedBody.data.to, contentHash);
+        const result = await store.markSent(
+            id,
+            parsedBody.data.to,
+            contentHash
+        );
         if (!result.ok && result.reason === "not_found") {
             return NextResponse.json(
                 {

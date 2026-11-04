@@ -40,7 +40,10 @@ try {
         await pool.query("begin");
         try {
             await pool.query(await readFile(new URL(file, directory), "utf8"));
-            await pool.query("insert into schema_migrations (version) values ($1)", [file]);
+            await pool.query(
+                "insert into schema_migrations (version) values ($1)",
+                [file]
+            );
             await pool.query("commit");
             console.log(`applied ${file}`);
         } catch (err) {

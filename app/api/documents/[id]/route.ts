@@ -13,7 +13,11 @@ import {
     formatZodError,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, canAccessDocument, type AuthSession } from "@/lib/server/auth";
+import {
+    getSession,
+    canAccessDocument,
+    type AuthSession,
+} from "@/lib/server/auth";
 import type {
     CanonicalUnit,
     PekerjaanItem,
@@ -42,8 +46,6 @@ function remapIndex(i: number, fromIndex: number, toIndex: number): number {
     }
     return i;
 }
-
-
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -74,9 +76,7 @@ async function handlePatch(
         );
     }
 
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -93,7 +93,6 @@ async function handlePatch(
             { status: 401 }
         );
     }
-
 
     const id = parsedId.data;
     const patchBody = parsedBody.data;
@@ -136,7 +135,10 @@ async function handlePatch(
 
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }
@@ -209,9 +211,13 @@ async function handlePatch(
                     document.butuh_konfirmasi = (
                         document.butuh_konfirmasi || []
                     )
-                        .filter((b) => !b.field.startsWith(`pekerjaan[${idx}].`))
+                        .filter(
+                            (b) => !b.field.startsWith(`pekerjaan[${idx}].`)
+                        )
                         .map((b) => {
-                            const match = b.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                            const match = b.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
                             if (match) {
                                 const i = parseInt(match[1], 10);
                                 if (i > idx) {
@@ -226,9 +232,13 @@ async function handlePatch(
 
                     // Drop field_changes for removed line and shift indices > idx down by 1
                     const updatedFieldChanges = (ctx?.fieldChanges || [])
-                        .filter((c) => !c.field.startsWith(`pekerjaan[${idx}].`))
+                        .filter(
+                            (c) => !c.field.startsWith(`pekerjaan[${idx}].`)
+                        )
                         .map((c) => {
-                            const match = c.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                            const match = c.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
                             if (match) {
                                 const i = parseInt(match[1], 10);
                                 if (i > idx) {
@@ -268,7 +278,9 @@ async function handlePatch(
                     document.butuh_konfirmasi = (
                         document.butuh_konfirmasi || []
                     ).map((b) => {
-                        const match = b.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                        const match = b.field.match(
+                            /^pekerjaan\[(\d+)\]\.(.*)$/
+                        );
                         if (match) {
                             const i = parseInt(match[1], 10);
                             const nextI = remapIndex(i, fromIndex, toIndex);
@@ -281,18 +293,22 @@ async function handlePatch(
                     });
 
                     // Remap field_changes indices
-                    const updatedFieldChanges = (ctx?.fieldChanges || []).map((c) => {
-                        const match = c.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
-                        if (match) {
-                            const i = parseInt(match[1], 10);
-                            const nextI = remapIndex(i, fromIndex, toIndex);
-                            return {
-                                ...c,
-                                field: `pekerjaan[${nextI}].${match[2]}`,
-                            };
+                    const updatedFieldChanges = (ctx?.fieldChanges || []).map(
+                        (c) => {
+                            const match = c.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
+                            if (match) {
+                                const i = parseInt(match[1], 10);
+                                const nextI = remapIndex(i, fromIndex, toIndex);
+                                return {
+                                    ...c,
+                                    field: `pekerjaan[${nextI}].${match[2]}`,
+                                };
+                            }
+                            return c;
                         }
-                        return c;
-                    });
+                    );
 
                     recomputeTotals(document);
                     return {
@@ -347,7 +363,9 @@ async function handlePatch(
 
             if (subfield === "volume" || subfield === "harga_satuan") {
                 newValue =
-                    typeof nilai === "number" ? nilai : Number(String(nilai).trim());
+                    typeof nilai === "number"
+                        ? nilai
+                        : Number(String(nilai).trim());
                 lineItem[subfield] = newValue;
             } else if (subfield === "satuan") {
                 newValue = String(nilai).trim() as CanonicalUnit;
@@ -460,9 +478,7 @@ async function handleGet(
     _request: Request,
     context?: RouteContext
 ): Promise<Response> {
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -479,7 +495,6 @@ async function handleGet(
             { status: 401 }
         );
     }
-
 
     const id = parsedId.data;
     let stored: StoredDocument | null;
@@ -507,7 +522,10 @@ async function handleGet(
 
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }

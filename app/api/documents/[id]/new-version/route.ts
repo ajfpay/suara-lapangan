@@ -13,7 +13,6 @@ type RouteContext = {
     params: Promise<{ id: string }>;
 };
 
-
 async function handleNewVersion(
     request: Request,
     context?: RouteContext
