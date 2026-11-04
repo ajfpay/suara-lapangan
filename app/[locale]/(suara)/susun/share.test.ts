@@ -30,10 +30,10 @@ describe("whatsapp share", () => {
         expect(url).not.toMatch(/[ \n]/);
     });
 
-    it("locks share while perlu_konfirmasi (same lock as download)", () => {
-        expect(isShareBlocked("perlu_konfirmasi", 2)).toBe(true);
-        expect(isShareBlocked("siap", 1)).toBe(true);
-        expect(isShareBlocked("siap", 0)).toBe(false);
+    it("locks share while draf or pending items exist (same lock as download)", () => {
+        expect(isShareBlocked("draf", 0)).toBe(true);
+        expect(isShareBlocked("disetujui", 0)).toBe(false);
+        expect(isShareBlocked("disetujui", 1)).toBe(true);
         expect(isShareBlocked(null, 0)).toBe(false);
     });
 });

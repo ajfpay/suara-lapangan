@@ -28,10 +28,10 @@ interface Props {
 export interface PatchResponse {
     document: {
         butuh_konfirmasi?: KonfirmasiItem[];
-        status?: "siap" | "perlu_konfirmasi";
+        status?: "draf" | "disetujui";
     };
     butuh_konfirmasi?: KonfirmasiItem[];
-    status?: "siap" | "perlu_konfirmasi";
+    status?: "draf" | "disetujui";
 }
 
 export function KonfirmasiCard({
