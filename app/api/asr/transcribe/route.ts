@@ -15,7 +15,6 @@ import {
 import { withRateLimit } from "@/lib/server/quota/rate-limit";
 import {
     QuotaExceededError,
-    reconcileQuota,
     releaseQuota,
     reserveQuota,
 } from "@/lib/server/quota/usage-meter";
@@ -28,14 +27,6 @@ import { getTurnsStore } from "@/lib/server/db/store";
  */
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-/** Billed duration of a completed transcription: the last turn's end. */
-function turnsAudioSeconds(turns: Array<{ endMs: number }>): number {
-    let end = 0;
-    for (const turn of turns) {
-        if (turn.endMs > end) end = turn.endMs;
-    }
-    return end / 1000;
-}
 const VALID_MODES = ["ENDPOINTING", "DIARIZATION"] as const;
 
 type Upload = {
@@ -144,6 +135,13 @@ async function handlePost(request: Request): Promise<Response> {
             userId: authSession.user.id,
             estCost: estimatedCost,
         });
+        const deniedResponse = async (body: unknown, status: number) => {
+            await releaseQuota({
+                userId: authSession.user.id,
+                estCost: estimatedCost,
+            });
+            return Response.json(body, { status });
+        };
         // First-writer-wins claim BEFORE any transcription work: the loser
         // never pays for Meta or quota. The claim atomically inserts a
         // placeholder row when none exists (insert-or-claim keyed on
@@ -166,26 +164,26 @@ async function handlePost(request: Request): Promise<Response> {
                 }
             );
             if (claim === "foreign") {
-                return Response.json(
+                return deniedResponse(
                     {
                         error: {
                             code: "not_found",
                             message: "Session not found",
                         },
                     },
-                    { status: 404 }
+                    404
                 );
             }
             if (claim === "orphan") {
                 // Legacy ownerless row — only an admin may adopt it.
-                return Response.json(
+                return deniedResponse(
                     {
                         error: {
                             code: "forbidden",
                             message: "Session ownership cannot be proven",
                         },
                     },
-                    { status: 403 }
+                    403
                 );
             }
             if (claim === "claimed") {
@@ -194,14 +192,14 @@ async function handlePost(request: Request): Promise<Response> {
                     owned?.userId != null &&
                     owned.userId !== authSession.user.id
                 ) {
-                    return Response.json(
+                    return deniedResponse(
                         {
                             error: {
                                 code: "not_found",
                                 message: "Session not found",
                             },
                         },
-                        { status: 404 }
+                        404
                     );
                 }
             }
@@ -226,16 +224,11 @@ async function handlePost(request: Request): Promise<Response> {
             throw error;
         }
         // Success: transcribeSession reconciled its own reservation to the
-        // actual cost, so this route-level reservation is now pure double
-        // count — release it and record the actual duration instead.
+        // actual cost. Release the route-level reservation so it is not
+        // double-counted.
         await releaseQuota({
             userId: authSession.user.id,
             estCost: estimatedCost,
-        });
-        await reconcileQuota({
-            userId: authSession.user.id,
-            reservedCost: 0,
-            actualCost: (turnsAudioSeconds(turns) / 3600) * 0.18,
         });
         await store.setSessionOwner?.(sessionId, authSession.user.id);
 

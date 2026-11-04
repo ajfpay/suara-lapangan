@@ -35,6 +35,7 @@ export function fieldLabel(field: string, locale: string): string {
         harga_satuan: { id: "Harga satuan", en: "Unit price" },
         satuan: { id: "Satuan", en: "Unit" },
         uraian: { id: "Uraian", en: "Description" },
+        sumber_kutipan: { id: "Sumber kutipan", en: "Citation source" },
     };
     const subName =
         subLabel[sub]?.[isIndo ? "id" : "en"] ?? (isIndo ? sub : sub);
@@ -46,4 +47,26 @@ export function fieldLabel(field: string, locale: string): string {
 /** True for numeric subfields that accept a number value. */
 export function isNumericField(field: string): boolean {
     return /pekerjaan\[\d+\]\.(volume|harga_satuan)$/.test(field);
+}
+
+/** True for citation subfields. */
+export function isCitationField(field: string): boolean {
+    return /pekerjaan\[\d+\]\.sumber_kutipan$/.test(field);
+}
+
+export function citationOptions(
+    itemOrSource?: { sumber_kutipan?: string | null } | string | null
+): string[] {
+    const raw =
+        typeof itemOrSource === "object" && itemOrSource !== null
+            ? itemOrSource.sumber_kutipan
+            : itemOrSource;
+    const options = ["manual"];
+    if (typeof raw === "string") {
+        const trimmed = raw.trim();
+        if (trimmed.length > 0 && trimmed !== "manual" && !options.includes(trimmed)) {
+            options.push(trimmed);
+        }
+    }
+    return options;
 }

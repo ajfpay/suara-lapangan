@@ -617,6 +617,39 @@ describe("POST /api/asr/transcribe", () => {
         expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    it("denied callers leave the meter unchanged: every claim denial releases the reservation", async () => {
+        metaAnswers(metaResponse);
+
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("foreign");
+        expect(
+            (await POST(upload({ sessionId: "sess-quota-foreign" }))).status
+        ).toBe(404);
+
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("orphan");
+        expect(
+            (await POST(upload({ sessionId: "sess-quota-orphan" }))).status
+        ).toBe(403);
+
+        storeStub.claimSessionOwner = vi.fn().mockResolvedValue("claimed");
+        storeStub.findSession.mockResolvedValue({
+            sessionId: "sess-quota-race",
+            locale: "id",
+            audioSha256: "x",
+            userId: "other-user",
+            turns: [],
+        });
+        expect(
+            (await POST(upload({ sessionId: "sess-quota-race" }))).status
+        ).toBe(404);
+
+        const usage = await getUsage(
+            undefined,
+            "00000000-0000-0000-0000-000000000001"
+        );
+        expect(usage.estCost).toBe(0);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it("checks quota before claiming: exhausted quota answers 429 without adopting the session", async () => {
         await recordUsage({
             userId: "00000000-0000-0000-0000-000000000001",

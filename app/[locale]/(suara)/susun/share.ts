@@ -24,10 +24,10 @@ export function formatAmountIDR(amount: number): string {
 
 /** True when the share anchor must be locked (same lock as Unduh PDF). */
 export function isShareBlocked(
-    status: "siap" | "perlu_konfirmasi" | null,
+    status: "draf" | "disetujui" | null,
     pendingCount: number
 ): boolean {
-    return status === "perlu_konfirmasi" || pendingCount > 0;
+    return status === "draf" || pendingCount > 0;
 }
 
 export function buildShareSummary(input: ShareSummaryInput): string {

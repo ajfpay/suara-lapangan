@@ -37,11 +37,10 @@ alter table documents add column if not exists root_id uuid;
 alter table documents add column if not exists parent_id uuid references documents (id) on delete set null;
 alter table documents add column if not exists superseded_by uuid references documents (id) on delete set null;
 
--- 5. Backfill root_id for pre-existing rows, then enforce NOT NULL.
--- Unconditional: rows migrated by an earlier revision of this migration may
--- already carry random uuids from a column default, so `where root_id is
--- null` alone would leave them orphaned from their own lineage.
-update documents set root_id = id where root_id is null or root_id <> id;
+-- 5. Backfill root_id for pre-existing rows where root_id is null, then enforce NOT NULL.
+-- Rows created as revisions (version > 1) have root_id set to parent's root_id and
+-- must never be overwritten on subsequent migration runs.
+update documents set root_id = id where root_id is null;
 alter table documents alter column root_id set not null;
 
 -- 5a. New inserts set root_id to their own id (root is its own root). Postgres

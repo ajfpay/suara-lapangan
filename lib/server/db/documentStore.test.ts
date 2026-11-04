@@ -44,9 +44,7 @@ function doc(overrides?: Partial<QuotationDocument>): QuotationDocument {
 function input(
     sessionId: string,
     document: QuotationDocument,
-    turnsHash = turnsHashOf([
-        { startMs: 0, endMs: 500, transcript: "pagar" },
-    ])
+    turnsHash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }])
 ): CreateDocumentInput {
     return { sessionId, locale: document.locale, turnsHash, document };
 }
@@ -59,8 +57,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         pool = new Pool({ connectionString: TEST_DATABASE_URL });
         const migrations = await import("node:fs/promises").then(async (fs) => {
             const dir = "db/migrations";
-            const files = (await fs.readdir(dir)).filter((f) => f.endsWith(".sql")).sort();
-            return Promise.all(files.map((f) => fs.readFile(`${dir}/${f}`, "utf8")));
+            const files = (await fs.readdir(dir))
+                .filter((f) => f.endsWith(".sql"))
+                .sort();
+            return Promise.all(
+                files.map((f) => fs.readFile(`${dir}/${f}`, "utf8"))
+            );
         });
         for (const sql of migrations) {
             await pool.query(sql);
@@ -73,11 +75,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
              on conflict (id) do nothing`
         );
         store = createPostgresDocumentStore(TEST_DATABASE_URL!);
-        await pool.query("truncate documents, sessions, document_sequences cascade");
+        await pool.query(
+            "truncate documents, sessions, document_sequences cascade"
+        );
     });
 
     beforeEach(async () => {
-        await pool.query("truncate documents, sessions, document_sequences cascade");
+        await pool.query(
+            "truncate documents, sessions, document_sequences cascade"
+        );
     });
 
     afterAll(async () => {
@@ -127,7 +133,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                 "s-confirm",
                 doc({
                     butuh_konfirmasi: [
-                        { field: "pekerjaan[0].volume", alasan: "a", sumber_kutipan: null },
+                        {
+                            field: "pekerjaan[0].volume",
+                            alasan: "a",
+                            sumber_kutipan: null,
+                        },
                     ],
                 })
             )
@@ -138,8 +148,12 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("normalizes legacy statuses on read: perlu_konfirmasi -> draf, siap -> disetujui", async () => {
         await seedSession("s-legacy");
-        const hash1 = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 1" }]);
-        const hash2 = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 2" }]);
+        const hash1 = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "legacy 1" },
+        ]);
+        const hash2 = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "legacy 2" },
+        ]);
 
         const res1 = await pool.query(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
@@ -177,53 +191,75 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             expect(row.root_id).toBe(row.id);
         }
 
-        // Regression for the pre-fix revision of migration 0009, which
-        // declared root_id with a random-uuid column DEFAULT and backfilled
-        // only `where root_id is null`: rows migrated by that revision carry
-        // a random root_id and must be repaired when the fixed migration
-        // re-runs. Simulate that state, re-run the migration file, and
-        // assert the row is re-rooted at its own id.
+        // Regression for migration 0009: re-running the migration must preserve
+        // the lineage of revisions (version > 1 where root_id points to parent's root_id)
+        // and must NOT overwrite root_id = id for rows whose root_id is already assigned.
         const migration0009 = await import("node:fs/promises").then((fs) =>
             fs.readFile("db/migrations/0009_review_before_pdf.sql", "utf8")
         );
-        const res3 = await pool.query(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
-             values ('s-legacy', 'id', 'SL/QTN/2026/0003', 'draf', $1, $2)
+        const resRoot = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, version)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0003', 'draf', $1, $2, 1)
              returning id`,
-            [turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 3" }]), JSON.stringify(doc())]
+            [
+                turnsHashOf([
+                    { startMs: 0, endMs: 500, transcript: "legacy 3" },
+                ]),
+                JSON.stringify(doc()),
+            ]
         );
-        const legacyId3 = res3.rows[0].id;
-        await pool.query(
-            "update documents set root_id = gen_random_uuid() where id = $1::uuid",
-            [legacyId3]
+        const rootDocId = resRoot.rows[0].id;
+        const resV2 = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, version, root_id, parent_id)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0003-rev', 'draf', $1, $2, 2, $3, $3)
+             returning id, root_id`,
+            [
+                turnsHashOf([
+                    { startMs: 0, endMs: 500, transcript: "legacy 3 rev" },
+                ]),
+                JSON.stringify(doc()),
+                rootDocId,
+            ]
         );
-        const before = await pool.query(
-            "select root_id from documents where id = $1::uuid",
-            [legacyId3]
-        );
-        expect(before.rows[0].root_id).not.toBe(legacyId3);
-        await pool.query(migration0009);
-        const after = await pool.query(
-            "select id, root_id from documents where id = $1::uuid",
-            [legacyId3]
-        );
-        expect(after.rows[0].root_id).toBe(after.rows[0].id);
+        const v2DocId = resV2.rows[0].id;
+        expect(resV2.rows[0].root_id).toBe(rootDocId);
 
-        const foundByIdem1 = await store.findByIdempotencyKey("s-legacy", hash1);
+        // Re-run migration 0009
+        await pool.query(migration0009);
+
+        const afterV2 = await pool.query(
+            "select id, root_id from documents where id = $1::uuid",
+            [v2DocId]
+        );
+        // root_id must still be rootDocId, NOT reset to v2DocId
+        expect(afterV2.rows[0].root_id).toBe(rootDocId);
+        expect(afterV2.rows[0].root_id).not.toBe(v2DocId);
+
+        const foundByIdem1 = await store.findByIdempotencyKey(
+            "s-legacy",
+            hash1
+        );
         expect(foundByIdem1?.status).toBe("draf");
 
-        const foundByIdem2 = await store.findByIdempotencyKey("s-legacy", hash2);
+        const foundByIdem2 = await store.findByIdempotencyKey(
+            "s-legacy",
+            hash2
+        );
         expect(foundByIdem2?.status).toBe("disetujui");
     });
     it("rejects a session that does not exist with the FK violation code", async () => {
-        await expect(store.create(input("no-such-session", doc()))).rejects.toMatchObject({
+        await expect(
+            store.create(input("no-such-session", doc()))
+        ).rejects.toMatchObject({
             code: "23503",
         });
     });
 
     it("reuses the same document for an identical create on the same day", async () => {
         await seedSession("s-idem");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
 
         const first = await store.create(input("s-idem", doc(), hash));
         const found = await store.findByIdempotencyKey("s-idem", hash);
@@ -234,14 +270,20 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const otherHash = turnsHashOf([
             { startMs: 0, endMs: 900, transcript: "pagar besi" },
         ]);
-        const second = await store.create(input("s-idem", doc({ nomor: "SL/QTN/2026/0002" }), otherHash));
+        const second = await store.create(
+            input("s-idem", doc({ nomor: "SL/QTN/2026/0002" }), otherHash)
+        );
         expect(second.id).not.toBe(first.id);
-        expect(await store.findByIdempotencyKey("s-idem", otherHash))!.toMatchObject({ id: second.id });
+        expect(
+            await store.findByIdempotencyKey("s-idem", otherHash)
+        )!.toMatchObject({ id: second.id });
     });
 
     it("creates a distinct document when the same session+hash repeats the next day", async () => {
         await seedSession("s-nextday");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
         const first = await store.create(input("s-nextday", doc(), hash));
 
         // Backdate the first document out of today so the unique index no longer
@@ -262,7 +304,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("findByIdempotencyKey converges on version 1, never a version child", async () => {
         await seedSession("s-idem-child");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
         const first = await store.create(input("s-idem-child", doc(), hash));
         const approved = await store.approve(
             first.id,
@@ -285,7 +329,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("converges on one document for a second create with the same session, hash, and day", async () => {
         await seedSession("s-unique");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
         const first = await store.create(input("s-unique", doc(), hash));
         // The create path re-checks inside its per-session lock, so a second
         // identical create converges on the first document instead of a 500.
@@ -299,7 +345,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("concurrent identical creates converge on one document", async () => {
         await seedSession("s-race");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
         const results = await Promise.all(
             Array.from({ length: 5 }, () =>
                 store.create(input("s-race", doc(), hash))
@@ -344,7 +392,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                 "s-patch-confirm",
                 doc({
                     butuh_konfirmasi: [
-                        { field: "pekerjaan[0].volume", alasan: "unclear", sumber_kutipan: null },
+                        {
+                            field: "pekerjaan[0].volume",
+                            alasan: "unclear",
+                            sumber_kutipan: null,
+                        },
                     ],
                 })
             )
@@ -360,7 +412,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("legacy siap rows are locked against PATCH", async () => {
         await seedSession("s-legacy-lock");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy lock" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "legacy lock" },
+        ]);
         const res = await pool.query(
             `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
              values ('s-legacy-lock', 'id', 'SL/QTN/2026/0099', 'siap', $1, $2)
@@ -400,8 +454,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     });
 
     it("get and update answer null for unknown or malformed ids", async () => {
-
-        expect(await store.get("00000000-0000-0000-0000-000000000000")).toBeNull();
+        expect(
+            await store.get("00000000-0000-0000-0000-000000000000")
+        ).toBeNull();
         expect(await store.get("not-a-uuid")).toBeNull();
 
         const patched = await store.update(
@@ -412,7 +467,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     });
 
     it("approve: rejects non-existent id with not_found", async () => {
-        const res = await store.approve("00000000-0000-0000-0000-000000000000", "user-1");
+        const res = await store.approve(
+            "00000000-0000-0000-0000-000000000000",
+            "user-1"
+        );
         expect(res).toEqual({ ok: false, reason: "not_found" });
     });
 
@@ -423,7 +481,11 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                 "s-approve-confirm",
                 doc({
                     butuh_konfirmasi: [
-                        { field: "pekerjaan[0].volume", alasan: "unclear", sumber_kutipan: null },
+                        {
+                            field: "pekerjaan[0].volume",
+                            alasan: "unclear",
+                            sumber_kutipan: null,
+                        },
                     ],
                 })
             )
@@ -434,9 +496,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
     it("approve: rejects legacy perlu_konfirmasi row even when butuh_konfirmasi array is empty", async () => {
         await seedSession("s-approve-legacy-confirm");
-        const hash = turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }]);
+        const hash = turnsHashOf([
+            { startMs: 0, endMs: 500, transcript: "pagar" },
+        ]);
         const created = await store.create(
-            input("s-approve-legacy-confirm", doc({ butuh_konfirmasi: [] }), hash)
+            input(
+                "s-approve-legacy-confirm",
+                doc({ butuh_konfirmasi: [] }),
+                hash
+            )
         );
         // Force the raw status to legacy 'perlu_konfirmasi' with an empty
         // butuh_konfirmasi array — the exact shape a pre-review-before-pdf
@@ -453,7 +521,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         await seedSession("s-approve-state");
         const created = await store.create(input("s-approve-state", doc()));
         // Force status to terkirim
-        await pool.query("update documents set status = 'terkirim' where id = $1::uuid", [created.id]);
+        await pool.query(
+            "update documents set status = 'terkirim' where id = $1::uuid",
+            [created.id]
+        );
         const res = await store.approve(created.id, "user-1");
         expect(res).toMatchObject({ ok: false, reason: "invalid_state" });
     });
@@ -464,7 +535,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(created.status).toBe("draf");
         expect(created.nomor).toBeNull();
 
-        const res = await store.approve(created.id, "00000000-0000-0000-0000-000000000001");
+        const res = await store.approve(
+            created.id,
+            "00000000-0000-0000-0000-000000000001"
+        );
         expect(res.ok).toBe(true);
         if (!res.ok) return;
 
@@ -473,7 +547,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(res.document.status).toBe("disetujui");
         expect(res.document.nomor).toBe(expectedNomor);
         expect(res.document.document.nomor).toBe(expectedNomor);
-        expect(res.document.approvedBy).toBe("00000000-0000-0000-0000-000000000001");
+        expect(res.document.approvedBy).toBe(
+            "00000000-0000-0000-0000-000000000001"
+        );
         expect(res.document.approvedAt).toBeInstanceOf(Date);
 
         // Verify directly in DB
@@ -490,7 +566,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(dbRow.rows[0].status).toBe("disetujui");
         expect(dbRow.rows[0].nomor).toBe(expectedNomor);
         expect(dbRow.rows[0].data_json.nomor).toBe(expectedNomor);
-        expect(dbRow.rows[0].approved_by).toBe("00000000-0000-0000-0000-000000000001");
+        expect(dbRow.rows[0].approved_by).toBe(
+            "00000000-0000-0000-0000-000000000001"
+        );
         expect(dbRow.rows[0].approved_at).not.toBeNull();
     });
 
@@ -504,7 +582,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         );
 
         // Approved with approval year 2027
-        const res = await store.approve(created.id, "user-1", { approvalYear: 2027 });
+        const res = await store.approve(created.id, "user-1", {
+            approvalYear: 2027,
+        });
         expect(res.ok).toBe(true);
         if (!res.ok) return;
         expect(res.document.nomor).toBe("SL/QTN/2027/0001");
@@ -545,7 +625,9 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         for (const res of results) {
             expect(res.ok).toBe(true);
         }
-        const nomors = new Set(results.map((r) => (r.ok ? r.document.nomor : null)));
+        const nomors = new Set(
+            results.map((r) => (r.ok ? r.document.nomor : null))
+        );
         expect(nomors.size).toBe(1);
 
         const year = new Date().getUTCFullYear();
@@ -583,9 +665,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(approved.ok).toBe(true);
         // Simulate a legacy row whose stored status is still raw 'siap':
         // the approve retry path must be able to persist the regenerated PDF.
-        await pool.query("update documents set status = 'siap' where id = $1::uuid", [
-            created.id,
-        ]);
+        await pool.query(
+            "update documents set status = 'siap' where id = $1::uuid",
+            [created.id]
+        );
         await store.setPdfPath(created.id, `${created.id}.pdf`);
         const fetched = await store.get(created.id);
         expect(fetched?.status).toBe("disetujui");
@@ -685,14 +768,15 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             expect(rows[1].supersededBy).toBe(v2res.document.id);
         });
     });
-
 });
 
- describe("turnsHashOf", () => {
+describe("turnsHashOf", () => {
     it("separates turns that differ only in timing or text", () => {
         const base = [{ startMs: 0, endMs: 500, transcript: "pagar" }];
         const same = turnsHashOf(base);
-        expect(turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }])).toBe(same);
+        expect(
+            turnsHashOf([{ startMs: 0, endMs: 500, transcript: "pagar" }])
+        ).toBe(same);
         expect(
             turnsHashOf([{ startMs: 0, endMs: 600, transcript: "pagar" }])
         ).not.toBe(same);

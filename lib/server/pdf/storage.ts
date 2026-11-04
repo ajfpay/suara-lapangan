@@ -1,4 +1,5 @@
 import { mkdir, open, rename, unlink, readFile } from "node:fs/promises";
+import puppeteer from "puppeteer-core";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -98,8 +99,7 @@ export function isSafeStoredPdfPath(storedPath: string): boolean {
     const resolved = path.resolve(storageDirFromEnvOrDefault(), storedPath);
     const storageRoot = storageDirFromEnvOrDefault();
     return (
-        resolved === storageRoot ||
-        resolved.startsWith(storageRoot + path.sep)
+        resolved === storageRoot || resolved.startsWith(storageRoot + path.sep)
     );
 }
 
@@ -288,5 +288,24 @@ export async function resetPdfDbPoolForTesting(): Promise<void> {
         dbPool = null;
         dbPoolUrl = null;
         await p.end().catch(() => {});
+    }
+}
+
+/**
+ * Shared PDF rendering using puppeteer-core and the resolved Chromium binary.
+ * Expects complete print-ready HTML (e.g. from renderQuotationHtml).
+ */
+export async function renderPdf(html: string): Promise<Buffer> {
+    const browser = await puppeteer.launch({
+        executablePath: resolveChromiumPath(),
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    try {
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: "load" });
+        const pdf = await page.pdf({ format: "A4", printBackground: true });
+        return Buffer.from(pdf);
+    } finally {
+        await browser.close();
     }
 }

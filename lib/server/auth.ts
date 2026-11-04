@@ -97,6 +97,11 @@ export const auth = betterAuth({
                         banExpires: "ban_expires",
                     },
                 },
+                session: {
+                    fields: {
+                        impersonatedBy: "impersonated_by",
+                    },
+                },
             },
         }),
     ],
@@ -163,7 +168,9 @@ export type AuthSession = {
  * Resolves the session carried by a request's cookies. Answers `null` when the
  * request is unauthenticated, so callers decide the status code.
  */
-export async function getSession(request: Request): Promise<AuthSession | null> {
+export async function getSession(
+    request: Request
+): Promise<AuthSession | null> {
     let session: Awaited<ReturnType<typeof auth.api.getSession>>;
     try {
         session = await auth.api.getSession({ headers: request.headers });
@@ -183,4 +190,17 @@ export async function getSession(request: Request): Promise<AuthSession | null> 
 
 export function isAdmin(session: AuthSession | null): boolean {
     return session?.user.role === "admin";
+}
+
+/**
+ * Document access authorization rule:
+ * - Unowned (legacy) documents are accessible to admins only.
+ * - Owned documents are accessible to their owner and to admins.
+ */
+export function canAccessDocument(
+    session: AuthSession,
+    ownerUserId: string | null
+): boolean {
+    if (ownerUserId === null) return isAdmin(session);
+    return session.user.id === ownerUserId || isAdmin(session);
 }

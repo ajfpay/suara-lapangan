@@ -13,7 +13,12 @@ import {
     formatZodError,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import {
+    getSession,
+    canAccessDocument,
+} from "@/lib/server/auth";
+import type { Turn } from "@/lib/server/asr/turns";
+import { getTurnsStore } from "@/lib/server/db/store";
 import type {
     CanonicalUnit,
     PekerjaanItem,
@@ -42,17 +47,6 @@ function remapIndex(i: number, fromIndex: number, toIndex: number): number {
     }
     return i;
 }
-
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
-
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -83,9 +77,7 @@ async function handlePatch(
         );
     }
 
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -102,7 +94,6 @@ async function handlePatch(
             { status: 401 }
         );
     }
-
 
     const id = parsedId.data;
     const patchBody = parsedBody.data;
@@ -145,7 +136,10 @@ async function handlePatch(
 
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }
@@ -160,6 +154,46 @@ async function handlePatch(
             },
             { status: 409 }
         );
+    }
+
+    // A turn citation must resolve to a final turn of the document's own
+    // session, mirroring the authoritative check in lib/server/guard/rules.ts;
+    // the schema only regex-checks the shape. Without this, resolving a
+    // confirmation strips the butuh_konfirmasi entry even when the cited
+    // turn belongs to another session or does not exist.
+    if (
+        !("op" in patchBody) &&
+        patchBody.field.endsWith(".sumber_kutipan") &&
+        /^turn_[1-9][0-9]*$/.test(String(patchBody.nilai))
+    ) {
+        let citedTurn: Turn | undefined;
+        try {
+            const storedSession = await getTurnsStore().findSession(
+                existing.sessionId
+            );
+            const turnById = new Map<string, Turn>();
+            for (const turn of storedSession?.turns ?? []) {
+                turnById.set(turn.turn_id, turn);
+            }
+            citedTurn = turnById.get(String(patchBody.nilai));
+        } catch {
+            return NextResponse.json(
+                {
+                    error: "store_failure",
+                    message: "Failed to access session database",
+                },
+                { status: 500 }
+            );
+        }
+        if (!citedTurn || citedTurn.final !== true) {
+            return NextResponse.json(
+                {
+                    error: "invalid_request",
+                    message: `sumber_kutipan '${patchBody.nilai}' bukan giliran final dari sesi ini`,
+                },
+                { status: 400 }
+            );
+        }
     }
 
     function recomputeTotals(doc: StoredDocument["document"]): void {
@@ -218,9 +252,13 @@ async function handlePatch(
                     document.butuh_konfirmasi = (
                         document.butuh_konfirmasi || []
                     )
-                        .filter((b) => !b.field.startsWith(`pekerjaan[${idx}].`))
+                        .filter(
+                            (b) => !b.field.startsWith(`pekerjaan[${idx}].`)
+                        )
                         .map((b) => {
-                            const match = b.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                            const match = b.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
                             if (match) {
                                 const i = parseInt(match[1], 10);
                                 if (i > idx) {
@@ -235,9 +273,13 @@ async function handlePatch(
 
                     // Drop field_changes for removed line and shift indices > idx down by 1
                     const updatedFieldChanges = (ctx?.fieldChanges || [])
-                        .filter((c) => !c.field.startsWith(`pekerjaan[${idx}].`))
+                        .filter(
+                            (c) => !c.field.startsWith(`pekerjaan[${idx}].`)
+                        )
                         .map((c) => {
-                            const match = c.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                            const match = c.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
                             if (match) {
                                 const i = parseInt(match[1], 10);
                                 if (i > idx) {
@@ -277,7 +319,9 @@ async function handlePatch(
                     document.butuh_konfirmasi = (
                         document.butuh_konfirmasi || []
                     ).map((b) => {
-                        const match = b.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
+                        const match = b.field.match(
+                            /^pekerjaan\[(\d+)\]\.(.*)$/
+                        );
                         if (match) {
                             const i = parseInt(match[1], 10);
                             const nextI = remapIndex(i, fromIndex, toIndex);
@@ -290,18 +334,22 @@ async function handlePatch(
                     });
 
                     // Remap field_changes indices
-                    const updatedFieldChanges = (ctx?.fieldChanges || []).map((c) => {
-                        const match = c.field.match(/^pekerjaan\[(\d+)\]\.(.*)$/);
-                        if (match) {
-                            const i = parseInt(match[1], 10);
-                            const nextI = remapIndex(i, fromIndex, toIndex);
-                            return {
-                                ...c,
-                                field: `pekerjaan[${nextI}].${match[2]}`,
-                            };
+                    const updatedFieldChanges = (ctx?.fieldChanges || []).map(
+                        (c) => {
+                            const match = c.field.match(
+                                /^pekerjaan\[(\d+)\]\.(.*)$/
+                            );
+                            if (match) {
+                                const i = parseInt(match[1], 10);
+                                const nextI = remapIndex(i, fromIndex, toIndex);
+                                return {
+                                    ...c,
+                                    field: `pekerjaan[${nextI}].${match[2]}`,
+                                };
+                            }
+                            return c;
                         }
-                        return c;
-                    });
+                    );
 
                     recomputeTotals(document);
                     return {
@@ -337,7 +385,7 @@ async function handlePatch(
             }
 
             const match = field.match(
-                /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian)$/
+                /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian|sumber_kutipan)$/
             )!;
             const idx = parseInt(match[1], 10);
             const subfield = match[2];
@@ -351,12 +399,23 @@ async function handlePatch(
             }
 
             const lineItem = document.pekerjaan[idx];
+
+            if (subfield === "sumber_kutipan") {
+                lineItem.sumber_kutipan = String(nilai).trim();
+                document.butuh_konfirmasi = (
+                    document.butuh_konfirmasi || []
+                ).filter((item) => item.field !== field);
+                return { document, status: "draf" };
+            }
+
             const oldValue = lineItem[subfield as keyof PekerjaanItem];
             let newValue: string | number;
 
             if (subfield === "volume" || subfield === "harga_satuan") {
                 newValue =
-                    typeof nilai === "number" ? nilai : Number(String(nilai).trim());
+                    typeof nilai === "number"
+                        ? nilai
+                        : Number(String(nilai).trim());
                 lineItem[subfield] = newValue;
             } else if (subfield === "satuan") {
                 newValue = String(nilai).trim() as CanonicalUnit;
@@ -469,9 +528,7 @@ async function handleGet(
     _request: Request,
     context?: RouteContext
 ): Promise<Response> {
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -488,7 +545,6 @@ async function handleGet(
             { status: 401 }
         );
     }
-
 
     const id = parsedId.data;
     let stored: StoredDocument | null;
@@ -516,7 +572,10 @@ async function handleGet(
 
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }

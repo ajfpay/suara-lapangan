@@ -32,17 +32,8 @@ import {
     EmailQuotaExceededError,
     isRecipientAllowed,
 } from "@/lib/server/quota/email-quota";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument } from "@/lib/server/auth";
 
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
@@ -53,9 +44,7 @@ async function handlePost(
 ): Promise<Response> {
     const reqLocale = detectRequestLocale(request);
 
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
             {
@@ -79,7 +68,9 @@ async function handlePost(
         stored = await store.get(id);
     } catch (cause) {
         console.error(
-            redactSecrets(`[email] document store access failed: ${String(cause)}`)
+            redactSecrets(
+                `[email] document store access failed: ${String(cause)}`
+            )
         );
         return NextResponse.json(
             {
@@ -96,14 +87,13 @@ async function handlePost(
     const ownerUserId = stored?.userId ?? null;
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }
-
-
-
-
 
     let rawBody: unknown;
     try {
@@ -168,7 +158,6 @@ async function handlePost(
         );
     }
 
-
     if (
         stored.status === "perlu_konfirmasi" ||
         stored.document.butuh_konfirmasi.length > 0
@@ -197,6 +186,19 @@ async function handlePost(
                     reqLocale === "en"
                         ? "This document has already been sent. Edit it first to send a new version."
                         : "Dokumen ini sudah terkirim. Ubah dokumen terlebih dahulu untuk mengirim versi baru.",
+            },
+            { status: 409 }
+        );
+    }
+
+    if (stored.status === "draf") {
+        return NextResponse.json(
+            {
+                error: "draft_not_approved",
+                message:
+                    reqLocale === "en"
+                        ? "Document is still a draft. Approve it via POST /api/documents/{id}/approve before sending."
+                        : "Dokumen masih berupa draf. Setujui melalui POST /api/documents/{id}/approve sebelum dapat dikirim.",
             },
             { status: 409 }
         );
@@ -299,7 +301,10 @@ async function handlePost(
     }
 
     const docLocale = stored.document.locale === "en" ? "en" : "id";
-    const emailContent = buildDocumentEmail(stored.document.nomor ?? "", docLocale);
+    const emailContent = buildDocumentEmail(
+        stored.document.nomor ?? "",
+        docLocale
+    );
 
     try {
         await sendEmail(smtpConfig, {
@@ -341,7 +346,11 @@ async function handlePost(
 
     const sentAt = new Date();
     try {
-        const result = await store.markSent(id, parsedBody.data.to, contentHash);
+        const result = await store.markSent(
+            id,
+            parsedBody.data.to,
+            contentHash
+        );
         if (!result.ok && result.reason === "not_found") {
             return NextResponse.json(
                 {

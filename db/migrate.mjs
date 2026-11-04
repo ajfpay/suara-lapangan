@@ -24,9 +24,37 @@ const files = (await readdir(directory))
 const pool = new pg.Pool({ connectionString });
 
 try {
+    await pool.query(`
+        create table if not exists schema_migrations (
+            version text primary key,
+            applied_at timestamptz not null default now()
+        )
+    `);
+    const { rows } = await pool.query("select version from schema_migrations");
+    const applied = new Set(rows.map((r) => r.version));
+
     for (const file of files) {
-        await pool.query(await readFile(new URL(file, directory), "utf8"));
-        console.log(`applied ${file}`);
+        if (applied.has(file)) {
+            continue;
+        }
+        const client = await pool.connect();
+        try {
+            await client.query("begin");
+            await client.query(
+                await readFile(new URL(file, directory), "utf8")
+            );
+            await client.query(
+                "insert into schema_migrations (version) values ($1)",
+                [file]
+            );
+            await client.query("commit");
+            console.log(`applied ${file}`);
+        } catch (err) {
+            await client.query("rollback");
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 } finally {
     await pool.end();

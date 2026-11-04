@@ -25,13 +25,13 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     const [docId, setDocId] = useState<string | null>(null);
     const [nomor, setNomor] = useState<string | null>(null);
     const [items, setItems] = useState<KonfirmasiItem[]>([]);
-    const [status, setStatus] = useState<"siap" | "perlu_konfirmasi" | null>(
+    const [status, setStatus] = useState<"draf" | "disetujui" | null>(
         null
     );
     const [total, setTotal] = useState<number | null>(null);
     const [creating, setCreating] = useState(false);
+    const [approving, setApproving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
     if (!sessionId) return null;
 
     const createDocument = async () => {
@@ -98,7 +98,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
             const resolvedStatus =
                 data.status ??
                 doc.status ??
-                (rawItems.length > 0 ? "perlu_konfirmasi" : "siap");
+                (rawItems.length > 0 ? "draf" : "disetujui");
             setStatus(resolvedStatus);
         } catch (e) {
             const fallback = isIndo
@@ -111,7 +111,9 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
         }
     };
 
-    const blocked = status === "perlu_konfirmasi" || items.length > 0;
+    const hasPending = items.length > 0;
+    const blocked = status === "draf" || hasPending;
+    const canApprove = status === "draf" && !hasPending;
     const shareBlocked = isShareBlocked(status, items.length);
     const shareUrl = buildWhatsAppShareUrl(
         buildShareSummary({
@@ -122,6 +124,116 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
         })
     );
 
+    const handleApprove = async () => {
+        if (!docId || approving || !canApprove) return;
+        setApproving(true);
+        setError(null);
+        try {
+            const res = await fetch(
+                `/api/documents/${encodeURIComponent(docId)}/approve`,
+                {
+                    method: "POST",
+                }
+            );
+
+            if (res.status === 401) {
+                const here = window.location.pathname;
+                window.location.href = `/${locale}/login?callbackUrl=${encodeURIComponent(here)}`;
+                return;
+            }
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                const fallback = isIndo
+                    ? "Gagal menyetujui dokumen"
+                    : "Failed to approve document";
+                let errMsg = fallback;
+                if (data?.error && data?.message) {
+                    errMsg = `${fallback} (${data.error}): ${data.message}`;
+                } else if (data?.error) {
+                    errMsg = `${fallback} (${data.error})`;
+                } else if (data?.message) {
+                    errMsg = `${fallback}: ${data.message}`;
+                }
+                setError(errMsg);
+                return;
+            }
+
+            const data = await res.json();
+            const nextStatus =
+                data.status ?? data.document?.status ?? "disetujui";
+            setStatus(nextStatus);
+            const nextNomor = data.nomor ?? data.document?.nomor ?? null;
+            if (nextNomor) setNomor(nextNomor);
+            setItems([]);
+        } catch (e) {
+            const fallback = isIndo
+                ? "Gagal menyetujui dokumen"
+                : "Failed to approve document";
+            const detail = e instanceof Error ? e.message : String(e);
+            setError(`${fallback}: ${detail}`);
+        } finally {
+            setApproving(false);
+        }
+    };
+
+    const handleUnduh = async () => {
+        if (!docId || blocked) return;
+        setError(null);
+        try {
+            const res = await fetch(`/api/pdf/${encodeURIComponent(docId)}`);
+
+            if (res.status === 401) {
+                const here = window.location.pathname;
+                window.location.href = `/${locale}/login?callbackUrl=${encodeURIComponent(here)}`;
+                return;
+            }
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                const fallback = isIndo
+                    ? "Gagal mengunduh PDF"
+                    : "Failed to download PDF";
+                let errMsg = fallback;
+                if (data?.error && data?.message) {
+                    errMsg = `${fallback} (${data.error}): ${data.message}`;
+                } else if (data?.error) {
+                    errMsg = `${fallback} (${data.error})`;
+                } else if (data?.message) {
+                    errMsg = `${fallback}: ${data.message}`;
+                }
+                setError(errMsg);
+                return;
+            }
+
+            const blob = await res.blob();
+            const disposition = res.headers.get("content-disposition") ?? "";
+            const match = disposition.match(/filename="?([^";]+)"?/i);
+            const fallbackNomor = nomor
+                ? nomor.replaceAll("/", "-")
+                : `dokumen-${docId}`;
+            const filename = match?.[1] ?? `${fallbackNomor}.pdf`;
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const fallback = isIndo
+                ? "Gagal mengunduh PDF"
+                : "Failed to download PDF";
+            const detail = e instanceof Error ? e.message : String(e);
+            setError(`${fallback}: ${detail}`);
+        }
+    };
+
+    const handleKirim = () => {
+        if (blocked) return;
+        window.open(shareUrl, "_blank", "noopener");
+    };
     return (
         <section
             aria-labelledby="konfirmasi-title"
@@ -206,6 +318,23 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                             >
                                 {isIndo ? "Lihat dokumen" : "View document"}
                             </Link>
+                            {status !== "disetujui" && (
+                                <button
+                                    type="button"
+                                    onClick={handleApprove}
+                                    disabled={!canApprove || approving}
+                                    className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                                    data-testid="btn-setujui"
+                                >
+                                    {approving
+                                        ? isIndo
+                                            ? "Menyetujui…"
+                                            : "Approving…"
+                                        : isIndo
+                                          ? "Setujui dokumen"
+                                          : "Approve document"}
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={createDocument}
@@ -244,9 +373,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                                 const serverStatus =
                                     response.status ??
                                     response.document?.status ??
-                                    (serverItems.length > 0
-                                        ? "perlu_konfirmasi"
-                                        : "siap");
+                                    "draf";
                                 setStatus(serverStatus);
                             }}
                         />
@@ -254,6 +381,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                     <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
+                            onClick={handleUnduh}
                             disabled={blocked}
                             title={
                                 blocked
@@ -269,6 +397,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                         </button>
                         <button
                             type="button"
+                            onClick={handleKirim}
                             disabled={blocked}
                             title={
                                 blocked
@@ -316,8 +445,8 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                         >
                             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                             {isIndo
-                                ? `Masih ada ${items.length} field yang perlu dikonfirmasi sebelum dokumen siap.`
-                                : `${items.length} field(s) still need confirmation before the document is ready.`}
+                                ? `Masih ada ${items.length} field yang perlu dikonfirmasi sebelum dokumen disetujui.`
+                                : `${items.length} field(s) still need confirmation before the document is approved.`}
                         </p>
                     )}
                 </>

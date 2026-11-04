@@ -20,6 +20,13 @@ const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
 vi.mock("@/lib/server/auth", () => ({
     getSession: mockGetSession,
     isAdmin: mockIsAdmin,
+    canAccessDocument: (
+        session: { user: { id: string; role?: string } },
+        ownerUserId: string | null
+    ) => {
+        if (ownerUserId === null) return mockIsAdmin(session);
+        return session.user.id === ownerUserId || mockIsAdmin(session);
+    },
 }));
 
 beforeEach(() => {
@@ -45,6 +52,7 @@ function withUser(role: "user" | "admin", userId: string): void {
 }
 
 import { POST } from "./route";
+import { PATCH } from "../route";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 
@@ -252,6 +260,63 @@ describe
             expect(await res.json()).toMatchObject({
                 error: "needs_confirmation",
             });
+        });
+
+        it("after patching the citation, approve returns 200 (no more 409 needs_confirmation when the only pending item was the citation)", async () => {
+            withUser("user", ownerId);
+            const docWithCitation = createTestDocument({
+                butuh_konfirmasi: [
+                    {
+                        field: "pekerjaan[0].sumber_kutipan",
+                        alasan: "sumber_kutipan 'turn_99' bukan giliran dari sesi ini",
+                        sumber_kutipan: "turn_99",
+                    },
+                ],
+            });
+            const id = await seedDocument(docWithCitation, {
+                userId: ownerId,
+            });
+
+            // Pre-condition: approve returns 409 needs_confirmation
+            const preApprove = await POST(
+                new Request(`http://localhost/api/documents/${id}/approve`, {
+                    method: "POST",
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(preApprove.status).toBe(409);
+            expect(await preApprove.json()).toMatchObject({
+                error: "needs_confirmation",
+            });
+
+            // Patch citation to "manual"
+            const patchRes = await PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].sumber_kutipan",
+                        nilai: "manual",
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(patchRes.status).toBe(200);
+            const patchData = await patchRes.json();
+            expect(patchData.status).toBe("draf");
+            expect(patchData.butuh_konfirmasi).toEqual([]);
+
+            // Post-condition: approve succeeds with 200
+            const approveRes = await POST(
+                new Request(`http://localhost/api/documents/${id}/approve`, {
+                    method: "POST",
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(approveRes.status).toBe(200);
+            const approveData = await approveRes.json();
+            expect(approveData.status).toBe("disetujui");
+            expect(approveData.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
         });
 
         it("returns 409 invalid_state when document status is not draf (e.g. terkirim)", async () => {

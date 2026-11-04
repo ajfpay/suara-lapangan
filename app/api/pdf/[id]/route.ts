@@ -6,29 +6,27 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import {
-    resolveChromiumPath,
+    renderPdf,
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
     readPdfSnapshot,
     isSafeStoredPdfPath,
 } from "@/lib/server/pdf/storage";
-import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
+import {
+    documentIdSchema,
+    formatZodError,
+} from "@/lib/server/validation/document";
 import { getPdfDbPool, pdfCache } from "@/lib/server/pdf/storage";
 import { redactSecrets } from "@/lib/server/asr/log";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import {
+    getSession,
+    canAccessDocument,
+} from "@/lib/server/auth";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
-
-function canAccessDocument(session: AuthSession, ownerUserId: string | null): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
-
 
 async function getDocumentPdfPath(id: string): Promise<string | null> {
     const pool = getPdfDbPool();
@@ -40,7 +38,10 @@ async function getDocumentPdfPath(id: string): Promise<string | null> {
 }
 
 // Stored pdf_path is relative to PDF_STORAGE_DIR (e.g. '2026/0001.pdf') for portability.
-async function setDocumentPdfPath(id: string, relativePath: string): Promise<void> {
+async function setDocumentPdfPath(
+    id: string,
+    relativePath: string
+): Promise<void> {
     const pool = getPdfDbPool();
     await pool.query(
         "UPDATE documents SET pdf_path = $2, updated_at = now() WHERE id = $1",
@@ -52,32 +53,17 @@ function hashDoc(doc: unknown): string {
     return createHash("sha256").update(JSON.stringify(doc)).digest("hex");
 }
 
-async function renderPdf(html: string): Promise<Buffer> {
-    const puppeteer = (await import("puppeteer-core")).default;
-    const browser = await puppeteer.launch({
-        executablePath: resolveChromiumPath(),
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "load" });
-        const pdf = await page.pdf({ format: "A4", printBackground: true });
-        return Buffer.from(pdf);
-    } finally {
-        await browser.close();
-    }
-}
-
 async function handleGet(
     _request: Request,
     context?: RouteContext
 ): Promise<Response> {
-    const parsedId = documentIdSchema.safeParse(
-        (await context?.params)?.id
-    );
+    const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
-            { error: "invalid_request", message: formatZodError(parsedId.error) },
+            {
+                error: "invalid_request",
+                message: formatZodError(parsedId.error),
+            },
             { status: 400 }
         );
     }
@@ -127,7 +113,10 @@ async function handleGet(
     }
     if (!canAccessDocument(session, ownerUserId)) {
         return NextResponse.json(
-            { error: "forbidden", message: "You do not have access to this document" },
+            {
+                error: "forbidden",
+                message: "You do not have access to this document",
+            },
             { status: 403 }
         );
     }
