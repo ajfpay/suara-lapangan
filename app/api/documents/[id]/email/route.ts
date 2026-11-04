@@ -191,6 +191,19 @@ async function handlePost(
         );
     }
 
+    if (stored.status === "draf") {
+        return NextResponse.json(
+            {
+                error: "draft_not_approved",
+                message:
+                    reqLocale === "en"
+                        ? "Document is still a draft. Approve it via POST /api/documents/{id}/approve before sending."
+                        : "Dokumen masih berupa draf. Setujui melalui POST /api/documents/{id}/approve sebelum dapat dikirim.",
+            },
+            { status: 409 }
+        );
+    }
+
     // Reserve a quota slot only after the document exists and passes the
     // status checks, so a 404/409/500 does not consume a daily slot.
     let reservation: Awaited<ReturnType<typeof reserveEmailSend>> | null = null;

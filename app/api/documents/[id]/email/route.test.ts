@@ -319,6 +319,37 @@ describe
             expect(body.error).toBe("needs_confirmation");
         });
 
+        it("draft document → 409 draft_not_approved and no email is sent", async () => {
+            const doc = createTestDocument({
+                nomor: "SL/QTN/2026/0011",
+                locale: "id",
+            });
+            const { id } = await seedDocument(doc);
+            await seedPdfFile(id, doc);
+            await pool.query(
+                `update documents set status = 'draf' where id = $1::uuid`,
+                [id]
+            );
+
+            const req = new Request(
+                `http://localhost/api/documents/${id}/email`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ to: "recipient@example.com" }),
+                }
+            );
+
+            const res = await POST(req, {
+                params: Promise.resolve({ id }),
+            });
+
+            expect(res.status).toBe(409);
+            const body = await res.json();
+            expect(body.error).toBe("draft_not_approved");
+            expect(sendMailMock).not.toHaveBeenCalled();
+        });
+
         it("unknown uuid → 404", async () => {
             const id = "00000000-0000-0000-0000-000000000099";
             const req = new Request(
