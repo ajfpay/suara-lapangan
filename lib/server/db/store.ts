@@ -188,10 +188,12 @@ export function createPostgresStore(connectionString: string): TurnsStore {
             isAdmin = false,
             create?: { locale: string; audioSha256: string; audioBytes: number }
         ) {
-            const existing = await pool.query<{ user_id: string | null }>(
-                "select user_id from sessions where id = $1",
-                [sessionId]
-            );
+            const existing = await pool.query<{
+                user_id: string | null;
+                audio_sha256: string;
+            }>("select user_id, audio_sha256 from sessions where id = $1", [
+                sessionId,
+            ]);
             if (existing.rowCount === 0) {
                 // No row yet: atomically insert a placeholder owned by the
                 // caller so two simultaneous first uploads converge. The
@@ -219,7 +221,18 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 return "foreign";
             }
             const owner = existing.rows[0].user_id;
-            if (owner != null) return owner === userId ? "claimed" : "foreign";
+            if (owner != null) {
+                // A same-user row that is still the sentinel placeholder
+                // must count as foreign: our own insert did not land in this
+                // call, so another caller owns the claim and only it
+                // proceeds. An already-transcribed row (audio_sha256 set) is
+                // a genuine re-upload and legitimately cache-hits as
+                // 'claimed'.
+                if (owner !== userId) return "foreign";
+                return existing.rows[0].audio_sha256 !== ""
+                    ? "claimed"
+                    : "foreign";
+            }
             // Ownerless legacy row: only an admin may adopt it. A non-admin
             // caller must get the same 403 the cache/overwrite paths raise,
             // never silently become the owner.
