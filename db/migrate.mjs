@@ -37,18 +37,23 @@ try {
         if (applied.has(file)) {
             continue;
         }
-        await pool.query("begin");
+        const client = await pool.connect();
         try {
-            await pool.query(await readFile(new URL(file, directory), "utf8"));
-            await pool.query(
+            await client.query("begin");
+            await client.query(
+                await readFile(new URL(file, directory), "utf8")
+            );
+            await client.query(
                 "insert into schema_migrations (version) values ($1)",
                 [file]
             );
-            await pool.query("commit");
+            await client.query("commit");
             console.log(`applied ${file}`);
         } catch (err) {
-            await pool.query("rollback");
+            await client.query("rollback");
             throw err;
+        } finally {
+            client.release();
         }
     }
 } finally {
