@@ -345,6 +345,40 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres turns store", () => {
         expect(row?.userId).toBe(user);
     });
 
+    it("a second first-upload whose SELECT lands after the winner's insert sees the sentinel placeholder and is foreign", async () => {
+        const store = createPostgresStore(TEST_DATABASE_URL!);
+        const user = "00000000-0000-0000-0000-0000000000a1";
+        await pool.query(
+            "insert into auth_user (id, email, email_verified, name, role) values ($1, 'race-pinned@suara-lapangan.local', true, 'Race', 'user') on conflict (id) do nothing",
+            [user]
+        );
+        const create = {
+            locale: "id",
+            audioSha256: "race-pinned-sha",
+            audioBytes: 16000,
+        } as const;
+
+        // Caller A completes its whole claim — SELECT misses, INSERT commits
+        // — before caller B even starts. This is the interleaving the random
+        // race above only sometimes produces, and the one where B's SELECT
+        // finds the committed row: without the sentinel check B re-reads its
+        // own user id and also proceeds to a paid transcription.
+        const a = await store.claimSessionOwner!(
+            "sess-claim-race-pinned",
+            user,
+            false,
+            create
+        );
+        expect(a).toBe("claimed");
+        const b = await store.claimSessionOwner!(
+            "sess-claim-race-pinned",
+            user,
+            false,
+            create
+        );
+        expect(b).toBe("foreign");
+    });
+
     it("a claimed placeholder never satisfies the cache: its audio hash is a sentinel, not the upload's", async () => {
         const store = createPostgresStore(TEST_DATABASE_URL!);
         const user = "00000000-0000-0000-0000-0000000000a1";
