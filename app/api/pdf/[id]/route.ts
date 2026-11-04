@@ -22,7 +22,6 @@ import { redactSecrets } from "@/lib/server/asr/log";
 import {
     getSession,
     canAccessDocument,
-    type AuthSession,
 } from "@/lib/server/auth";
 
 type RouteContext = {

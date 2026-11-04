@@ -4,7 +4,6 @@ import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import {
     getSession,
     canAccessDocument,
-    type AuthSession,
 } from "@/lib/server/auth";
 import {
     documentIdSchema,
