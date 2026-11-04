@@ -8,6 +8,7 @@ import StepScreen from "./layout/StepScreen";
 import StepLink from "./layout/StepLink";
 import WorkList from "./layout/WorkList";
 import Faq from "./layout/Faq";
+import HideOnLanding from "./layout/HideOnLanding";
 
 /* =========================
    * Reusables
@@ -22,5 +23,6 @@ export {
     StepLink,
     WorkList,
     Faq,
+    HideOnLanding,
     LocaleSwitcher,
 };

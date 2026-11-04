@@ -18,19 +18,28 @@ const STEPS = [
 ] as const;
 
 test.describe("suara lapangan shell", () => {
-    test("the default locale lands on step 1 of 3", async ({ page }) => {
+    test("the default locale opens the public landing page", async ({ page }) => {
         const problems: string[] = [];
         collectProblems(page, problems);
 
         await page.goto("/");
 
-        await expect(page).toHaveURL(/\/en\/rekam$/);
+        await expect(page).toHaveURL(/\/en$/);
         await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-            "Rekam"
+            "From spoken work to a clear client quotation."
         );
-        await expect(page.getByText("Step 1 of 3")).toBeVisible();
+        await expect(page.getByText("Step 1 of 3")).toHaveCount(0);
+        await expect(page.getByRole("link", { name: "Create an account" }).first()).toBeVisible();
 
         expect(problems, `page problems:\n${problems.join("\n")}`).toEqual([]);
+    });
+
+    test("the public landing page fits a phone viewport", async ({ page }) => {
+        await page.goto("/id");
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+            "Dari catatan suara menjadi penawaran yang rapi."
+        );
+        await expectNoOverflow(page, "public landing page");
     });
 
     test("every step has its own address and renders without problems", async ({
@@ -91,7 +100,7 @@ test.describe("suara lapangan shell", () => {
     });
 
     test("the locale survives moving between steps", async ({ page }) => {
-        await page.goto("/id");
+        await page.goto("/id/rekam");
 
         await expect(page.getByRole("heading", { level: 1 })).toHaveText(
             "Rekam"
