@@ -38,7 +38,7 @@ export function getSmtpConfig(): SmtpConfig | null {
     // When not using implicit TLS, the connection must still upgrade via
     // STARTTLS (requireTLS) rather than falling back to plaintext. Set
     // SMTP_REQUIRE_TLS=false only for local test relays that do not support
-    // STARTTLS (e.g. Mailpit).
+    // STARTTLS; real relays such as Gmail upgrade by default.
     const requireTls =
         process.env.SMTP_REQUIRE_TLS === "false" ||
         process.env.SMTP_REQUIRE_TLS === "0"
