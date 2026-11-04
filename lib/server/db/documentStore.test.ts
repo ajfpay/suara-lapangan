@@ -177,37 +177,38 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             expect(row.root_id).toBe(row.id);
         }
 
-        // Regression for the pre-fix revision of migration 0009, which
-        // declared root_id with a random-uuid column DEFAULT and backfilled
-        // only `where root_id is null`: rows migrated by that revision carry
-        // a random root_id and must be repaired when the fixed migration
-        // re-runs. Simulate that state, re-run the migration file, and
-        // assert the row is re-rooted at its own id.
+        // Regression for migration 0009: re-running the migration must preserve
+        // the lineage of revisions (version > 1 where root_id points to parent's root_id)
+        // and must NOT overwrite root_id = id for rows whose root_id is already assigned.
         const migration0009 = await import("node:fs/promises").then((fs) =>
             fs.readFile("db/migrations/0009_review_before_pdf.sql", "utf8")
         );
-        const res3 = await pool.query(
-            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json)
-             values ('s-legacy', 'id', 'SL/QTN/2026/0003', 'draf', $1, $2)
+        const resRoot = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, version)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0003', 'draf', $1, $2, 1)
              returning id`,
             [turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 3" }]), JSON.stringify(doc())]
         );
-        const legacyId3 = res3.rows[0].id;
-        await pool.query(
-            "update documents set root_id = gen_random_uuid() where id = $1::uuid",
-            [legacyId3]
+        const rootDocId = resRoot.rows[0].id;
+        const resV2 = await pool.query(
+            `insert into documents (session_id, locale, nomor, status, turns_hash, data_json, version, root_id, parent_id)
+             values ('s-legacy', 'id', 'SL/QTN/2026/0003-rev', 'draf', $1, $2, 2, $3, $3)
+             returning id, root_id`,
+            [turnsHashOf([{ startMs: 0, endMs: 500, transcript: "legacy 3 rev" }]), JSON.stringify(doc()), rootDocId]
         );
-        const before = await pool.query(
-            "select root_id from documents where id = $1::uuid",
-            [legacyId3]
-        );
-        expect(before.rows[0].root_id).not.toBe(legacyId3);
+        const v2DocId = resV2.rows[0].id;
+        expect(resV2.rows[0].root_id).toBe(rootDocId);
+
+        // Re-run migration 0009
         await pool.query(migration0009);
-        const after = await pool.query(
+
+        const afterV2 = await pool.query(
             "select id, root_id from documents where id = $1::uuid",
-            [legacyId3]
+            [v2DocId]
         );
-        expect(after.rows[0].root_id).toBe(after.rows[0].id);
+        // root_id must still be rootDocId, NOT reset to v2DocId
+        expect(afterV2.rows[0].root_id).toBe(rootDocId);
+        expect(afterV2.rows[0].root_id).not.toBe(v2DocId);
 
         const foundByIdem1 = await store.findByIdempotencyKey("s-legacy", hash1);
         expect(foundByIdem1?.status).toBe("draf");
