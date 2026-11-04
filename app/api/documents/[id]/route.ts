@@ -13,7 +13,7 @@ import {
     formatZodError,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument, type AuthSession } from "@/lib/server/auth";
 import type {
     CanonicalUnit,
     PekerjaanItem,
@@ -43,15 +43,6 @@ function remapIndex(i: number, fromIndex: number, toIndex: number): number {
     return i;
 }
 
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
 
 
 type RouteContext = {

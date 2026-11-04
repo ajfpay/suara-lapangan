@@ -20,6 +20,10 @@ const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
 vi.mock("@/lib/server/auth", () => ({
     getSession: mockGetSession,
     isAdmin: mockIsAdmin,
+    canAccessDocument: (session: { user: { id: string; role?: string } }, ownerUserId: string | null) => {
+        if (ownerUserId === null) return mockIsAdmin(session);
+        return session.user.id === ownerUserId || mockIsAdmin(session);
+    },
 }));
 
 beforeEach(() => {

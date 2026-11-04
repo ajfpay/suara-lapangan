@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import {
-    resolveChromiumPath,
+    renderPdf,
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
@@ -16,18 +16,12 @@ import {
 import { documentIdSchema, formatZodError } from "@/lib/server/validation/document";
 import { getPdfDbPool, pdfCache } from "@/lib/server/pdf/storage";
 import { redactSecrets } from "@/lib/server/asr/log";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument, type AuthSession } from "@/lib/server/auth";
 
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
 
-function canAccessDocument(session: AuthSession, ownerUserId: string | null): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
 
 
 async function getDocumentPdfPath(id: string): Promise<string | null> {
@@ -52,21 +46,6 @@ function hashDoc(doc: unknown): string {
     return createHash("sha256").update(JSON.stringify(doc)).digest("hex");
 }
 
-async function renderPdf(html: string): Promise<Buffer> {
-    const puppeteer = (await import("puppeteer-core")).default;
-    const browser = await puppeteer.launch({
-        executablePath: resolveChromiumPath(),
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    try {
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "load" });
-        const pdf = await page.pdf({ format: "A4", printBackground: true });
-        return Buffer.from(pdf);
-    } finally {
-        await browser.close();
-    }
-}
 
 async function handleGet(
     _request: Request,

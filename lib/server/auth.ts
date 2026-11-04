@@ -184,3 +184,16 @@ export async function getSession(request: Request): Promise<AuthSession | null> 
 export function isAdmin(session: AuthSession | null): boolean {
     return session?.user.role === "admin";
 }
+
+/**
+ * Document access authorization rule:
+ * - Unowned (legacy) documents are accessible to admins only.
+ * - Owned documents are accessible to their owner and to admins.
+ */
+export function canAccessDocument(
+    session: AuthSession,
+    ownerUserId: string | null
+): boolean {
+    if (ownerUserId === null) return isAdmin(session);
+    return session.user.id === ownerUserId || isAdmin(session);
+}

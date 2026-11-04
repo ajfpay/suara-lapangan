@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
-import puppeteer from "puppeteer-core";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument, type AuthSession } from "@/lib/server/auth";
 import {
     documentIdSchema,
     formatZodError,
@@ -15,7 +14,7 @@ import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import {
-    resolveChromiumPath,
+    renderPdf,
     resolvePdfStorageDir,
     relativePdfPathFor,
     writePdfAtomic,
@@ -25,32 +24,6 @@ type RouteContext = {
     params: Promise<{ id: string }>;
 };
 
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    if (ownerUserId === null) return isAdmin(session);
-    return session.user.id === ownerUserId || isAdmin(session);
-}
-
-function shell(html: string): string {
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}table{page-break-inside:auto}tr{page-break-inside:avoid}</style></head><body>${html}</body></html>`;
-}
-
-async function renderPdf(html: string): Promise<Buffer> {
-    const browser = await puppeteer.launch({
-        executablePath: resolveChromiumPath(),
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-    try {
-        const page = await browser.newPage();
-        await page.setContent(shell(html), { waitUntil: "load" });
-        const pdf = await page.pdf({ format: "A4", printBackground: true });
-        return Buffer.from(pdf);
-    } finally {
-        await browser.close();
-    }
-}
 
 async function handleApprove(
     request: Request,

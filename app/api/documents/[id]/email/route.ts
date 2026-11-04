@@ -32,17 +32,8 @@ import {
     EmailQuotaExceededError,
     isRecipientAllowed,
 } from "@/lib/server/quota/email-quota";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument } from "@/lib/server/auth";
 
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    // Legacy ownerless documents are visible to admins only.
-    if (ownerUserId === null) return isAdmin(session);
-    // Owned documents are visible to the owner and to admins.
-    return session.user.id === ownerUserId || isAdmin(session);
-}
 type RouteContext = {
     params: Promise<{ id: string }>;
 };

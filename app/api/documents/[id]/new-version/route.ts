@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import { getSession, isAdmin, type AuthSession } from "@/lib/server/auth";
+import { getSession, canAccessDocument } from "@/lib/server/auth";
 import {
     documentIdSchema,
     formatZodError,
@@ -13,13 +13,6 @@ type RouteContext = {
     params: Promise<{ id: string }>;
 };
 
-function canAccessDocument(
-    session: AuthSession,
-    ownerUserId: string | null
-): boolean {
-    if (ownerUserId === null) return isAdmin(session);
-    return session.user.id === ownerUserId || isAdmin(session);
-}
 
 async function handleNewVersion(
     request: Request,
