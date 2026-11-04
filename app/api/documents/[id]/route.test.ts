@@ -1387,6 +1387,11 @@ describe
                 }),
                 { userId: ownerId }
             );
+            await pool.query(
+                `insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final, speaker)
+             values ('seed-session', 1, 0, 300, 'Pemasangan hebel 10 m2', true, null),
+                    ('seed-session', 2, 300, 700, 'Plester aci 5 m2', true, null)`
+            );
 
             // 1. Invalid values rejected with 400
             const invalidValues = ["invalid", "turn_0", "turn_01", "", 123];
@@ -1471,6 +1476,98 @@ describe
             );
             expect(manualData.butuh_konfirmasi).toEqual([]);
             expect(manualData.field_changes).toEqual([]);
+        });
+
+        it("rejects a turn citation that does not exist in the document's session with 400 and keeps the confirmation item", async () => {
+            withUser("user", ownerId);
+            const id = await seedDocument(
+                createTestDocument({
+                    pekerjaan: [
+                        {
+                            uraian: "Pemasangan hebel",
+                            volume: 10,
+                            satuan: "m2",
+                            harga_satuan: 50000,
+                            jumlah: 500000,
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                    butuh_konfirmasi: [
+                        {
+                            field: "pekerjaan[0].sumber_kutipan",
+                            alasan: "sumber_kutipan 'turn_99' bukan giliran dari sesi ini",
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                }),
+                { userId: ownerId }
+            );
+
+            const res = await PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].sumber_kutipan",
+                        nilai: "turn_2",
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(res.status).toBe(400);
+            const err = await res.json();
+            expect(err.error).toBe("invalid_request");
+
+            const after = await readDocument(id);
+            expect(after?.butuh_konfirmasi).toHaveLength(1);
+        });
+
+        it("rejects a turn citation that only resolves in another session with 400", async () => {
+            withUser("user", ownerId);
+            await pool.query(
+                "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('foreign-session', 'id', 'sha2', 1, '') on conflict (id) do nothing"
+            );
+            await pool.query(
+                `insert into turns (session_id, turn_index, start_ms, end_ms, transcript, final, speaker)
+             values ('foreign-session', 3, 0, 300, 'Pekerjaan di sesi lain', true, null)`
+            );
+            const id = await seedDocument(
+                createTestDocument({
+                    pekerjaan: [
+                        {
+                            uraian: "Pemasangan hebel",
+                            volume: 10,
+                            satuan: "m2",
+                            harga_satuan: 50000,
+                            jumlah: 500000,
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                    butuh_konfirmasi: [
+                        {
+                            field: "pekerjaan[0].sumber_kutipan",
+                            alasan: "sumber_kutipan 'turn_99' bukan giliran dari sesi ini",
+                            sumber_kutipan: "turn_99",
+                        },
+                    ],
+                }),
+                { userId: ownerId }
+            );
+
+            const res = await PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        field: "pekerjaan[0].sumber_kutipan",
+                        nilai: "turn_3",
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(res.status).toBe(400);
+            const err = await res.json();
+            expect(err.error).toBe("invalid_request");
         });
 
         it("rejects PATCH on locked documents (status disetujui or terkirim) with 409 locked", async () => {

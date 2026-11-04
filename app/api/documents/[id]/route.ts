@@ -17,6 +17,8 @@ import {
     getSession,
     canAccessDocument,
 } from "@/lib/server/auth";
+import type { Turn } from "@/lib/server/asr/turns";
+import { getTurnsStore } from "@/lib/server/db/store";
 import type {
     CanonicalUnit,
     PekerjaanItem,
@@ -152,6 +154,46 @@ async function handlePatch(
             },
             { status: 409 }
         );
+    }
+
+    // A turn citation must resolve to a final turn of the document's own
+    // session, mirroring the authoritative check in lib/server/guard/rules.ts;
+    // the schema only regex-checks the shape. Without this, resolving a
+    // confirmation strips the butuh_konfirmasi entry even when the cited
+    // turn belongs to another session or does not exist.
+    if (
+        !("op" in patchBody) &&
+        patchBody.field.endsWith(".sumber_kutipan") &&
+        /^turn_[1-9][0-9]*$/.test(String(patchBody.nilai))
+    ) {
+        let citedTurn: Turn | undefined;
+        try {
+            const storedSession = await getTurnsStore().findSession(
+                existing.sessionId
+            );
+            const turnById = new Map<string, Turn>();
+            for (const turn of storedSession?.turns ?? []) {
+                turnById.set(turn.turn_id, turn);
+            }
+            citedTurn = turnById.get(String(patchBody.nilai));
+        } catch {
+            return NextResponse.json(
+                {
+                    error: "store_failure",
+                    message: "Failed to access session database",
+                },
+                { status: 500 }
+            );
+        }
+        if (!citedTurn || citedTurn.final !== true) {
+            return NextResponse.json(
+                {
+                    error: "invalid_request",
+                    message: `sumber_kutipan '${patchBody.nilai}' bukan giliran final dari sesi ini`,
+                },
+                { status: 400 }
+            );
+        }
     }
 
     function recomputeTotals(doc: StoredDocument["document"]): void {
