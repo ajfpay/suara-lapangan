@@ -135,6 +135,13 @@ async function handlePost(request: Request): Promise<Response> {
             userId: authSession.user.id,
             estCost: estimatedCost,
         });
+        const deniedResponse = async (body: unknown, status: number) => {
+            await releaseQuota({
+                userId: authSession.user.id,
+                estCost: estimatedCost,
+            });
+            return Response.json(body, { status });
+        };
         // First-writer-wins claim BEFORE any transcription work: the loser
         // never pays for Meta or quota. The claim atomically inserts a
         // placeholder row when none exists (insert-or-claim keyed on
@@ -157,26 +164,26 @@ async function handlePost(request: Request): Promise<Response> {
                 }
             );
             if (claim === "foreign") {
-                return Response.json(
+                return deniedResponse(
                     {
                         error: {
                             code: "not_found",
                             message: "Session not found",
                         },
                     },
-                    { status: 404 }
+                    404
                 );
             }
             if (claim === "orphan") {
                 // Legacy ownerless row — only an admin may adopt it.
-                return Response.json(
+                return deniedResponse(
                     {
                         error: {
                             code: "forbidden",
                             message: "Session ownership cannot be proven",
                         },
                     },
-                    { status: 403 }
+                    403
                 );
             }
             if (claim === "claimed") {
@@ -185,14 +192,14 @@ async function handlePost(request: Request): Promise<Response> {
                     owned?.userId != null &&
                     owned.userId !== authSession.user.id
                 ) {
-                    return Response.json(
+                    return deniedResponse(
                         {
                             error: {
                                 code: "not_found",
                                 message: "Session not found",
                             },
                         },
-                        { status: 404 }
+                        404
                     );
                 }
             }
