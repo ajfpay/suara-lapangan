@@ -518,7 +518,7 @@ describe("KonfirmasiPanel", () => {
 
         fetchMock.mockImplementation(async (url: string) => {
             if (url.startsWith("/api/pdf/")) {
-                return new Response(new Blob(["pdf data"], { type: "application/pdf" }), {
+                return new Response("pdf data", {
                     status: 200,
                     headers: {
                         "Content-Type": "application/pdf",
