@@ -163,6 +163,8 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
             const nextStatus =
                 data.status ?? data.document?.status ?? "disetujui";
             setStatus(nextStatus);
+            const nextNomor = data.nomor ?? data.document?.nomor ?? null;
+            if (nextNomor) setNomor(nextNomor);
             setItems([]);
         } catch (e) {
             const fallback = isIndo

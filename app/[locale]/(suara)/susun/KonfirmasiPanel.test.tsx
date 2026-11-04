@@ -508,6 +508,77 @@ describe("KonfirmasiPanel", () => {
         expect(screen.queryByTestId("btn-setujui")).toBeNull();
     });
 
+    it("approve: allocates nomor from the approve response; share text uses the number instead of the id", async () => {
+        const mockDraftDoc = {
+            id: "doc-uuid-nomor-alloc",
+            nomor: null,
+            status: "draf",
+            total_nominal: 640000,
+        };
+        const allocatedNomor = "SL/QTN/2026/0123";
+
+        fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+            if (init?.method === "POST" && url.endsWith("/approve")) {
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () => ({
+                        document: {
+                            ...mockDraftDoc,
+                            nomor: allocatedNomor,
+                            status: "disetujui",
+                        },
+                        status: "disetujui",
+                        butuh_konfirmasi: [],
+                    }),
+                };
+            }
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    document: mockDraftDoc,
+                    butuh_konfirmasi: [],
+                    status: "draf",
+                }),
+            };
+        });
+
+        const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+        render(
+            <KonfirmasiPanel
+                locale="id"
+                sessionId="sess-nomor-alloc-test"
+                onPlayEvidence={vi.fn()}
+            />
+        );
+
+        fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
+
+        // Draft: no number allocated yet, share falls back to the id
+        await waitFor(() => {
+            expect(screen.getByTestId("document-status").textContent).toContain("draf");
+        });
+        expect(screen.getByTestId("document-nomor").textContent).not.toContain(allocatedNomor);
+
+        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        fireEvent.click(btnSetujui);
+
+        await waitFor(() => {
+            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+        });
+        expect(screen.getByTestId("document-nomor").textContent).toContain(allocatedNomor);
+
+        const btnKirim = screen.getByTestId("btn-kirim") as HTMLButtonElement;
+        expect(btnKirim.disabled).toBe(false);
+        fireEvent.click(btnKirim);
+
+        const shareUrl = decodeURIComponent(openSpy.mock.calls[0]?.[0] as string);
+        expect(shareUrl).toContain(allocatedNomor);
+        expect(shareUrl).not.toContain("doc-uuid-nomor-alloc");
+    });
+
     it("download: approved document enables Unduh button; clicking triggers GET /api/pdf/{id} and download anchor", async () => {
         const mockApprovedDoc = {
             id: "doc-uuid-download-flow",
