@@ -14,7 +14,7 @@ export default async function LandingPage() {
     return (
         <main id="main" className="flex-1 overflow-hidden">
             <section className="container grid gap-10 pb-16 pt-10 sm:pb-20 sm:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-14 lg:pb-24 lg:pt-20">
-                <div className="relative z-10 max-w-2xl">
+                <div className="relative z-10 min-w-0 max-w-2xl">
                     <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
                         <span className="h-1.5 w-1.5 rounded-full bg-primary" />{t("eyebrow")}
                     </p>
@@ -33,9 +33,15 @@ export default async function LandingPage() {
                     <p className="mt-4 text-xs leading-5 text-muted-foreground">{t("hero.note")}</p>
                 </div>
 
-                <div className="relative mx-auto w-full max-w-[680px] lg:mr-0">
-                    <div aria-hidden="true" className="absolute -inset-3 -rotate-2 rounded-[2rem] bg-primary/10 sm:-inset-5 sm:rounded-[2.5rem]" />
-                    <div aria-hidden="true" className="absolute -right-8 top-8 h-28 w-28 rounded-full border-[18px] border-primary/15 sm:-right-12 sm:top-12 sm:h-40 sm:w-40 sm:border-[24px]" />
+                <div className="relative mx-auto w-full min-w-0 max-w-[680px] lg:mr-0">
+                    {/* Decorative tilted backdrop: on phones it must stay inside the viewport
+                        (mobile `main` has no overflow clip), so it hugs the card at -inset-1;
+                        sm+ restores the wide -inset-5 bleed. */}
+                    <div aria-hidden="true" className="absolute -inset-1 -rotate-2 rounded-[2rem] bg-primary/10 sm:-inset-5 sm:rounded-[2.5rem]" />
+                    {/* Decorative, aria-hidden ring. On phones it stays inside the card's
+                        box: hanging it off the right edge pushes page width past the
+                        viewport, and the mobile `main` has no overflow to clip it into. */}
+                    <div aria-hidden="true" className="absolute right-2 top-8 h-28 w-28 rounded-full border-[18px] border-primary/15 sm:-right-12 sm:right-auto sm:top-12 sm:h-40 sm:w-40 sm:border-[24px]" />
                     <div className="relative overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-[0_22px_70px_-28px_rgba(24,35,48,0.35)] sm:rounded-[1.5rem]">
                         <div className="flex h-11 items-center gap-2 border-b border-border bg-white/80 px-4 sm:h-12 sm:px-5">
                             <span className="h-2.5 w-2.5 rounded-full bg-primary/35" /><span className="h-2.5 w-2.5 rounded-full bg-foreground/15" /><span className="h-2.5 w-2.5 rounded-full bg-foreground/15" />
@@ -62,7 +68,13 @@ export default async function LandingPage() {
                                 <div className="mt-5 rounded-xl bg-background p-3.5 sm:p-4">
                                     <div className="flex items-center gap-3">
                                         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"><Mic2 className="h-4 w-4" /></span>
-                                        <div className="min-w-0 flex-1"><p className="text-xs font-semibold">{t("demo.recording")}</p><div className="mt-2 flex h-4 items-center gap-1" aria-hidden="true">{[8, 13, 7, 16, 10, 18, 8, 14, 6, 17, 9, 13, 7, 18, 10, 15, 6, 12, 17, 9, 14, 7, 16, 10, 13, 6, 18, 8, 12, 16, 7, 13, 9, 17, 6, 12, 15, 8].map((height, i) => <span key={i} className="w-1 rounded-full bg-primary/65" style={{ height }} />)}</div></div>
+                                        <div className="min-w-0 flex-1"><p className="text-xs font-semibold">{t("demo.recording")}</p>{/*
+                                            The waveform is decorative (aria-hidden row below), but its
+                                            bars must not impose a fixed min-content width: 39 fixed-width
+                                            bars inflate every grid item's automatic minimum and push the
+                                            card past a phone viewport. Sizing each bar as a minmax(0,1fr)
+                                            track lets the waveform compress with the row instead.
+                                        */}<div className="mt-2 grid h-4 grid-cols-[repeat(39,minmax(0,1fr))] items-center gap-1" aria-hidden="true">{[8, 13, 7, 16, 10, 18, 8, 14, 6, 17, 9, 13, 7, 18, 10, 15, 6, 12, 17, 9, 14, 7, 16, 10, 13, 6, 18, 8, 12, 16, 7, 13, 9, 17, 6, 12, 15, 8].map((height, i) => <span key={i} className="rounded-full bg-primary/65" style={{ height }} />)}</div></div>
                                     </div>
                                 </div>
                                 <div className="mt-5">
@@ -105,7 +117,9 @@ export default async function LandingPage() {
 
             <section className="container pb-16 pt-16 sm:pb-20 sm:pt-20">
                 <div className="relative overflow-hidden rounded-3xl bg-primary px-6 py-10 text-primary-foreground sm:px-10 sm:py-14 lg:px-14">
-                    <div aria-hidden="true" className="absolute -right-12 -top-24 h-64 w-64 rounded-full border-[34px] border-white/10 sm:-right-6 sm:h-80 sm:w-80" />
+                    {/* Decorative ring: pulled fully inside on phones (mobile `main` has no
+                        overflow clip), restored to its sm+ bleed further down. */}
+                    <div aria-hidden="true" className="absolute right-0 top-4 h-40 w-40 rounded-full border-[24px] border-white/10 sm:-right-6 sm:top-[-6rem] sm:h-80 sm:w-80" />
                     <div className="relative max-w-2xl"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">{t("closing.eyebrow")}</p><h2 className="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">{t("closing.title")}</h2><p className="mt-3 max-w-xl text-sm leading-6 text-white/80 sm:text-base">{t("closing.body")}</p><Link href="/register" className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-card px-6 text-sm font-semibold text-foreground transition-transform hover:-translate-y-0.5 active:translate-y-0">{t("closing.cta")}<ArrowRight aria-hidden="true" className="h-4 w-4" /></Link></div>
                 </div>
             </section>
