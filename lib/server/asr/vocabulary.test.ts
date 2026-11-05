@@ -1,6 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { buildKeywords, KEYWORDS, LANGUAGE_BIAS } from "./vocabulary";
+import quotationSchema from "@/contracts/quotation.schema.json";
+import { SPOKEN_UNITS } from "@/lib/server/guard/words";
+
+import {
+    buildKeywords,
+    KEYWORDS,
+    LANGUAGE_BIAS,
+    SCHEMA_UNIT_TERMS,
+} from "./vocabulary";
 
 describe("vocabulary biasing", () => {
     it("always includes both English and Indonesian in LANGUAGE_BIAS", () => {
@@ -94,5 +105,53 @@ describe("vocabulary biasing", () => {
         expect(keywordsEn).toContain("Alice Walker");
         expect(keywordsEn).toContain("Alice");
         expect(keywordsEn).toContain("Walker");
+    });
+
+    it("derives the unit vocabulary from the shipped quotation schema", () => {
+        const units =
+            quotationSchema.properties.pekerjaan.items.properties.satuan.enum;
+        const spokenForms = SPOKEN_UNITS as unknown as Record<
+            string,
+            readonly string[]
+        >;
+
+        expect(units.length).toBeGreaterThan(0);
+        expect(SCHEMA_UNIT_TERMS).toHaveLength(
+            units.reduce((total, unit) => total + spokenForms[unit].length, 0)
+        );
+
+        const keywords = buildKeywords("id").map((kw) => kw.toLowerCase());
+        for (const unit of units) {
+            expect(spokenForms[unit], `no spoken forms for ${unit}`).toBeDefined();
+            expect(
+                spokenForms[unit].some((form) =>
+                    keywords.includes(form.toLowerCase())
+                ),
+                `satuan ${unit} is not biased`
+            ).toBe(true);
+        }
+    });
+
+    it("biases materials and field terms from the quotation seed corpus", () => {
+        const fixture = JSON.parse(
+            readFileSync(
+                join(
+                    process.cwd(),
+                    "fixtures",
+                    "transcripts",
+                    "id-02-semen-plester.json"
+                ),
+                "utf8"
+            )
+        );
+        const uraian: string = fixture.expected_document.pekerjaan[0].uraian;
+        const material = uraian
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .find((word) => word.length >= 4 && !KEYWORDS.id.includes(word));
+
+        expect(material).toBeDefined();
+        expect(buildKeywords("id")).toContain(material);
+        expect(buildKeywords("en")).toContain("drywall");
     });
 });
