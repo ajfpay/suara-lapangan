@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
-import type { SmtpConfig } from "./config";
+import type { EmailConfig, SmtpConfig } from "./config";
 import { redactSecrets } from "@/lib/server/asr/log";
 
 export type EmailAttachment = {
@@ -15,6 +15,26 @@ export type SendEmailOptions = {
     text: string;
     attachments: EmailAttachment[];
 };
+
+/**
+ * Gmail API error carrying the API's own error code and status. The route
+ * logs it verbatim (redacted) so the exact code survives to the report.
+ */
+export class GmailApiError extends Error {
+    readonly apiStatus: number;
+    readonly apiErrorCode: string | number | undefined;
+
+    constructor(
+        message: string,
+        apiStatus: number,
+        apiErrorCode?: string | number
+    ) {
+        super(message);
+        this.name = "GmailApiError";
+        this.apiStatus = apiStatus;
+        this.apiErrorCode = apiErrorCode;
+    }
+}
 
 export function createEmailTransport(config: SmtpConfig): Transporter {
     return nodemailer.createTransport({
@@ -32,6 +52,138 @@ export function createEmailTransport(config: SmtpConfig): Transporter {
             pass: config.pass,
         },
     });
+}
+
+// --- Gmail API (send-only) ---
+
+const GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GMAIL_SEND_URL =
+    "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media";
+
+type CachedToken = { accessToken: string; expiresAtMs: number };
+
+// Module-scope cache of the access token minted from the refresh token. A
+// per-request refresh would waste quota; expiry keeps it bounded.
+let gmailTokenCache: CachedToken | null = null;
+
+async function getGmailAccessToken(config: {
+    clientId: string;
+    clientSecret: string;
+    refreshToken: string;
+}): Promise<string> {
+    const now = Date.now();
+    if (gmailTokenCache && gmailTokenCache.expiresAtMs > now + 60_000) {
+        return gmailTokenCache.accessToken;
+    }
+
+    const body = new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        refresh_token: config.refreshToken,
+        grant_type: "refresh_token",
+    });
+    const res = await fetch(GMAIL_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+    });
+    if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new GmailApiError(
+            `Gmail token refresh failed: HTTP ${res.status}${detail ? `: ${detail}` : ""}`,
+            res.status
+        );
+    }
+    const json = (await res.json()) as {
+        access_token?: string;
+        expires_in?: number;
+    };
+    if (!json.access_token) {
+        throw new GmailApiError(
+            "Gmail token refresh response has no access_token",
+            res.status
+        );
+    }
+    gmailTokenCache = {
+        accessToken: json.access_token,
+        expiresAtMs: now + (json.expires_in ?? 3600) * 1000,
+    };
+    return gmailTokenCache.accessToken;
+}
+
+/**
+ * Builds the RFC 822 message (text body + attachments) with nodemailer's
+ * stream transport, which composes MIME without any SMTP connection. Only
+ * used for the Gmail path; base64url of the result is the `raw` payload.
+ */
+export function buildMimeMessage(
+    from: string | null,
+    options: SendEmailOptions
+): Promise<Buffer> {
+    const composer = nodemailer.createTransport({
+        streamTransport: true,
+        buffer: true,
+        newline: "unix",
+    });
+    const mail = {
+        // from: null omits the header; Gmail API then fills it in with the
+        // authenticated account (the only address this client may send as).
+        ...(from ? { from } : {}),
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        attachments: options.attachments,
+    };
+    return new Promise<Buffer>((resolve, reject) => {
+        composer.sendMail(mail, (err, info) => {
+            if (err) return reject(err);
+            const message = (
+                info as unknown as { message: Buffer | NodeJS.ReadableStream }
+            ).message;
+            // buffer: true makes nodemailer hand back the composed message
+            // as a Buffer; keep the stream branch for older shapes.
+            if (Buffer.isBuffer(message)) {
+                resolve(message);
+                return;
+            }
+            const chunks: Buffer[] = [];
+            message.on("data", (chunk: Buffer) => chunks.push(chunk));
+            message.on("end", () => resolve(Buffer.concat(chunks)));
+            message.on("error", reject);
+        });
+    });
+}
+
+export async function sendViaGmailApi(
+    config: Extract<EmailConfig, { kind: "gmail" }>,
+    options: SendEmailOptions
+): Promise<void> {
+    const accessToken = await getGmailAccessToken(config);
+    const raw = await buildMimeMessage(config.from, options);
+    const res = await fetch(GMAIL_SEND_URL, {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "message/rfc822",
+        },
+        body: raw,
+    });
+    if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        let errorCode: string | number | undefined;
+        try {
+            errorCode = (
+                JSON.parse(detail) as { error?: { code?: string | number } }
+            ).error?.code;
+        } catch {
+            // non-JSON body: keep the raw text in the message instead
+        }
+        throw new GmailApiError(
+            `Gmail send failed: HTTP ${res.status}${detail ? `: ${detail}` : ""}`,
+            res.status,
+            errorCode
+        );
+    }
 }
 
 export function buildDocumentEmail(
@@ -57,11 +209,15 @@ export function buildDocumentEmail(
 }
 
 export async function sendEmail(
-    config: SmtpConfig,
+    config: EmailConfig,
     options: SendEmailOptions
 ): Promise<void> {
-    const transporter = createEmailTransport(config);
     try {
+        if (config.kind === "gmail") {
+            await sendViaGmailApi(config, options);
+            return;
+        }
+        const transporter = createEmailTransport(config);
         await transporter.sendMail({
             from: config.from,
             to: options.to,
