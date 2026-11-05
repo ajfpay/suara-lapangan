@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { getSmtpConfig } from "./config";
+import { getGmailConfig, getEmailConfig, getSmtpConfig } from "./config";
 
 const ENV_KEYS = [
     "SMTP_HOST",
@@ -10,6 +10,10 @@ const ENV_KEYS = [
     "SMTP_FROM",
     "SMTP_SECURE",
     "SMTP_REQUIRE_TLS",
+    "GMAIL_CLIENT_ID",
+    "GMAIL_CLIENT_SECRET",
+    "GMAIL_REFRESH_TOKEN",
+    "GMAIL_FROM",
 ] as const;
 
 function saveEnv(): Record<(typeof ENV_KEYS)[number], string | undefined> {
@@ -20,7 +24,9 @@ function saveEnv(): Record<(typeof ENV_KEYS)[number], string | undefined> {
     return saved;
 }
 
-function restoreEnv(saved: Record<(typeof ENV_KEYS)[number], string | undefined>): void {
+function restoreEnv(
+    saved: Record<(typeof ENV_KEYS)[number], string | undefined>
+): void {
     for (const key of ENV_KEYS) {
         const value = saved[key];
         if (value === undefined) {
@@ -117,5 +123,71 @@ describe("getSmtpConfig", () => {
         const config = getSmtpConfig();
         expect(config!.secure).toBe(false);
         expect(config!.requireTls).toBe(false);
+    });
+});
+
+describe("getGmailConfig", () => {
+    let saved: ReturnType<typeof saveEnv>;
+
+    beforeEach(() => {
+        saved = saveEnv();
+    });
+
+    afterEach(() => {
+        restoreEnv(saved);
+    });
+
+    function setGmailBaseEnv(): void {
+        process.env.GMAIL_CLIENT_ID = "test-client-id";
+        process.env.GMAIL_CLIENT_SECRET = "test-gmail-client-secret";
+        process.env.GMAIL_REFRESH_TOKEN = "test-refresh-token";
+        process.env.GMAIL_FROM = "noreply@suara-lapangan-test.local";
+    }
+
+    it("returns null when any required variable is missing", () => {
+        expect(getGmailConfig()).toBeNull();
+
+        setGmailBaseEnv();
+        delete process.env.GMAIL_CLIENT_SECRET;
+        expect(getGmailConfig()).toBeNull();
+
+        setGmailBaseEnv();
+        delete process.env.GMAIL_REFRESH_TOKEN;
+        expect(getGmailConfig()).toBeNull();
+    });
+
+    it("treats GMAIL_FROM as optional (null -> omit From header)", () => {
+        setGmailBaseEnv();
+        delete process.env.GMAIL_FROM;
+        const config = getGmailConfig();
+        expect(config).not.toBeNull();
+        expect(config!.from).toBeNull();
+    });
+
+    it("returns null for blank values", () => {
+        setGmailBaseEnv();
+        process.env.GMAIL_REFRESH_TOKEN = "   ";
+        expect(getGmailConfig()).toBeNull();
+    });
+
+    it("returns the config when all variables are set", () => {
+        setGmailBaseEnv();
+        const config = getGmailConfig();
+        expect(config).not.toBeNull();
+        expect(config!.kind).toBe("gmail");
+        expect(config!.from).toBe("noreply@suara-lapangan-test.local");
+    });
+
+    it("getEmailConfig prefers Gmail when both are configured", () => {
+        setGmailBaseEnv();
+        setBaseEnv();
+
+        expect(getEmailConfig()?.kind).toBe("gmail");
+    });
+
+    it("getEmailConfig falls back to SMTP when Gmail is unset", () => {
+        setBaseEnv();
+
+        expect(getEmailConfig()?.kind).toBe("smtp");
     });
 });
