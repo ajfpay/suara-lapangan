@@ -66,6 +66,13 @@ separate key from an untracked file: `.env.local`, mode 600, excluded by
 README. Akeyless held one Meta/Muse candidate path; no other Akeyless path was
 used, and the local key is a separate credential, not the Akeyless value.
 
+The key currently active in `.env.local` is the v2 candidate, copied from
+`credential-musev2.md` in `/home/ubuntu/repos/collisium/.credential/` (the
+directory is sometimes spelled `consilium`): it returns HTTP 200 on real
+`muse-voice-transcribe-1.0` calls with a 20 s, 16 kHz mono WAV sample and the
+app's 50 keywords, and the app's own `POST /api/asr/transcribe` returns turns
+from it.
+
 ### Vocabulary biasing
 
 The official [speech-to-text documentation](https://dev.meta.ai/docs/speech-to-text)
@@ -85,7 +92,8 @@ endpoint returned 200 and transcribed with and without vocabulary biasing. The
 biased runs consistently resolved the unit phrase while the unbiased runs
 produced unrelated words. Run-to-run variance, dropped leading words and the
 absence of a ground-truth transcript mean no accuracy claim can be made. It is
-not evidence of improved accuracy.
+a reproducible change in output, not a verified accuracy gain; no ground truth
+was checked.
 
 ## The three steps
 
