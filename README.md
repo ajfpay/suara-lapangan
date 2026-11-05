@@ -9,6 +9,12 @@ This repository is at the skeleton stage: the three screens exist and are
 navigable, the two locales work, and the recording, transcription, number
 checking and PDF work arrives in the tickets that follow.
 
+## Live demo
+
+Judges can open the app at [https://suara-lapangan.ajfbyte.com](https://suara-lapangan.ajfbyte.com) — log in with
+`judge-demo@suara-lapangan.test` and the password in `/home/ubuntu/repos/.amp/in/artifacts/omp-part2/demo-password.txt`.
+Transcription goes through the Meta API, so it needs the installed `MODEL_API_KEY` (v2 credential, working).
+
 ## Hackathon provenance
 
 This section records which parts of the repository existed before the
