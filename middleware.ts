@@ -29,9 +29,25 @@ export default async function middleware(request: NextRequest) {
             const localeMatch = pathname.match(/^\/(en|id)(?:\/|$)/);
             const locale = localeMatch ? localeMatch[1] : routing.defaultLocale;
             const callbackUrl = encodeURIComponent(pathname + search);
+            // Derive the public origin from inbound headers rather than
+            // request.url. The app runs behind a reverse proxy/tunnel, and
+            // under `next start` Next synthesizes request.url from its bind
+            // hostname ("localhost") rather than the client-facing origin.
+            const forwardedProto = request.headers
+                .get("x-forwarded-proto")
+                ?.split(",")[0]
+                ?.trim()
+                ?.replace(/:$/, "");
+            const scheme =
+                forwardedProto ||
+                request.nextUrl.protocol.replace(/:$/, "") ||
+                "https";
+            const host =
+                request.headers.get("host")?.trim() || request.nextUrl.host;
+
             const loginUrl = new URL(
                 `/${locale}/login?callbackUrl=${callbackUrl}`,
-                request.url
+                `${scheme}://${host}`
             );
             return NextResponse.redirect(loginUrl);
         }
