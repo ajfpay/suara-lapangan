@@ -4,17 +4,31 @@ import { languageAlternates, stepPath, STEPS } from "@/lib/seo";
 import { BASE_URL, LOCALES } from "@/lib/variables";
 
 /**
- * One entry per step per locale, each carrying the full hreflang set.
+ * Public landing page plus the three steps per locale, each carrying the full hreflang set.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
     const lastModified = new Date();
 
-    return LOCALES.flatMap(({ code }) =>
-        STEPS.map(({ path }) => ({
+    return LOCALES.flatMap(({ code }) => [
+        {
+            url: `${BASE_URL}${stepPath(code, "/")}`,
+            lastModified,
+            changeFrequency: "monthly" as const,
+            priority: 1,
+            alternates: {
+                languages: Object.fromEntries(
+                    Object.entries(languageAlternates("/")).map(([lang, p]) => [
+                        lang,
+                        `${BASE_URL}${p}`,
+                    ])
+                ),
+            },
+        },
+        ...STEPS.map(({ path }) => ({
             url: `${BASE_URL}${stepPath(code, path)}`,
             lastModified,
             changeFrequency: "monthly" as const,
-            priority: path === "/rekam" ? 1 : 0.7,
+            priority: 0.7,
             alternates: {
                 languages: Object.fromEntries(
                     Object.entries(languageAlternates(path)).map(
@@ -22,6 +36,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
                     )
                 ),
             },
-        }))
-    );
+        })),
+    ]);
 }

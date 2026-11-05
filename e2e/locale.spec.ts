@@ -69,8 +69,8 @@ test.describe("locales", () => {
         const sitemap = await request.get("/sitemap.xml");
         expect(sitemap.status()).toBe(200);
         const xml = await sitemap.text();
-        // Three steps per locale, each carrying the full hreflang set.
-        expect((xml.match(/<url>/g) ?? []).length).toBe(6);
+        // Four paths per locale (landing + three steps), each carrying the full hreflang set.
+        expect((xml.match(/<url>/g) ?? []).length).toBe(8);
         expect(xml).toContain("xhtml:link");
         // Every step is listed for every locale.
         for (const path of ["/", "/susun", "/dokumen"]) {
