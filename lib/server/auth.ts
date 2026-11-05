@@ -45,6 +45,17 @@ export const authSecret = AUTH_SECRET;
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
+    /**
+     * Local development: the e2e harness drives a real Chromium page at
+     * `http://localhost:3100`, so better-auth's CSRF origin check (
+     * `originCheckMiddleware` — https://github.com/better-auth/better-auth
+     * /blob/main/packages/better-auth/src/plugins/...
+     * /origin-check.ts) rejects POSTs that carry cookies unless the
+     * request origin is trusted. `BETTER_AUTH_URL` is not exported by this
+     * app, and the middleware derives it from inbound headers, so declare
+     * the dev origin here. Production uses BETTER_AUTH_URL from the deploy.
+     */
+    trustedOrigins: ["http://localhost:3100"],
     user: {
         modelName: "auth_user",
         fields: {
