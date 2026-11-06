@@ -19,6 +19,11 @@ const eslintConfig = [
             "test-results/**",
             ".cache/**",
             /*
+             * Local-only starter/scratch material is never committed (CI has no
+             * .scratch directory), so it must not affect the lint gate.
+             */
+            ".scratch/**",
+            /*
              * The invoice templates belong to ticket 08 and still reference the
              * invoice app that ticket 01 removed; they are not compiled or
              * linted until that ticket replaces them. See THIRD-PARTY.md.

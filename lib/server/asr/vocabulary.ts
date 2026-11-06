@@ -1,3 +1,9 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import quotationSchema from "@/contracts/quotation.schema.json";
+import { SPOKEN_UNITS } from "@/lib/server/guard/words";
+
 import type { Locale } from "./locale";
 
 /**
@@ -16,50 +22,6 @@ export const KEYWORDS: Record<Locale, string[]> = {
 export const LANGUAGE_BIAS: Record<Locale, string[]> = {
     en: ["English", "Indonesian"],
     id: ["Indonesian", "English"],
-};
-
-/**
- * Spoken domain vocabulary derived from quotation.schema.json `satuan` enum:
- * "m2", "m3", "meter", "sq_ft", "lin_ft", "sak", "batang", "titik", "bag",
- * "sheet", "bar", "point", "hour", "unit", "hari", "fixture" — 16 satuan units.
- * Maps machine keys to their spoken forms plus common trade units.
- */
-const SATUAN_SPOKEN_TERMS: Record<Locale, string[]> = {
-    en: [
-        "square meter",
-        "cubic meter",
-        "square foot",
-        "linear foot",
-        "sq ft",
-        "lin ft",
-        "bags",
-        "bars",
-        "sheets",
-        "points",
-        "hours",
-        "units",
-        "days",
-        "fixtures",
-        "m2",
-    ],
-    id: [
-        "meter persegi",
-        "meter kubik",
-        "square foot",
-        "sq ft",
-        "sak",
-        "batang",
-        "titik",
-        "borongan",
-        "m2",
-        "m3",
-        "lembar",
-        "kantong",
-        "jam",
-        "hari",
-        "unit",
-        "fixture",
-    ],
 };
 
 const COMMON_STOP_WORDS = new Set([
@@ -121,6 +83,110 @@ const COMMON_STOP_WORDS = new Set([
     "not",
 ]);
 
+/** Kept short: the bias list rides along with every transcription request. */
+const MAX_SEED_TERMS_PER_LOCALE = 32;
+const SEED_TRANSCRIPT_DIR = join(process.cwd(), "fixtures", "transcripts");
+
+const SPOKEN_FORMS = SPOKEN_UNITS as unknown as Record<
+    string,
+    readonly string[] | undefined
+>;
+
+/**
+ * Every `satuan` the quotation contract accepts, expressed the way a
+ * technician says it. A new unit in the schema must also get spoken forms in
+ * the guard lexicon; failing here keeps the two vocabularies from drifting.
+ */
+export const SCHEMA_UNIT_TERMS: readonly string[] =
+    quotationSchema.properties.pekerjaan.items.properties.satuan.enum.flatMap(
+        (unit) => {
+            const spoken = SPOKEN_FORMS[unit];
+            if (!spoken) {
+                throw new Error(
+                    `No spoken forms for satuan "${unit}" in SPOKEN_UNITS`
+                );
+            }
+            return [...spoken];
+        }
+    );
+
+type SeedFixture = {
+    locale?: unknown;
+    expected_document?: {
+        pekerjaan?: { uraian?: unknown; satuan?: unknown }[];
+    };
+};
+
+/**
+ * Materials, units and field terms the app already ships as expected quotation
+ * data, read from `uraian` and `satuan` only. Project, client and place names
+ * are deliberately not seeded — they arrive as session terms from recorded
+ * turns. Terms are counted per locale so one-off items do not dominate the
+ * bias list; the corpus is read at startup, not copied into this file.
+ */
+function seedTermsFromCorpus(): Record<Locale, string[]> {
+    const counts: Record<Locale, Map<string, number>> = {
+        en: new Map(),
+        id: new Map(),
+    };
+    let files: string[];
+    try {
+        files = readdirSync(SEED_TRANSCRIPT_DIR).filter((name) =>
+            name.endsWith(".json")
+        );
+    } catch {
+        // A deployment that omits the fixture corpus still gets schema units.
+        return { en: [], id: [] };
+    }
+
+    for (const name of files) {
+        let fixture: SeedFixture;
+        try {
+            fixture = JSON.parse(
+                readFileSync(join(SEED_TRANSCRIPT_DIR, name), "utf8")
+            ) as SeedFixture;
+        } catch {
+            continue;
+        }
+        if (fixture.locale !== "en" && fixture.locale !== "id") continue;
+
+        const texts: string[] = [];
+        for (const item of fixture.expected_document?.pekerjaan ?? []) {
+            if (typeof item?.uraian === "string") texts.push(item.uraian);
+            if (typeof item?.satuan === "string") texts.push(item.satuan);
+        }
+
+        const inThisFixture = new Set<string>();
+        for (const text of texts) {
+            for (const word of text.toLowerCase().split(/[^a-z0-9]+/)) {
+                if (
+                    word.length < 4 ||
+                    /^\d+$/.test(word) ||
+                    COMMON_STOP_WORDS.has(word)
+                ) {
+                    continue;
+                }
+                inThisFixture.add(word);
+            }
+        }
+        const localeCounts = counts[fixture.locale];
+        for (const word of inThisFixture) {
+            localeCounts.set(word, (localeCounts.get(word) ?? 0) + 1);
+        }
+    }
+
+    const pick = (locale: Locale): string[] =>
+        [...counts[locale].entries()]
+            .filter(([, count]) => count >= 2)
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, MAX_SEED_TERMS_PER_LOCALE)
+            .map(([word]) => word);
+
+    return { en: pick("en"), id: pick("id") };
+}
+
+const SEED_TERMS = seedTermsFromCorpus();
+
 export type SpokenTermInput = string | { transcript?: string | null };
 
 /**
@@ -162,15 +228,17 @@ function extractTermsFromText(text: string): string[] {
 /**
  * Builds vocabulary biasing keywords merging:
  * 1. Curated per-locale KEYWORDS baseline.
- * 2. Spoken domain vocabulary derived from quotation.schema.json `satuan` enum.
- * 3. Significant terms from recorded turns or project vocabulary (client/project/place names).
+ * 2. Spoken forms of every `satuan` in quotation.schema.json.
+ * 3. Materials and field terms from the shipped quotation seed corpus.
+ * 4. Significant terms from recorded turns or project vocabulary (client/project/place names).
  */
 export function buildKeywords(
     locale: Locale,
     spokenTerms?: readonly SpokenTermInput[] | null
 ): string[] {
     const baseline = KEYWORDS[locale] ?? KEYWORDS.id;
-    const domain = SATUAN_SPOKEN_TERMS[locale] ?? SATUAN_SPOKEN_TERMS.id;
+    const domain: readonly string[] = SCHEMA_UNIT_TERMS;
+    const seed = SEED_TERMS[locale] ?? SEED_TERMS.id;
 
     const sessionTerms: string[] = [];
     if (spokenTerms && Array.isArray(spokenTerms)) {
@@ -183,7 +251,7 @@ export function buildKeywords(
         }
     }
 
-    const merged = [...baseline, ...domain, ...sessionTerms];
+    const merged = [...baseline, ...domain, ...seed, ...sessionTerms];
     const seen = new Set<string>();
     const result: string[] = [];
 

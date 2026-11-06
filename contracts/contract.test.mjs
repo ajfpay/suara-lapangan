@@ -55,20 +55,20 @@ const NOMOR_PATTERN = /^SL\/QTN\/[1-9][0-9]{3}\/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-
 // when scanning, so "meter persegi" is not read as a bare "meter".
 const SPOKEN_UNITS = {
     m2: ["square meters", "square meter", "meter persegi", "sq m", "m2"],
-    m3: ["cubic meters", "meter kubik", "kubik", "m3"],
+    m3: ["cubic meters", "cubic meter", "meter kubik", "kubik", "m3"],
     meter: ["linear meters", "meter"],
     sq_ft: ["square feet", "square foot", "sq ft", "sqft"],
     lin_ft: ["linear feet", "linear foot", "lin ft"],
     sak: ["sak"],
     batang: ["batang"],
     titik: ["titik"],
-    bag: ["bags", "bag"],
-    sheet: ["sheets", "sheet"],
+    bag: ["bags", "bag", "kantong"],
+    sheet: ["sheets", "sheet", "lembar"],
     bar: ["bars", "bar"],
     point: ["points", "point"],
-    hour: ["hours", "hour"],
+    hour: ["hours", "hour", "jam"],
     unit: ["units", "unit", "buah"],
-    hari: ["hari"],
+    hari: ["hari", "days"],
     fixture: ["fixtures", "fixture"],
 };
 
@@ -80,8 +80,22 @@ function spokenUnitsIn(text) {
     const phrases = Object.entries(SPOKEN_UNITS)
         .flatMap(([unit, words]) => words.map((word) => [word, unit]))
         .sort((a, b) => b[0].length - a[0].length);
+    // Longest phrases first; a match inside an already-matched span is
+    // skipped, mirroring lib/server/guard/words.ts so "cubic meter"
+    // reports m3 only, never a bare "meter".
+    const matchedSpans = [];
     for (const [phrase, unit] of phrases) {
-        if (new RegExp(`\\b${phrase}\\b`, "i").test(text)) found.add(unit);
+        const regex = new RegExp(`\\b${phrase}\\b`, "gi");
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+            const overlaps = matchedSpans.some(([s, e]) => start < e && end > s);
+            if (!overlaps) {
+                matchedSpans.push([start, end]);
+                found.add(unit);
+            }
+        }
     }
     return found;
 }

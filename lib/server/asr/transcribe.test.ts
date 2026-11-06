@@ -360,4 +360,52 @@ describe("transcribeSession mode-aware cache", () => {
         ).rejects.toBeInstanceOf(SessionOwnershipError);
         expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it("sends the session's vocabulary as Meta keywords on a fresh transcription", async () => {
+        const sessionId = "sess-vocabulary-bias";
+        sessionStore.set(sessionId, {
+            sessionId,
+            locale: "id",
+            // Different hash: this is a new recording, so Meta is called.
+            audioSha256: "stale-hash",
+            mode: "ENDPOINTING",
+            userId: null,
+            turns: [
+                {
+                    turn_id: "turn_1",
+                    startMs: 0,
+                    endMs: 500,
+                    transcript: "Proyek Kemang milik Pak Budi.",
+                    final: true,
+                    speaker: null,
+                },
+            ],
+        });
+
+        await transcribeSession({
+            sessionId,
+            locale: "id",
+            audio,
+            mode: "ENDPOINTING",
+            isAdmin: true,
+        });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+        const formData = await new Request("http://meta.test", {
+            method: "POST",
+            body: init.body,
+        }).formData();
+        const requestJson = JSON.parse(
+            await (formData.get("request") as File).text()
+        );
+
+        // Session terms, schema-derived units and seed materials all leave
+        // the process in the `request` part the Meta API documents.
+        expect(requestJson.keywords).toContain("Kemang");
+        expect(requestJson.keywords).toContain("Budi");
+        expect(requestJson.keywords).toContain("meter persegi");
+        expect(requestJson.keywords).toContain("semen");
+        expect(requestJson.languageBias).toContain("Indonesian");
+    });
 });
