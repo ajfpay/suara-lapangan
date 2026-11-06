@@ -625,46 +625,88 @@ describe("Gmail API send", () => {
     // (or assert the fetch call received a signal); assert sendViaGmailApi rejects with a
     // GmailApiError whose apiStatus is 408 and message mentions the timeout.
     describe("AbortSignal and timeout handling (#49)", () => {
-        it("passes an AbortSignal to both token refresh and send fetch calls", async () => {
-            const capturedSignals: { url: string; signal: unknown }[] = [];
+        it("passes an AbortSignal to both token refresh and send fetch calls, pinned to 10s/30s deadlines", async () => {
+            // Spy on AbortSignal.timeout to pin the exact deadline durations:
+            // the token refresh must use 10s and the send 30s, matching the
+            // SMTP path's 10-30s convention (#49). The real signals are still
+            // created so callers get functioning abort behavior.
+            const realTimeout = AbortSignal.timeout.bind(AbortSignal);
+            const capturedDurations: number[] = [];
+            const timeoutSpy = vi
+                .spyOn(AbortSignal, "timeout")
+                .mockImplementation((ms: number) => {
+                    capturedDurations.push(ms);
+                    return realTimeout(ms);
+                });
 
-            vi.stubGlobal(
-                "fetch",
-                vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-                    const url = typeof input === "string" ? input : input.toString();
-                    capturedSignals.push({ url, signal: init?.signal });
+            try {
+                const capturedSignals: {
+                    url: string;
+                    signal: unknown;
+                }[] = [];
 
-                    if (url === GMAIL_TOKEN_URL) {
-                        return new Response(
-                            JSON.stringify({
-                                access_token: "ya29.token",
-                                expires_in: 3600,
-                            }),
-                            {
-                                status: 200,
-                                headers: { "Content-Type": "application/json" },
+                vi.stubGlobal(
+                    "fetch",
+                    vi.fn(
+                        async (
+                            input: string | URL | Request,
+                            init?: RequestInit
+                        ) => {
+                            const url =
+                                typeof input === "string"
+                                    ? input
+                                    : input.toString();
+                            capturedSignals.push({ url, signal: init?.signal });
+
+                            if (url === GMAIL_TOKEN_URL) {
+                                return new Response(
+                                    JSON.stringify({
+                                        access_token: "ya29.token",
+                                        expires_in: 3600,
+                                    }),
+                                    {
+                                        status: 200,
+                                        headers: {
+                                            "Content-Type":
+                                                "application/json",
+                                        },
+                                    }
+                                );
                             }
-                        );
-                    }
 
-                    if (url === GMAIL_SEND_URL) {
-                        return new Response(JSON.stringify({ id: "msg-123" }), {
-                            status: 200,
-                            headers: { "Content-Type": "application/json" },
-                        });
-                    }
+                            if (url === GMAIL_SEND_URL) {
+                                return new Response(
+                                    JSON.stringify({ id: "msg-123" }),
+                                    {
+                                        status: 200,
+                                        headers: {
+                                            "Content-Type":
+                                                "application/json",
+                                        },
+                                    }
+                                );
+                            }
 
-                    throw new Error(`Unexpected fetch URL: ${url}`);
-                })
-            );
+                            throw new Error(`Unexpected fetch URL: ${url}`);
+                        }
+                    )
+                );
 
-            await sendViaGmailApi(FAKE_GMAIL_CONFIG, FAKE_EMAIL_OPTIONS);
+                await sendViaGmailApi(FAKE_GMAIL_CONFIG, FAKE_EMAIL_OPTIONS);
 
-            const tokenSignal = capturedSignals.find((s) => s.url === GMAIL_TOKEN_URL)?.signal;
-            const sendSignal = capturedSignals.find((s) => s.url === GMAIL_SEND_URL)?.signal;
+                const tokenSignal = capturedSignals.find(
+                    (s) => s.url === GMAIL_TOKEN_URL
+                )?.signal;
+                const sendSignal = capturedSignals.find(
+                    (s) => s.url === GMAIL_SEND_URL
+                )?.signal;
 
-            expect(tokenSignal).toBeInstanceOf(AbortSignal);
-            expect(sendSignal).toBeInstanceOf(AbortSignal);
+                expect(tokenSignal).toBeInstanceOf(AbortSignal);
+                expect(sendSignal).toBeInstanceOf(AbortSignal);
+                expect(capturedDurations).toEqual([10_000, 30_000]);
+            } finally {
+                timeoutSpy.mockRestore();
+            }
         });
 
         it("maps token refresh abort rejection into GmailApiError with status 408 and 10s timeout message", async () => {

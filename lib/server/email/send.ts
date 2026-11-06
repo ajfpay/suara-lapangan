@@ -142,7 +142,18 @@ export async function getGmailAccessToken(config: {
     }
 
     if (!res.ok) {
-        const detail = await res.text().catch(() => "");
+        let detail: string;
+        try {
+            detail = await res.text();
+        } catch (err) {
+            if (isAbortError(err)) {
+                throw new GmailApiError(
+                    "Gmail token refresh timed out after 10s",
+                    408
+                );
+            }
+            detail = "";
+        }
         let isRevoked = false;
         let errorCode: string | number | undefined;
         try {
@@ -177,7 +188,15 @@ export async function getGmailAccessToken(config: {
             isRevoked
         );
     }
-    const json = (await res.json().catch(() => ({}))) as {
+    const json = (await res.json().catch((err: unknown) => {
+        if (isAbortError(err)) {
+            throw new GmailApiError(
+                "Gmail token refresh timed out after 10s",
+                408
+            );
+        }
+        return {};
+    })) as {
         access_token?: string;
         expires_in?: number;
     };
@@ -274,7 +293,15 @@ export async function sendViaGmailApi(
     }
 
     if (!res.ok) {
-        const detail = await res.text().catch(() => "");
+        let detail: string;
+        try {
+            detail = await res.text();
+        } catch (err) {
+            if (isAbortError(err)) {
+                throw new GmailApiError("Gmail send timed out after 30s", 408);
+            }
+            detail = "";
+        }
         let errorCode: string | number | undefined;
         try {
             errorCode = (
