@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { Pool } from "pg";
 import crypto from "node:crypto";
-import { getSmtpConfig } from "@/lib/server/email/config";
+import { getEmailConfig } from "@/lib/server/email/config";
 import { sendEmail } from "@/lib/server/email/send";
 import { redactSecrets } from "@/lib/server/asr/log";
 
@@ -127,10 +127,10 @@ export const auth = betterAuth({
     },
     emailVerification: {
         sendVerificationEmail: async ({ user, url }) => {
-            const smtpConfig = getSmtpConfig();
-            if (smtpConfig) {
+            const emailConfig = getEmailConfig();
+            if (emailConfig) {
                 try {
-                    await sendEmail(smtpConfig, {
+                    await sendEmail(emailConfig, {
                         to: user.email,
                         subject: "Verifikasi Email — Suara Lapangan",
                         text: `Halo ${user.name},\n\nSilakan klik tautan berikut untuk memverifikasi akun Anda:\n${url}\n\nSalam,\nTim Suara Lapangan`,

@@ -15,7 +15,7 @@ import {
     detectRequestLocale,
 } from "@/lib/server/quota/rate-limit";
 import {
-    getSmtpConfig,
+    getEmailConfig,
     sendEmail,
     buildDocumentEmail,
     sendEmailBodySchema,
@@ -122,8 +122,8 @@ async function handlePost(
         );
     }
 
-    const smtpConfig = getSmtpConfig();
-    if (!smtpConfig) {
+    const emailConfig = getEmailConfig();
+    if (!emailConfig) {
         return NextResponse.json(
             {
                 error: "email_not_configured",
@@ -307,7 +307,7 @@ async function handlePost(
     );
 
     try {
-        await sendEmail(smtpConfig, {
+        await sendEmail(emailConfig, {
             to: parsedBody.data.to,
             subject: emailContent.subject,
             text: emailContent.text,
