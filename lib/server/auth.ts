@@ -42,20 +42,26 @@ export const AUTH_SECRET = resolveAuthSecret();
 export const resolvedAuthSecret = AUTH_SECRET;
 export const authSecret = AUTH_SECRET;
 
+/**
+ * Origins allowed to send credentialed POSTs. `localhost:3100` is where the
+ * end-to-end harness drives a real browser during development; production
+ * supplies its own origin through `TRUSTED_ORIGINS` (better-auth also reads
+ * `BETTER_AUTH_URL`). Without a matching origin better-auth's origin check
+ * rejects sign-in POSTs with 403.
+ */
+const devTrustedOrigins =
+    process.env.NODE_ENV === "production"
+        ? []
+        : ["http://localhost:3100", "http://127.0.0.1:3100"];
+const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
-    /**
-     * Local development: the e2e harness drives a real Chromium page at
-     * `http://localhost:3100`, so better-auth's CSRF origin check (
-     * `originCheckMiddleware` — https://github.com/better-auth/better-auth
-     * /blob/main/packages/better-auth/src/plugins/...
-     * /origin-check.ts) rejects POSTs that carry cookies unless the
-     * request origin is trusted. `BETTER_AUTH_URL` is not exported by this
-     * app, and the middleware derives it from inbound headers, so declare
-     * the dev origin here. Production uses BETTER_AUTH_URL from the deploy.
-     */
-    trustedOrigins: ["http://localhost:3100"],
+    trustedOrigins: [...envTrustedOrigins, ...devTrustedOrigins],
     user: {
         modelName: "auth_user",
         fields: {

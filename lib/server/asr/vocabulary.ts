@@ -113,15 +113,16 @@ export const SCHEMA_UNIT_TERMS: readonly string[] =
 type SeedFixture = {
     locale?: unknown;
     expected_document?: {
-        proyek?: Record<string, unknown>;
         pekerjaan?: { uraian?: unknown; satuan?: unknown }[];
     };
 };
 
 /**
  * Materials, units and field terms the app already ships as expected quotation
- * data. Terms are counted per locale so one-off project names do not dominate
- * the bias list; the corpus is read at startup, not copied into this file.
+ * data, read from `uraian` and `satuan` only. Project, client and place names
+ * are deliberately not seeded — they arrive as session terms from recorded
+ * turns. Terms are counted per locale so one-off items do not dominate the
+ * bias list; the corpus is read at startup, not copied into this file.
  */
 function seedTermsFromCorpus(): Record<Locale, string[]> {
     const counts: Record<Locale, Map<string, number>> = {
@@ -153,11 +154,6 @@ function seedTermsFromCorpus(): Record<Locale, string[]> {
         for (const item of fixture.expected_document?.pekerjaan ?? []) {
             if (typeof item?.uraian === "string") texts.push(item.uraian);
             if (typeof item?.satuan === "string") texts.push(item.satuan);
-        }
-        for (const value of Object.values(
-            fixture.expected_document?.proyek ?? {}
-        )) {
-            if (typeof value === "string") texts.push(value);
         }
 
         const inThisFixture = new Set<string>();

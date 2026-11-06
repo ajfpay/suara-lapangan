@@ -97,7 +97,10 @@ describe("vocabulary biasing", () => {
         expect(keywordsId).toContain("Pak Budi");
         expect(keywordsId).toContain("Budi");
 
-        const keywordsEn = buildKeywords("en", ["Good morning", "Alice Walker"]);
+        const keywordsEn = buildKeywords("en", [
+            "Good morning",
+            "Alice Walker",
+        ]);
         expect(keywordsEn).not.toContain("Good morning");
         expect(keywordsEn).not.toContain("good morning");
         expect(keywordsEn).not.toContain("Good");
@@ -122,7 +125,10 @@ describe("vocabulary biasing", () => {
 
         const keywords = buildKeywords("id").map((kw) => kw.toLowerCase());
         for (const unit of units) {
-            expect(spokenForms[unit], `no spoken forms for ${unit}`).toBeDefined();
+            expect(
+                spokenForms[unit],
+                `no spoken forms for ${unit}`
+            ).toBeDefined();
             expect(
                 spokenForms[unit].some((form) =>
                     keywords.includes(form.toLowerCase())
@@ -152,6 +158,22 @@ describe("vocabulary biasing", () => {
 
         expect(material).toBeDefined();
         expect(buildKeywords("id")).toContain(material);
-        expect(buildKeywords("en")).toContain("drywall");
+        expect(buildKeywords("en")).toContain("bathroom");
+        expect(buildKeywords("en")).toContain("installation");
+    });
+
+    it("does not bias project, client or place names from the seed corpus", () => {
+        expect(buildKeywords("id")).not.toContain("sleman");
+        expect(buildKeywords("id")).not.toContain("yogyakarta");
+        expect(buildKeywords("en")).not.toContain("austin");
+    });
+
+    it("biases the spoken forms of every satuan in the quotation schema", () => {
+        const id = buildKeywords("id").map((kw) => kw.toLowerCase());
+        expect(id).toContain("jam");
+        expect(id).toContain("lembar");
+        expect(id).toContain("kantong");
+        expect(id).toContain("cubic meter");
+        expect(id).toContain("days");
     });
 });

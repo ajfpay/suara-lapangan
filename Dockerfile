@@ -41,6 +41,11 @@ COPY --from=build --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
 
+# lib/server/asr/vocabulary.ts reads fixtures/transcripts at startup to derive
+# keyword bias. Without the corpus the read throws and the seed list silently
+# falls back to empty, so the runtime image has to carry it.
+COPY --from=build --chown=nextjs:nodejs /app/fixtures/transcripts ./fixtures/transcripts
+
 # The PDF route snapshots rendered files under ./data/pdf; the non-root
 # runtime user must be able to create it.
 RUN mkdir -p /app/data/pdf && chown -R nextjs:nodejs /app/data

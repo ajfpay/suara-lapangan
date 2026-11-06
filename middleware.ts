@@ -14,7 +14,8 @@ function isProtectedPath(pathname: string): boolean {
     // catch-all 404 instead of redirecting to login.
     if (stripped === "/rekam" || stripped.startsWith("/rekam/")) return true;
     if (stripped === "/susun" || stripped.startsWith("/susun/")) return true;
-    if (stripped === "/dokumen/saya" || stripped.startsWith("/dokumen/saya/")) return true;
+    if (stripped === "/dokumen/saya" || stripped.startsWith("/dokumen/saya/"))
+        return true;
     if (stripped === "/admin" || stripped.startsWith("/admin/")) return true;
 
     return false;
@@ -29,27 +30,19 @@ export default async function middleware(request: NextRequest) {
             const localeMatch = pathname.match(/^\/(en|id)(?:\/|$)/);
             const locale = localeMatch ? localeMatch[1] : routing.defaultLocale;
             const callbackUrl = encodeURIComponent(pathname + search);
-            // Derive the public origin from inbound headers rather than
-            // request.url. The app runs behind a reverse proxy/tunnel, and
-            // under `next start` Next synthesizes request.url from its bind
-            // hostname ("localhost") rather than the client-facing origin.
-            const forwardedProto = request.headers
-                .get("x-forwarded-proto")
-                ?.split(",")[0]
-                ?.trim()
-                ?.replace(/:$/, "");
-            const scheme =
-                forwardedProto ||
-                request.nextUrl.protocol.replace(/:$/, "") ||
-                "https";
-            const host =
-                request.headers.get("host")?.trim() || request.nextUrl.host;
-
-            const loginUrl = new URL(
-                `/${locale}/login?callbackUrl=${callbackUrl}`,
-                `${scheme}://${host}`
+            // Next 15 cannot return a relative Location from middleware (its
+            // adapter parses the header with `new URL(location)`, which throws
+            // and turns the redirect into a 500), so the redirect must be
+            // absolute. Derive it from request.nextUrl — the origin Next
+            // resolved for this request — instead of reading attacker-
+            // controllable x-forwarded-proto/host headers, and never `new URL`
+            // raw header values.
+            return NextResponse.redirect(
+                new URL(
+                    `/${locale}/login?callbackUrl=${callbackUrl}`,
+                    request.nextUrl
+                )
             );
-            return NextResponse.redirect(loginUrl);
         }
     }
 

@@ -2,20 +2,20 @@ import type { CanonicalUnit, Locale } from "./types";
 
 export const SPOKEN_UNITS: Record<CanonicalUnit, string[]> = {
     m2: ["square meters", "square meter", "meter persegi", "sq m", "m2"],
-    m3: ["cubic meters", "meter kubik", "kubik", "m3"],
+    m3: ["cubic meters", "cubic meter", "meter kubik", "kubik", "m3"],
     meter: ["linear meters", "meter"],
     sq_ft: ["square feet", "square foot", "sq ft", "sqft"],
     lin_ft: ["linear feet", "linear foot", "lin ft"],
     sak: ["sak"],
     batang: ["batang"],
     titik: ["titik"],
-    bag: ["bags", "bag"],
-    sheet: ["sheets", "sheet"],
+    bag: ["bags", "bag", "kantong"],
+    sheet: ["sheets", "sheet", "lembar"],
     bar: ["bars", "bar"],
     point: ["points", "point"],
-    hour: ["hours", "hour"],
+    hour: ["hours", "hour", "jam"],
     unit: ["units", "unit", "buah"],
-    hari: ["hari"],
+    hari: ["hari", "days"],
     fixture: ["fixtures", "fixture"],
 };
 
@@ -44,7 +44,9 @@ export function spokenUnitsIn(text: string): Set<CanonicalUnit> {
         while ((match = regex.exec(text)) !== null) {
             const start = match.index;
             const end = start + match[0].length;
-            const overlaps = matchedSpans.some(([s, e]) => start < e && end > s);
+            const overlaps = matchedSpans.some(
+                ([s, e]) => start < e && end > s
+            );
             if (!overlaps) {
                 matchedSpans.push([start, end]);
                 found.add(unit);
@@ -499,7 +501,8 @@ export function extractNumbersWithContext(
     const accepted: ExtractedNumber[] = [];
     for (const cand of sortedByLength) {
         const overlaps = accepted.some(
-            (acc) => cand.startIndex < acc.endIndex && cand.endIndex > acc.startIndex
+            (acc) =>
+                cand.startIndex < acc.endIndex && cand.endIndex > acc.startIndex
         );
         if (!overlaps) {
             accepted.push(cand);
@@ -525,8 +528,16 @@ export function parseIndonesianPhrase(phrase: string): number | null {
             if (w !== null) {
                 const fracTokens = parts[1].trim().split(/\s+/).filter(Boolean);
                 const fracDigitsMap: Record<string, string> = {
-                    nol: "0", satu: "1", dua: "2", tiga: "3", empat: "4",
-                    lima: "5", enam: "6", tujuh: "7", delapan: "8", sembilan: "9"
+                    nol: "0",
+                    satu: "1",
+                    dua: "2",
+                    tiga: "3",
+                    empat: "4",
+                    lima: "5",
+                    enam: "6",
+                    tujuh: "7",
+                    delapan: "8",
+                    sembilan: "9",
                 };
                 let fracStr = "";
                 let allDigits = true;
@@ -550,7 +561,6 @@ export function parseIndonesianPhrase(phrase: string): number | null {
             }
         }
     }
-
 
     const DIGITS: Record<string, number> = {
         nol: 0,

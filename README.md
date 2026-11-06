@@ -11,9 +11,10 @@ checking and PDF work arrives in the tickets that follow.
 
 ## Live demo
 
-Judges can open the app at [https://suara-lapangan.ajfbyte.com](https://suara-lapangan.ajfbyte.com) — log in with
-`judge-demo@suara-lapangan.test` and the password in `/home/ubuntu/repos/.amp/in/artifacts/omp-part2/demo-password.txt`.
-Transcription goes through the Meta API, so it needs the installed `MODEL_API_KEY` (v2 credential, working).
+Judges can open the app at [https://suara-lapangan.ajfbyte.com](https://suara-lapangan.ajfbyte.com) and log in
+with `judge-demo@suara-lapangan.test`. The demo password is shared with the
+judges directly and is not in this repository. Transcription goes through the
+Meta API, so the host must have a working `MODEL_API_KEY`.
 
 ## Hackathon provenance
 
@@ -64,17 +65,13 @@ and everything in the table below were created in that window.
 
 ### Credential source
 
-The intended source of `MODEL_API_KEY` is the Akeyless path
-`/workstation/credential/muse`. Using the key stored there currently returns
-HTTP 402 `billing_not_configured` from the Meta API, so local runs use a
-separate key from an untracked file: `.env.local`, mode 600, excluded by
-`.gitignore`. The key is not committed, not printed in logs, and not in this
-README. Akeyless held one Meta/Muse candidate path; no other Akeyless path was
-used, and the local key is a separate credential, not the Akeyless value.
+`MODEL_API_KEY` is read from the host's untracked `.env.local` (mode 600,
+excluded by `.gitignore`). The value is not committed, not printed in logs, and
+not in this README. The intended source is a secret store, but the Meta/Muse
+key held there currently returns HTTP 402 `billing_not_configured` from the Meta
+API, so local runs use a working key from the untracked file instead.
 
-The key currently active in `.env.local` is the v2 candidate, copied from
-`credential-musev2.md` in `/home/ubuntu/repos/collisium/.credential/` (the
-directory is sometimes spelled `consilium`): it returns HTTP 200 on real
+The key active in `.env.local` returns HTTP 200 on real
 `muse-voice-transcribe-1.0` calls with a 20 s, 16 kHz mono WAV sample and the
 app's 50 keywords, and the app's own `POST /api/asr/transcribe` returns turns
 from it.
