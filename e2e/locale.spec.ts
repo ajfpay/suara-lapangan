@@ -13,8 +13,8 @@ test.describe("locales", () => {
     test("each locale advertises itself correctly to crawlers", async ({
         request,
     }) => {
-        const en = await request.get("/en/rekam");
-        const id = await request.get("/id/rekam");
+        const en = await request.get("/en");
+        const id = await request.get("/id");
         expect(en.status()).toBe(200);
         expect(id.status()).toBe(200);
 
@@ -32,13 +32,11 @@ test.describe("locales", () => {
             html.match(/content="([^"]*)"[^>]*name="description"/i)?.[1] ??
             "";
 
-        // The step names are the same words in both catalogues (Rekam, Susun,
-        // Dokumen), so the locale-specific signal is the description and the
-        // canonical, not the title.
+        // The public landing page has locale-specific title, description and canonical.
         expect(titleOf(enHtml)).toContain("Suara Lapangan");
         expect(descriptionOf(enHtml)).not.toBe(descriptionOf(idHtml));
-        expect(canonicalOf(enHtml)).toMatch(/\/en\/rekam$/);
-        expect(canonicalOf(idHtml)).toMatch(/\/id\/rekam$/);
+        expect(canonicalOf(enHtml)).toMatch(/\/en\/?$/);
+        expect(canonicalOf(idHtml)).toMatch(/\/id\/?$/);
         expect(langOf(enHtml)).toBe("en");
         expect(langOf(idHtml)).toBe("id");
 
@@ -52,8 +50,9 @@ test.describe("locales", () => {
         expect(enHtml).toMatch(/property="og:image"/i);
         expect(enHtml).toMatch(/name="twitter:card"/i);
 
-        // Exactly one h1, and it names the first step.
+        // Exactly one h1, naming the public landing page.
         expect((enHtml.match(/<h1/g) ?? []).length).toBe(1);
+        expect(visibleText(enHtml)).toContain("From spoken work to a clear client quotation.");
 
         // Structured data: the app, and the rendered FAQ matching it.
         const types = jsonLdBlocks(enHtml).map((b) => b["@type"]);
@@ -70,8 +69,8 @@ test.describe("locales", () => {
         const sitemap = await request.get("/sitemap.xml");
         expect(sitemap.status()).toBe(200);
         const xml = await sitemap.text();
-        // Three steps per locale, each carrying the full hreflang set.
-        expect((xml.match(/<url>/g) ?? []).length).toBe(6);
+        // Four paths per locale (landing + three steps), each carrying the full hreflang set.
+        expect((xml.match(/<url>/g) ?? []).length).toBe(8);
         expect(xml).toContain("xhtml:link");
         // Every step is listed for every locale.
         for (const path of ["/", "/susun", "/dokumen"]) {
@@ -154,8 +153,9 @@ test.describe("locales", () => {
         await page.goto("/id");
 
         // English copy here would mean the id catalogue is missing the key.
-        await expect(page.getByText("Belum ada item pekerjaan")).toBeVisible();
+        await expect(page.getByRole("heading", { level: 1 })).toHaveText("Dari catatan suara menjadi penawaran yang rapi.");
         await expect(page.getByRole("banner")).toContainText("Suara Lapangan");
+        await expect(page.getByRole("link", { name: "Buat akun" }).first()).toBeVisible();
 
         // Step 2 Susun: manual session input label must be translated, no English fallback
         await page.goto("/id/susun");

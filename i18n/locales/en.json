@@ -9,7 +9,7 @@
     },
     "brand": {
         "name": "Suara Lapangan",
-        "home": "Suara Lapangan — back to step 1"
+        "home": "Suara Lapangan — home"
     },
     "app": {
         "language": "Language",
@@ -134,6 +134,13 @@
         "loginTitle": "Log in to your account",
         "register": "Register",
         "registerTitle": "Create account",
+        "loginDescription": "Sign in to keep capturing field notes and turning them into clear documents.",
+        "registerDescription": "Create an account to start recording and organizing field notes.",
+        "authEyebrow": "Field notes, made clear",
+        "storyTitle": "From the job site to a clear document.",
+        "storyDescription": "Capture work as it happens, then shape it into a document when you’re ready.",
+        "passwordHint": "Use at least 8 characters.",
+        "loading": "Working…",
         "logout": "Log out",
         "email": "Email address",
         "password": "Password",
@@ -225,5 +232,77 @@
         "save": "Save",
         "saved": "Saved",
         "unauthorized": "Unauthorized: Admin access required."
+    },
+    "landing": {
+        "nav": {
+            "label": "On this page",
+            "how": "How it works",
+            "why": "Why Suara Lapangan",
+            "faq": "Questions",
+            "start": "Get started"
+        },
+        "eyebrow": "Made for the worksite",
+        "hero": {
+            "title": "From spoken work to a clear client quotation.",
+            "body": "Record the job as you describe it. Review the quantities and prices, then prepare a formal quotation — without rebuilding your notes at the end of the day.",
+            "primary": "Create an account",
+            "secondary": "See how it works",
+            "note": "Use English or Indonesian. Your recording is saved on this device first."
+        },
+        "demo": {
+            "window": "SUARA LAPANGAN · WORKSPACE",
+            "workspace": "WORKSPACE",
+            "active": "New recording",
+            "history": "Recent work",
+            "documents": "Documents",
+            "fieldReady": "Ready for the field",
+            "fieldNote": "Record first. Your notes stay on this device until you’re ready to continue.",
+            "sample": "SAMPLE PREVIEW",
+            "title": "Fence repair",
+            "draft": "IN REVIEW",
+            "recording": "Recording · 00:18",
+            "items": "Work items",
+            "checkNumbers": "Check each number",
+            "itemOne": "Replace fence panels",
+            "amountOne": "12 panels",
+            "itemTwo": "Install timber posts",
+            "amountTwo": "8 posts",
+            "output": "Quotation preview",
+            "outputType": "English · Indonesian",
+            "caption": "Example only — review and confirm your own work details."
+        },
+        "steps": {
+            "eyebrow": "A simpler field-to-office flow",
+            "title": "Three steps. One clear handoff.",
+            "body": "Keep the job details together from the first spoken note to the document you share.",
+            "recordTitle": "Say what the job needs",
+            "recordBody": "Record the work in the language you use on site. Capture quantities, units and prices as you go.",
+            "reviewTitle": "Check the details",
+            "reviewBody": "Review the items and numbers from your recording. Correct anything before you prepare the quotation.",
+            "documentTitle": "Prepare the quotation",
+            "documentBody": "Turn the confirmed work list into a formal Quotation or Surat Penawaran for your client."
+        },
+        "benefits": {
+            "eyebrow": "Built around real field work",
+            "title": "Less rewriting. More confidence in every line.",
+            "body": "Suara Lapangan helps carry job details from the site into a document your client can understand. You stay in control of what goes into it.",
+            "cta": "Start with your next job",
+            "offlineTitle": "Keep recording when signal is weak",
+            "offlineBody": "The recording is saved on your device first. Continue with transcription when you have a connection.",
+            "reviewTitle": "Numbers you can check",
+            "reviewBody": "See extracted quantities and prices before preparing a document. Confirm or correct them yourself.",
+            "documentTitle": "A formal client document",
+            "documentBody": "Prepare a Quotation or Surat Penawaran from the work you have reviewed."
+        },
+        "closing": {
+            "eyebrow": "Ready when the next job comes in",
+            "title": "Bring the job details with you.",
+            "body": "Start with a voice recording, then shape it into a quotation you can review before sharing.",
+            "cta": "Get started"
+        },
+        "meta": {
+            "title": "Suara Lapangan — From spoken work to a clear quotation",
+            "description": "Record job details, review quantities and prices, and prepare a formal client quotation."
+        }
     }
 }

@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { LocaleSwitcher } from "@/app/components";
 import { UserMenu } from "./UserMenu";
 import { Link } from "@/i18n/navigation";
+import MarketingNav from "@/app/components/landing/MarketingNav";
 
 /**
  * Brand and language. Deliberately empty of product navigation: the only
@@ -54,7 +55,8 @@ const SiteHeader = async () => {
                     </span>
                 </Link>
 
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                    <MarketingNav />
                     <LocaleSwitcher />
                     <UserMenu />
                 </div>

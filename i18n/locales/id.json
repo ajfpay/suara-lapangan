@@ -9,7 +9,7 @@
     },
     "brand": {
         "name": "Suara Lapangan",
-        "home": "Suara Lapangan — kembali ke langkah 1"
+        "home": "Suara Lapangan — beranda"
     },
     "app": {
         "language": "Bahasa",
@@ -134,6 +134,13 @@
         "loginTitle": "Masuk ke akun Anda",
         "register": "Daftar",
         "registerTitle": "Buat akun baru",
+        "loginDescription": "Masuk untuk melanjutkan merekam catatan lapangan dan menyusunnya menjadi dokumen yang rapi.",
+        "registerDescription": "Buat akun untuk mulai merekam dan menyusun catatan lapangan.",
+        "authEyebrow": "Catatan kerja, tersusun",
+        "storyTitle": "Dari lokasi kerja menjadi dokumen yang rapi.",
+        "storyDescription": "Rekam pekerjaan saat berlangsung, lalu susun menjadi dokumen saat siap.",
+        "passwordHint": "Gunakan sedikitnya 8 karakter.",
+        "loading": "Memproses…",
         "logout": "Keluar",
         "email": "Alamat email",
         "password": "Kata sandi",
@@ -225,5 +232,77 @@
         "save": "Simpan",
         "saved": "Tersimpan",
         "unauthorized": "Akses ditolak: Diperlukan hak akses admin."
+    },
+    "landing": {
+        "nav": {
+            "label": "Navigasi halaman",
+            "how": "Cara kerja",
+            "why": "Tentang Suara Lapangan",
+            "faq": "Pertanyaan",
+            "start": "Mulai"
+        },
+        "eyebrow": "Dirancang untuk pekerjaan lapangan",
+        "hero": {
+            "title": "Dari catatan suara menjadi penawaran yang rapi.",
+            "body": "Rekam pekerjaan sambil menjelaskannya. Periksa jumlah dan harga, lalu siapkan surat penawaran resmi—tanpa menulis ulang catatan di akhir hari.",
+            "primary": "Buat akun",
+            "secondary": "Lihat cara kerja",
+            "note": "Gunakan bahasa Indonesia atau Inggris. Rekaman disimpan di perangkat ini terlebih dahulu."
+        },
+        "demo": {
+            "window": "SUARA LAPANGAN · RUANG KERJA",
+            "workspace": "RUANG KERJA",
+            "active": "Rekaman baru",
+            "history": "Pekerjaan terbaru",
+            "documents": "Dokumen",
+            "fieldReady": "Siap untuk di lapangan",
+            "fieldNote": "Rekam lebih dulu. Catatan tersimpan di perangkat sampai siap dilanjutkan.",
+            "sample": "CONTOH TAMPILAN",
+            "title": "Perbaikan pagar",
+            "draft": "SEDANG DICEK",
+            "recording": "Rekaman · 00:18",
+            "items": "Item pekerjaan",
+            "checkNumbers": "Periksa setiap angka",
+            "itemOne": "Ganti panel pagar",
+            "amountOne": "12 panel",
+            "itemTwo": "Pasang tiang kayu",
+            "amountTwo": "8 tiang",
+            "output": "Pratinjau penawaran",
+            "outputType": "Indonesia · Inggris",
+            "caption": "Hanya contoh — periksa dan konfirmasi detail pekerjaanmu sendiri."
+        },
+        "steps": {
+            "eyebrow": "Alur sederhana dari lapangan ke kantor",
+            "title": "Tiga langkah. Serah terima yang jelas.",
+            "body": "Simpan detail pekerjaan dalam satu alur, dari catatan suara pertama hingga dokumen yang dibagikan.",
+            "recordTitle": "Ucapkan kebutuhan pekerjaan",
+            "recordBody": "Rekam pekerjaan dengan bahasa yang biasa dipakai di lapangan. Sebutkan jumlah, satuan, dan harga.",
+            "reviewTitle": "Periksa detailnya",
+            "reviewBody": "Tinjau item dan angka dari rekaman. Perbaiki jika perlu sebelum menyiapkan penawaran.",
+            "documentTitle": "Siapkan surat penawaran",
+            "documentBody": "Ubah daftar pekerjaan yang sudah diperiksa menjadi Quotation atau Surat Penawaran resmi untuk klien."
+        },
+        "benefits": {
+            "eyebrow": "Dibuat untuk pekerjaan lapangan",
+            "title": "Kurangi tulis ulang. Lebih yakin pada setiap angka.",
+            "body": "Suara Lapangan membantu membawa detail pekerjaan dari lokasi ke dokumen yang mudah dipahami klien. Kamu tetap menentukan isinya.",
+            "cta": "Mulai dari pekerjaan berikutnya",
+            "offlineTitle": "Tetap merekam saat sinyal lemah",
+            "offlineBody": "Rekaman disimpan di perangkat terlebih dahulu. Transkripsi dapat dilanjutkan setelah ada koneksi.",
+            "reviewTitle": "Angka yang bisa diperiksa",
+            "reviewBody": "Lihat jumlah dan harga yang diambil dari rekaman sebelum membuat dokumen. Konfirmasi atau koreksi sendiri.",
+            "documentTitle": "Dokumen resmi untuk klien",
+            "documentBody": "Siapkan Quotation atau Surat Penawaran dari pekerjaan yang sudah kamu periksa."
+        },
+        "closing": {
+            "eyebrow": "Siap saat pekerjaan berikutnya datang",
+            "title": "Bawa detail pekerjaanmu.",
+            "body": "Mulai dari rekaman suara, lalu susun menjadi penawaran yang bisa kamu periksa sebelum dibagikan.",
+            "cta": "Mulai sekarang"
+        },
+        "meta": {
+            "title": "Suara Lapangan — Dari catatan suara menjadi surat penawaran",
+            "description": "Rekam detail pekerjaan, periksa jumlah dan harga, lalu siapkan surat penawaran resmi untuk klien."
+        }
     }
 }

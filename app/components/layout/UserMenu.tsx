@@ -84,7 +84,9 @@ export function UserMenu() {
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                     {initials}
                 </span>
-                <span className="max-w-[100px] truncate text-xs sm:max-w-[140px] sm:text-sm">
+                {/* The name stays desktop-only: brand + switcher + chip only
+                    fit a 375px header when the chip collapses to the avatar. */}
+                <span className="hidden max-w-[100px] truncate text-xs sm:block sm:max-w-[140px] sm:text-sm">
                     {user.name || user.email}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

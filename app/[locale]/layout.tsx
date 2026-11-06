@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 
 import {
     Faq,
+    HideOnLanding,
     SiteFooter,
     SiteHeader,
     StepProgress,
@@ -28,7 +29,7 @@ export async function generateMetadata({
     const { locale } = await params;
     const messages = await getMessages({ locale });
     const meta = (messages.meta ?? {}) as Record<string, string>;
-    const title = meta.titleTemplate ?? "";
+    const title = meta.defaultStep ?? "Suara Lapangan";
     const description = meta.description ?? "";
 
     return {
@@ -112,14 +113,16 @@ export default async function LocaleLayout(props: {
 
                     <div className="flex min-h-dvh flex-col">
                         <SiteHeader />
-                        <StepProgress
-                            locale={locale}
-                            steps={stepNames}
-                            label={t("app.stepsLabel")}
-                        />
+                        <HideOnLanding>
+                            <StepProgress
+                                locale={locale}
+                                steps={stepNames}
+                                label={t("app.stepsLabel")}
+                            />
+                        </HideOnLanding>
                         <div className="flex-1">
                             {props.children}
-                            <Faq />
+                            <HideOnLanding><Faq /></HideOnLanding>
                             <SiteFooter />
                         </div>
                     </div>
