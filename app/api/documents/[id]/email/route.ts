@@ -336,10 +336,7 @@ async function handlePost(
         // A revoked Gmail refresh token (invalid_grant) needs manual
         // intervention — re-authorizing the account — so surface it
         // distinctly from transient delivery failures (#50).
-        if (
-            cause instanceof GmailApiError &&
-            cause.revoked
-        ) {
+        if (cause instanceof GmailApiError && cause.revoked) {
             return NextResponse.json(
                 {
                     error: "gmail_revoked_grant",
