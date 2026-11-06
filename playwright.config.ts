@@ -74,7 +74,10 @@ export default defineConfig({
         url: `${BASE_URL}/en`,
         reuseExistingServer: !process.env.CI,
         // Same secret the global setup signs the seeded session with.
-        env: { BETTER_AUTH_SECRET: E2E_AUTH_SECRET },
+        env: {
+            BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+            TRUSTED_ORIGINS: `http://127.0.0.1:${PORT},http://localhost:${PORT},http://127.0.0.1:3100,http://localhost:3100`,
+        },
         // A cold build is slow on a cold cache.
         timeout: 5 * 60 * 1000,
         stdout: "pipe",

@@ -43,16 +43,12 @@ export const resolvedAuthSecret = AUTH_SECRET;
 export const authSecret = AUTH_SECRET;
 
 /**
- * Origins allowed to send credentialed POSTs. `localhost:3100` is where the
- * end-to-end harness drives a real browser during development; production
- * supplies its own origin through `TRUSTED_ORIGINS` (better-auth also reads
- * `BETTER_AUTH_URL`). Without a matching origin better-auth's origin check
- * rejects sign-in POSTs with 403.
+ * Origins allowed to send credentialed POSTs. Origins come from
+ * `TRUSTED_ORIGINS` (comma-separated), better-auth also reads
+ * `BETTER_AUTH_URL`, and the local dev server / the Playwright harness set
+ * `TRUSTED_ORIGINS` themselves; without a matching origin better-auth
+ * rejects credentialed POSTs with 403.
  */
-const devTrustedOrigins =
-    process.env.NODE_ENV === "production"
-        ? []
-        : ["http://localhost:3100", "http://127.0.0.1:3100"];
 const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
     .split(",")
     .map((origin) => origin.trim())
@@ -61,7 +57,7 @@ const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
-    trustedOrigins: [...envTrustedOrigins, ...devTrustedOrigins],
+    trustedOrigins: [...envTrustedOrigins],
     user: {
         modelName: "auth_user",
         fields: {

@@ -55,20 +55,20 @@ const NOMOR_PATTERN = /^SL\/QTN\/[1-9][0-9]{3}\/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-
 // when scanning, so "meter persegi" is not read as a bare "meter".
 const SPOKEN_UNITS = {
     m2: ["square meters", "square meter", "meter persegi", "sq m", "m2"],
-    m3: ["cubic meters", "meter kubik", "kubik", "m3"],
+    m3: ["cubic meters", "cubic meter", "meter kubik", "kubik", "m3"],
     meter: ["linear meters", "meter"],
     sq_ft: ["square feet", "square foot", "sq ft", "sqft"],
     lin_ft: ["linear feet", "linear foot", "lin ft"],
     sak: ["sak"],
     batang: ["batang"],
     titik: ["titik"],
-    bag: ["bags", "bag"],
-    sheet: ["sheets", "sheet"],
+    bag: ["bags", "bag", "kantong"],
+    sheet: ["sheets", "sheet", "lembar"],
     bar: ["bars", "bar"],
     point: ["points", "point"],
-    hour: ["hours", "hour"],
+    hour: ["hours", "hour", "jam"],
     unit: ["units", "unit", "buah"],
-    hari: ["hari"],
+    hari: ["hari", "days"],
     fixture: ["fixtures", "fixture"],
 };
 

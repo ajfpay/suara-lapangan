@@ -66,15 +66,9 @@ and everything in the table below were created in that window.
 ### Credential source
 
 `MODEL_API_KEY` is read from the host's untracked `.env.local` (mode 600,
-excluded by `.gitignore`). The value is not committed, not printed in logs, and
-not in this README. The intended source is a secret store, but the Meta/Muse
-key held there currently returns HTTP 402 `billing_not_configured` from the Meta
-API, so local runs use a working key from the untracked file instead.
-
-The key active in `.env.local` returns HTTP 200 on real
-`muse-voice-transcribe-1.0` calls with a 20 s, 16 kHz mono WAV sample and the
-app's 50 keywords, and the app's own `POST /api/asr/transcribe` returns turns
-from it.
+git-ignored). The value is never committed, never printed in logs, and never in
+this README. Credential details live in internal notes rather than in the
+repository.
 
 ### Vocabulary biasing
 
@@ -117,6 +111,11 @@ Requires Node 20 or newer.
 npm ci
 npm run dev        # http://localhost:3000
 ```
+
+Starting the dev server for the browser flows requires `TRUSTED_ORIGINS` with
+the origin the browser uses, e.g.
+`TRUSTED_ORIGINS=http://localhost:3100 npx next dev --port 3100`; the variable is
+an explicit opt-in and no origin is trusted implicitly.
 
 | Script | What it does |
 | --- | --- |
