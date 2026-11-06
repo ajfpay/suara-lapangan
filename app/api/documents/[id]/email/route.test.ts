@@ -530,6 +530,45 @@ describe
             expect(getData.sent_to).toBeNull();
         });
 
+        it("returns 503 gmail_revoked_grant when delivery fails with a revoked Gmail grant (#50)", async () => {
+            const docNomor = "SL/QTN/2026/0010";
+            const doc = createTestDocument({ nomor: docNomor, locale: "id" });
+            const { id } = await seedDocument(doc);
+            await seedPdfFile(id, doc);
+
+            // A revoked grant (invalid_grant on token refresh) must surface
+            // distinctly from a transient send failure: 503 with its own code.
+            const { GmailApiError } = await import("@/lib/server/email/send");
+            sendMailMock.mockRejectedValueOnce(
+                new GmailApiError(
+                    "Gmail token refresh failed: HTTP 400: invalid_grant",
+                    400,
+                    "invalid_grant",
+                    true
+                )
+            );
+
+            const req = new Request(
+                `http://localhost/api/documents/${id}/email`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ to: "fail@example.com" }),
+                }
+            );
+
+            const res = await POST(req, {
+                params: Promise.resolve({ id }),
+            });
+
+            expect(res.status).toBe(503);
+            const body = await res.json();
+            expect(body.error).toBe("gmail_revoked_grant");
+
+            // Quota is still released and the document is unchanged.
+            expect(await getEmailSends()).toBe(0);
+        });
+
         it("returns 502 send_failure when PDF is not found on disk", async () => {
             const doc = createTestDocument({
                 nomor: "SL/QTN/2026/0004",

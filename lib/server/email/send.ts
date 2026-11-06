@@ -76,16 +76,14 @@ export function __resetGmailTokenCacheForTest(): void {
 function isAbortError(err: unknown): boolean {
     if (err && typeof err === "object") {
         const name = (err as { name?: unknown }).name;
+        // Match only the names the platform and undici actually use for a
+        // deadline firing; message substrings like "timeout" would relabel
+        // unrelated errors as deadline failures.
         if (name === "AbortError" || name === "TimeoutError") {
             return true;
         }
         const message = (err as { message?: unknown }).message;
-        if (
-            typeof message === "string" &&
-            (message.includes("aborted") ||
-                message.includes("timed out") ||
-                message.includes("timeout"))
-        ) {
+        if (typeof message === "string" && message.includes("aborted")) {
             return true;
         }
         const cause = (err as { cause?: { name?: unknown; message?: unknown } }).cause;
@@ -95,9 +93,7 @@ function isAbortError(err: unknown): boolean {
             }
             if (
                 typeof cause.message === "string" &&
-                (cause.message.includes("aborted") ||
-                    cause.message.includes("timed out") ||
-                    cause.message.includes("timeout"))
+                cause.message.includes("aborted")
             ) {
                 return true;
             }
@@ -290,6 +286,11 @@ export async function sendViaGmailApi(
         gmailTokenCache = null;
         accessToken = await getGmailAccessToken(config);
         res = await fetchSendWithTimeout(accessToken, raw);
+        if (res.status === 401) {
+            // The freshly acquired token was also rejected: do not let the
+            // dead token stay cached until expiry (#50).
+            gmailTokenCache = null;
+        }
     }
 
     if (!res.ok) {

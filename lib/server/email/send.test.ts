@@ -379,6 +379,67 @@ describe("Gmail API send", () => {
         expect(sendAuthHeaders[1]).toBe("Bearer ya29.refreshed-fresh-token");
     });
 
+    // 6b. When the retried send is also rejected with 401, the freshly
+    // acquired token must not stay cached until expiry (#50).
+    it("clears the freshly acquired token from cache when the retried send also returns 401", async () => {
+        let tokenFetchCount = 0;
+        let sendFetchCount = 0;
+
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (input: string | URL | Request) => {
+                const url = typeof input === "string" ? input : input.toString();
+
+                if (url === GMAIL_TOKEN_URL) {
+                    tokenFetchCount++;
+                    return new Response(
+                        JSON.stringify({
+                            access_token: `ya29.token-${tokenFetchCount}`,
+                            expires_in: 3600,
+                        }),
+                        {
+                            status: 200,
+                            headers: { "Content-Type": "application/json" },
+                        }
+                    );
+                }
+
+                if (url === GMAIL_SEND_URL) {
+                    sendFetchCount++;
+                    return new Response(
+                        JSON.stringify({
+                            error: { code: 401, status: "UNAUTHENTICATED" },
+                        }),
+                        {
+                            status: 401,
+                            headers: { "Content-Type": "application/json" },
+                        }
+                    );
+                }
+
+                throw new Error(`Unexpected fetch URL: ${url}`);
+            })
+        );
+
+        await expect(
+            sendViaGmailApi(FAKE_GMAIL_CONFIG, FAKE_EMAIL_OPTIONS)
+        ).rejects.toBeInstanceOf(GmailApiError);
+
+        expect(sendFetchCount).toBe(2);
+        expect(tokenFetchCount).toBe(2);
+
+        // The rejected fresh token was evicted: the next send triggers a new
+        // refresh instead of reusing the dead cached token.
+        const { getGmailAccessToken } = await import("./send");
+        const cacheProbe = await getGmailAccessToken({
+            clientId: FAKE_GMAIL_CONFIG.clientId,
+            clientSecret: FAKE_GMAIL_CONFIG.clientSecret,
+            refreshToken: FAKE_GMAIL_CONFIG.refreshToken,
+        });
+        expect(tokenFetchCount).toBe(3);
+        expect(cacheProbe).toBe("ya29.token-3");
+    });
+
     // 7. Error mapping: send fetch returns 403 with JSON { error: { code: 403, message: "forbidden" } };
     // assert GmailApiError is thrown with apiStatus 403 and apiErrorCode 403.
     it("maps Gmail send error JSON into GmailApiError with status and errorCode", async () => {

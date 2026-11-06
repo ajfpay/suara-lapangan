@@ -19,6 +19,7 @@ import {
     sendEmail,
     buildDocumentEmail,
     sendEmailBodySchema,
+    GmailApiError,
 } from "@/lib/server/email";
 import {
     resolvePdfStorageDir,
@@ -331,6 +332,24 @@ async function handlePost(
                     )
                 );
             });
+        }
+        // A revoked Gmail refresh token (invalid_grant) needs manual
+        // intervention — re-authorizing the account — so surface it
+        // distinctly from transient delivery failures (#50).
+        if (
+            cause instanceof GmailApiError &&
+            cause.revoked
+        ) {
+            return NextResponse.json(
+                {
+                    error: "gmail_revoked_grant",
+                    message:
+                        reqLocale === "en"
+                            ? "Email delivery is unavailable: the Gmail authorization was revoked. An administrator must re-authorize the Gmail account."
+                            : "Pengiriman email tidak tersedia: otorisasi Gmail dicabut. Administrator harus mengotorisasi ulang akun Gmail.",
+                },
+                { status: 503 }
+            );
         }
         return NextResponse.json(
             {
