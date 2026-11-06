@@ -114,8 +114,9 @@ npm run dev        # http://localhost:3000
 
 Starting the dev server for the browser flows requires `TRUSTED_ORIGINS` with
 the origin the browser uses, e.g.
-`TRUSTED_ORIGINS=http://localhost:3100 npx next dev --port 3100`; the variable is
-an explicit opt-in and no origin is trusted implicitly.
+`TRUSTED_ORIGINS=http://localhost:3100 npx next dev --port 3100`. The variable is
+an explicit opt-in for additional origins; better-auth always trusts its own
+base URL (`BETTER_AUTH_URL`).
 
 | Script | What it does |
 | --- | --- |

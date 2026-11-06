@@ -45,9 +45,9 @@ export const authSecret = AUTH_SECRET;
 /**
  * Origins allowed to send credentialed POSTs. Origins come from
  * `TRUSTED_ORIGINS` (comma-separated), better-auth also reads
- * `BETTER_AUTH_URL`, and the local dev server / the Playwright harness set
- * `TRUSTED_ORIGINS` themselves; without a matching origin better-auth
- * rejects credentialed POSTs with 403.
+ * `BETTER_AUTH_URL`, and the Playwright harness sets `TRUSTED_ORIGINS`
+ * itself; `npm run dev` does not, so developers must export it by hand.
+ * Without a matching origin better-auth rejects credentialed POSTs with 403.
  */
 const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
     .split(",")
