@@ -23,16 +23,19 @@ export type SendEmailOptions = {
 export class GmailApiError extends Error {
     readonly apiStatus: number;
     readonly apiErrorCode: string | number | undefined;
+    readonly revoked: boolean;
 
     constructor(
         message: string,
         apiStatus: number,
-        apiErrorCode?: string | number
+        apiErrorCode?: string | number,
+        revoked: boolean = false
     ) {
         super(message);
         this.name = "GmailApiError";
         this.apiStatus = apiStatus;
         this.apiErrorCode = apiErrorCode;
+        this.revoked = revoked;
     }
 }
 
@@ -56,8 +59,8 @@ export function createEmailTransport(config: SmtpConfig): Transporter {
 
 // --- Gmail API (send-only) ---
 
-const GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GMAIL_SEND_URL =
+export const GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token";
+export const GMAIL_SEND_URL =
     "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media";
 
 type CachedToken = { accessToken: string; expiresAtMs: number };
@@ -66,7 +69,40 @@ type CachedToken = { accessToken: string; expiresAtMs: number };
 // per-request refresh would waste quota; expiry keeps it bounded.
 let gmailTokenCache: CachedToken | null = null;
 
-async function getGmailAccessToken(config: {
+export function __resetGmailTokenCacheForTest(): void {
+    gmailTokenCache = null;
+}
+
+function isAbortError(err: unknown): boolean {
+    if (err && typeof err === "object") {
+        const name = (err as { name?: unknown }).name;
+        // Match only the names the platform and undici actually use for a
+        // deadline firing; message substrings like "timeout" would relabel
+        // unrelated errors as deadline failures.
+        if (name === "AbortError" || name === "TimeoutError") {
+            return true;
+        }
+        const message = (err as { message?: unknown }).message;
+        if (typeof message === "string" && message.includes("aborted")) {
+            return true;
+        }
+        const cause = (err as { cause?: { name?: unknown; message?: unknown } }).cause;
+        if (cause && typeof cause === "object") {
+            if (cause.name === "AbortError" || cause.name === "TimeoutError") {
+                return true;
+            }
+            if (
+                typeof cause.message === "string" &&
+                cause.message.includes("aborted")
+            ) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+export async function getGmailAccessToken(config: {
     clientId: string;
     clientSecret: string;
     refreshToken: string;
@@ -82,19 +118,81 @@ async function getGmailAccessToken(config: {
         refresh_token: config.refreshToken,
         grant_type: "refresh_token",
     });
-    const res = await fetch(GMAIL_TOKEN_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-    });
+
+    let res: Response;
+    try {
+        res = await fetch(GMAIL_TOKEN_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body,
+            signal: AbortSignal.timeout(10_000),
+        });
+    } catch (err) {
+        if (isAbortError(err)) {
+            throw new GmailApiError(
+                "Gmail token refresh timed out after 10s",
+                408
+            );
+        }
+        throw err;
+    }
+
     if (!res.ok) {
-        const detail = await res.text().catch(() => "");
+        let detail: string;
+        try {
+            detail = await res.text();
+        } catch (err) {
+            if (isAbortError(err)) {
+                throw new GmailApiError(
+                    "Gmail token refresh timed out after 10s",
+                    408
+                );
+            }
+            detail = "";
+        }
+        let isRevoked = false;
+        let errorCode: string | number | undefined;
+        try {
+            const parsed = JSON.parse(detail) as {
+                error?: string | { code?: string | number };
+            };
+            if (typeof parsed?.error === "string") {
+                errorCode = parsed.error;
+                if (parsed.error === "invalid_grant") {
+                    isRevoked = true;
+                }
+            } else if (parsed?.error && typeof parsed.error === "object") {
+                errorCode = parsed.error.code;
+            }
+        } catch {
+            // non-JSON body: keep the raw text in the message instead
+        }
+        if (
+            !isRevoked &&
+            (detail.includes("invalid_grant") ||
+                detail.toLowerCase().includes("revoked"))
+        ) {
+            isRevoked = true;
+        }
+        if (isRevoked) {
+            gmailTokenCache = null;
+        }
         throw new GmailApiError(
             `Gmail token refresh failed: HTTP ${res.status}${detail ? `: ${detail}` : ""}`,
-            res.status
+            res.status,
+            errorCode,
+            isRevoked
         );
     }
-    const json = (await res.json()) as {
+    const json = (await res.json().catch((err: unknown) => {
+        if (isAbortError(err)) {
+            throw new GmailApiError(
+                "Gmail token refresh timed out after 10s",
+                408
+            );
+        }
+        return {};
+    })) as {
         access_token?: string;
         expires_in?: number;
     };
@@ -154,22 +252,57 @@ export function buildMimeMessage(
     });
 }
 
+async function fetchSendWithTimeout(
+    accessToken: string,
+    raw: Buffer
+): Promise<Response> {
+    try {
+        return await fetch(GMAIL_SEND_URL, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "message/rfc822",
+            },
+            body: raw,
+            signal: AbortSignal.timeout(30_000),
+        });
+    } catch (err) {
+        if (isAbortError(err)) {
+            throw new GmailApiError("Gmail send timed out after 30s", 408);
+        }
+        throw err;
+    }
+}
+
 export async function sendViaGmailApi(
     config: Extract<EmailConfig, { kind: "gmail" }>,
     options: SendEmailOptions
 ): Promise<void> {
-    const accessToken = await getGmailAccessToken(config);
+    let accessToken = await getGmailAccessToken(config);
     const raw = await buildMimeMessage(config.from, options);
-    const res = await fetch(GMAIL_SEND_URL, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "message/rfc822",
-        },
-        body: raw,
-    });
+
+    let res = await fetchSendWithTimeout(accessToken, raw);
+    if (res.status === 401) {
+        gmailTokenCache = null;
+        accessToken = await getGmailAccessToken(config);
+        res = await fetchSendWithTimeout(accessToken, raw);
+        if (res.status === 401) {
+            // The freshly acquired token was also rejected: do not let the
+            // dead token stay cached until expiry (#50).
+            gmailTokenCache = null;
+        }
+    }
+
     if (!res.ok) {
-        const detail = await res.text().catch(() => "");
+        let detail: string;
+        try {
+            detail = await res.text();
+        } catch (err) {
+            if (isAbortError(err)) {
+                throw new GmailApiError("Gmail send timed out after 30s", 408);
+            }
+            detail = "";
+        }
         let errorCode: string | number | undefined;
         try {
             errorCode = (

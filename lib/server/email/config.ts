@@ -1,3 +1,5 @@
+import { redactSecrets } from "@/lib/server/asr/log";
+
 export type SmtpConfig = {
     kind: "smtp";
     host: string;
@@ -36,13 +38,31 @@ function nonEmpty(value: string | undefined): string | null {
  */
 export function getGmailConfig(): GmailConfig | null {
     const clientId = nonEmpty(process.env.GMAIL_CLIENT_ID);
-    const clientSecret = process.env.GMAIL_CLIENT_SECRET?.trim();
-    const refreshToken = process.env.GMAIL_REFRESH_TOKEN?.trim();
+    const clientSecret = nonEmpty(process.env.GMAIL_CLIENT_SECRET);
+    const refreshToken = nonEmpty(process.env.GMAIL_REFRESH_TOKEN);
     // Optional: gmail.send cannot read users.getProfile, so when GMAIL_FROM is
     // unset the MIME message omits the From header and the API fills it with
     // the authenticated account (handoff requirement: From must match that
     // account; a guessed address would make Gmail rewrite or reject it).
     const from = nonEmpty(process.env.GMAIL_FROM);
+
+    const missing: string[] = [];
+    if (!clientId) missing.push("GMAIL_CLIENT_ID");
+    if (!clientSecret) missing.push("GMAIL_CLIENT_SECRET");
+    if (!refreshToken) missing.push("GMAIL_REFRESH_TOKEN");
+
+    if (missing.length === 3) {
+        return null;
+    }
+
+    if (missing.length > 0) {
+        console.warn(
+            redactSecrets(
+                `[email] Gmail configuration is partial and cannot be used; missing: ${missing.join(", ")}`
+            )
+        );
+        return null;
+    }
 
     if (!clientId || !clientSecret || !refreshToken) {
         return null;
