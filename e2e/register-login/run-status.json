@@ -1,0 +1,38 @@
+{
+  "stopRuleFired": "anti-bot",
+  "scenarioA": {
+    "status": "PASS",
+    "exitCode": 0,
+    "observed": "User ethan9b21b@ultrmigos.online registered; redirected to verify-email notice screen; unauthenticated state confirmed.",
+    "timestamp": "2026-11-07T05:03:27.763Z"
+  },
+  "suiteExitCode": 1,
+  "scenarioC": {
+    "status": "BLOCKED",
+    "exitCode": 1,
+    "reason": "Anti-bot detected",
+    "url": "https://generator.email/ethan9b21b@ultrmigos.online",
+    "title": "Access temporarily limited",
+    "screenshot": "/home/ubuntu/repos/.amp/in/artifacts/antibot-challenge.png",
+    "timestamp": "2026-11-07T05:03:38.426Z"
+  },
+  "scenarioB": {
+    "status": "PASS",
+    "exitCode": 0,
+    "observed": "Duplicate registration attempt with liam25e2b@ycalstore.shop rejected with visible data-testid=\"register-error\".",
+    "timestamp": "2026-11-07T05:03:32.965Z"
+  },
+  "scenarioD": {
+    "status": "PASS",
+    "account": "jackwefirst@gmail.com",
+    "observed": "Wrong-password login rejected with login-error; valid login authenticated and redirected into app.",
+    "timestamp": "2026-11-07T06:50:46.601Z"
+  },
+  "scenarioE": {
+    "finished_at": "2026-11-07T07:40:55.561Z",
+    "status": "PASS",
+    "document_id": "ada7f31d-d7a9-41d3-9ecd-7ea1adf9761b",
+    "document_number": "SL/QTN/2026/0001",
+    "session_id": "20109bf1-e4b4-4248-b1bc-4dc158389c39"
+  }
+}
