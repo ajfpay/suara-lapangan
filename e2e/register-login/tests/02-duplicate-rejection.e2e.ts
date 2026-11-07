@@ -1,23 +1,19 @@
-import { expect } from 'e2e';
-import { test } from '@e2e-dev/web';
-import { OLD_ACCOUNT } from '../lib/accounts.ts';
-import { resolveDeterministicPassword } from '../lib/credentials.ts';
-import { captureArtifactScreenshot } from '../lib/artifacts.ts';
+import { test, expect } from '@playwright/test';
+import { OLD_ACCOUNT } from '../lib/accounts';
+import { resolveDeterministicPassword } from '../lib/credentials';
 
-test('scenario b - duplicate registration rejected', async ({ app, screen }) => {
+test('scenario b - duplicate registration rejected', async ({ page }) => {
   const passwordHandle = resolveDeterministicPassword();
 
-  await app.open('/en/register');
-  await expect(screen.getByTestId('input-email')).toBeVisible();
+  await page.goto('/en/register');
+  await expect(page.getByTestId('input-email')).toBeVisible();
 
-  await screen.getByTestId('input-name').fill(OLD_ACCOUNT.name);
-  await screen.getByTestId('input-email').fill(OLD_ACCOUNT.email);
-  await screen.getByTestId('input-password').fill(passwordHandle.getRawPassword());
+  await page.getByTestId('input-name').fill(OLD_ACCOUNT.name);
+  await page.getByTestId('input-email').fill(OLD_ACCOUNT.email);
+  await page.getByTestId('input-password').fill(passwordHandle.getRawPassword());
 
-  await screen.getByTestId('btn-submit-register').click();
+  await page.getByTestId('btn-submit-register').click();
 
-  const errorElement = screen.getByTestId('register-error');
+  const errorElement = page.getByTestId('register-error');
   await expect(errorElement).toBeVisible();
-
-  await captureArtifactScreenshot(app, '03-scenario-b-duplicate-rejected.png');
 });

@@ -1,10 +1,9 @@
-import { expect } from 'e2e';
-import { test } from '@e2e-dev/web';
+import { test, expect } from '@playwright/test';
 
-test('smoke - register screen mounts successfully', async ({ app, screen }) => {
-  await app.open('/en/register');
-  await expect(screen.getByTestId('input-name')).toBeVisible();
-  await expect(screen.getByTestId('input-email')).toBeVisible();
-  await expect(screen.getByTestId('input-password')).toBeVisible();
-  await expect(screen.getByTestId('btn-submit-register')).toBeVisible();
+test('smoke - register screen mounts successfully', async ({ page }) => {
+  await page.goto('/en/register');
+  await expect(page.getByTestId('input-name')).toBeVisible();
+  await expect(page.getByTestId('input-email')).toBeVisible();
+  await expect(page.getByTestId('input-password')).toBeVisible();
+  await expect(page.getByTestId('btn-submit-register')).toBeVisible();
 });

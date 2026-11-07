@@ -1,9 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { expect } from 'e2e';
-import { test } from '@e2e-dev/web';
-import { captureArtifactScreenshot } from '../lib/artifacts.ts';
 
 /**
  * Continuation E2E: login tests for jackwefirst@gmail.com (owner-registered,
@@ -15,20 +11,6 @@ import { captureArtifactScreenshot } from '../lib/artifacts.ts';
  */
 
 const JACK_EMAIL = 'jackwefirst@gmail.com';
-
-const STATUS_FILE = path.join(process.cwd(), 'run-status.json');
-
-function recordStatus(payload: Record<string, unknown>) {
-  try {
-    let existing = {};
-    if (fs.existsSync(STATUS_FILE)) {
-      existing = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf-8'));
-    }
-    fs.writeFileSync(STATUS_FILE, JSON.stringify({ ...existing, ...payload }, null, 2));
-  } catch (err) {
-    console.error('Failed to write status file:', err);
-  }
-}
 
 interface JackSecret {
   email: string;
@@ -50,36 +32,24 @@ function resolveJackCredentials(): JackSecret {
   return { email: data.email ?? JACK_EMAIL, password: data.password };
 }
 
-test('scenario d - jackwefirst login (negative then positive)', async ({ app, screen, browser }) => {
+test('scenario d - jackwefirst login (negative then positive)', async ({ page }) => {
   const creds = resolveJackCredentials();
 
-  await app.open('/en/login');
-  await expect(screen.getByTestId('input-email')).toBeVisible();
-  await expect(screen.getByTestId('input-password')).toBeVisible();
-  await captureArtifactScreenshot(app, '08-scenario-d-login-page.png');
+  await page.goto('/en/login');
+  await expect(page.getByTestId('input-email')).toBeVisible();
+  await expect(page.getByTestId('input-password')).toBeVisible();
 
   // Wrong password must be rejected before the positive case runs.
-  await screen.getByTestId('input-email').fill(creds.email);
-  await screen.getByTestId('input-password').fill('WrongPassword-for-negative-test-000!');
-  await screen.getByTestId('btn-submit-login').click();
+  await page.getByTestId('input-email').fill(creds.email);
+  await page.getByTestId('input-password').fill('WrongPassword-for-negative-test-000!');
+  await page.getByTestId('btn-submit-login').click();
 
-  await expect(screen.getByTestId('login-error')).toBeVisible();
-  await captureArtifactScreenshot(app, '09-scenario-d-login-negative-rejected.png');
+  await expect(page.getByTestId('login-error')).toBeVisible();
 
-  await screen.getByTestId('input-email').fill(creds.email);
-  await screen.getByTestId('input-password').fill(creds.password);
-  await screen.getByTestId('btn-submit-login').click();
+  await page.getByTestId('input-email').fill(creds.email);
+  await page.getByTestId('input-password').fill(creds.password);
+  await page.getByTestId('btn-submit-login').click();
 
   // Authenticated: redirected away from /login into the app (e.g. /en, /en/rekam, /en/dokumen)
-  await expect(browser).not.toHaveURL(/\/en\/login/);
-  await captureArtifactScreenshot(app, '10-scenario-d-login-positive-authenticated.png');
-
-  recordStatus({
-    scenarioD: {
-      status: 'PASS',
-      account: creds.email,
-      observed: 'Wrong-password login rejected with login-error; valid login authenticated and redirected into app.',
-      timestamp: new Date().toISOString(),
-    },
-  });
+  await expect(page).not.toHaveURL(/\/en\/login/);
 });

@@ -49,19 +49,20 @@ export function resolveDeterministicPassword(): RedactedSecret {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
-  } catch (err: unknown) {
+  } catch {
     throw new AkeylessSecretError(`Failed to retrieve secret from Akeyless: ${secretName}`);
   }
 
-  let parsed: any;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(stdout);
   } catch {
     throw new AkeylessSecretError(`Malformed JSON returned from Akeyless for ${secretName}`);
   }
 
-  const item = parsed[secretName] || parsed;
-  let data: any = item;
+  const parsedRecord = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
+  const item = parsedRecord[secretName] ?? parsed;
+  let data: unknown = item;
   if (typeof item === 'string') {
     try {
       data = JSON.parse(item);
@@ -70,10 +71,11 @@ export function resolveDeterministicPassword(): RedactedSecret {
     }
   }
 
-  if (!data || typeof data !== 'object' || typeof data.password !== 'string' || data.password.length === 0) {
+  const payload = data as { password?: unknown } | null | undefined;
+  if (!payload || typeof payload !== 'object' || typeof payload.password !== 'string' || payload.password.length === 0) {
     throw new AkeylessSecretError(`Secret payload for ${secretName} missing password property`);
   }
 
-  cachedSecret = new RedactedSecret(data.password);
+  cachedSecret = new RedactedSecret(payload.password);
   return cachedSecret;
 }
