@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
-import type { EmailConfig, SmtpConfig } from "./config";
+import type { EmailConfig } from "./config";
 import { redactSecrets } from "@/lib/server/asr/log";
 
 export type EmailAttachment = {
@@ -37,24 +36,6 @@ export class GmailApiError extends Error {
         this.apiErrorCode = apiErrorCode;
         this.revoked = revoked;
     }
-}
-
-export function createEmailTransport(config: SmtpConfig): Transporter {
-    return nodemailer.createTransport({
-        host: config.host,
-        port: config.port,
-        secure: config.secure,
-        requireTLS: config.requireTls,
-        // Bounded timeouts so a hung SMTP peer cannot hold the send (and the
-        // UI's "Sending…" state) open indefinitely.
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 30_000,
-        auth: {
-            user: config.user,
-            pass: config.pass,
-        },
-    });
 }
 
 // --- Gmail API (send-only) ---
@@ -346,18 +327,7 @@ export async function sendEmail(
     options: SendEmailOptions
 ): Promise<void> {
     try {
-        if (config.kind === "gmail") {
-            await sendViaGmailApi(config, options);
-            return;
-        }
-        const transporter = createEmailTransport(config);
-        await transporter.sendMail({
-            from: config.from,
-            to: options.to,
-            subject: options.subject,
-            text: options.text,
-            attachments: options.attachments,
-        });
+        await sendViaGmailApi(config, options);
     } catch (cause) {
         console.error(
             redactSecrets(`[email] delivery failed: ${String(cause)}`)

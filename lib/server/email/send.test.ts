@@ -689,7 +689,7 @@ describe("Gmail API send", () => {
         it("passes an AbortSignal to both token refresh and send fetch calls, pinned to 10s/30s deadlines", async () => {
             // Spy on AbortSignal.timeout to pin the exact deadline durations:
             // the token refresh must use 10s and the send 30s, matching the
-            // SMTP path's 10-30s convention (#49). The real signals are still
+            // Gmail path's 10-30s convention (#49). The real signals are still
             // created so callers get functioning abort behavior.
             const realTimeout = AbortSignal.timeout.bind(AbortSignal);
             const capturedDurations: number[] = [];

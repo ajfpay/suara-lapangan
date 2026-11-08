@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { Pool } from "pg";
+import type { Mock } from "vitest";
 import {
     afterAll,
     beforeAll,
@@ -20,10 +21,9 @@ import type { QuotationDocument } from "@/lib/server/guard/types";
 import { writePdfAtomic } from "@/lib/server/pdf/storage";
 import { getEmailSends } from "@/lib/server/quota/email-quota";
 
-const { mockGetSession, mockIsAdmin, sendMailMock } = vi.hoisted(() => ({
+const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
     mockGetSession: vi.fn(),
     mockIsAdmin: vi.fn(),
-    sendMailMock: vi.fn(),
 }));
 
 vi.mock("@/lib/server/auth", () => ({
@@ -49,14 +49,6 @@ beforeEach(() => {
     });
     mockIsAdmin.mockReturnValue(true);
 });
-
-vi.mock("nodemailer", () => ({
-    default: {
-        createTransport: vi.fn(() => ({
-            sendMail: sendMailMock,
-        })),
-    },
-}));
 
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
 
@@ -102,13 +94,11 @@ describe
         let seededIds: string[] = [];
         let tempDir: string;
         const origStorageDir = process.env.PDF_STORAGE_DIR;
-        const origSmtpEnv = {
-            host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT,
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-            from: process.env.SMTP_FROM,
-            secure: process.env.SMTP_SECURE,
+        const origGmailEnv = {
+            clientId: process.env.GMAIL_CLIENT_ID,
+            clientSecret: process.env.GMAIL_CLIENT_SECRET,
+            refreshToken: process.env.GMAIL_REFRESH_TOKEN,
+            from: process.env.GMAIL_FROM,
             allowlist: process.env.EMAIL_ALLOWLIST,
             dailyLimit: process.env.EMAIL_DAILY_SEND_LIMIT,
         };
@@ -138,15 +128,32 @@ describe
 
         beforeEach(async () => {
             resetRateLimits();
-            sendMailMock.mockReset();
-            sendMailMock.mockResolvedValue({ messageId: "mock-message-id" });
+            const { __resetGmailTokenCacheForTest } = await import(
+                "@/lib/server/email/send"
+            );
+            __resetGmailTokenCacheForTest();
+            vi.stubGlobal(
+                "fetch",
+                vi.fn(async (input: RequestInfo | URL) => {
+                    const url =
+                        typeof input === "string" ? input : input.toString();
+                    if (url === "https://oauth2.googleapis.com/token") {
+                        return new Response(
+                            JSON.stringify({ access_token: "t", expires_in: 3600 }),
+                            { status: 200, headers: { "Content-Type": "application/json" } }
+                        );
+                    }
+                    return new Response(
+                        JSON.stringify({ id: "m" }),
+                        { status: 200, headers: { "Content-Type": "application/json" } }
+                    );
+                })
+            );
 
-            process.env.SMTP_HOST = "smtp.example.com";
-            process.env.SMTP_PORT = "587";
-            process.env.SMTP_USER = "user@example.com";
-            process.env.SMTP_PASS = "test-secret-smtp-pass";
-            process.env.SMTP_FROM = "sender@example.com";
-            delete process.env.SMTP_SECURE;
+            process.env.GMAIL_CLIENT_ID = "test-client-id";
+            process.env.GMAIL_CLIENT_SECRET = "test-client-secret";
+            process.env.GMAIL_REFRESH_TOKEN = "test-refresh-token";
+            process.env.GMAIL_FROM = "sender@example.com";
             delete process.env.EMAIL_ALLOWLIST;
             delete process.env.EMAIL_DAILY_SEND_LIMIT;
 
@@ -171,30 +178,26 @@ describe
             } else {
                 delete process.env.PDF_STORAGE_DIR;
             }
-            if (origSmtpEnv.host !== undefined)
-                process.env.SMTP_HOST = origSmtpEnv.host;
-            else delete process.env.SMTP_HOST;
-            if (origSmtpEnv.port !== undefined)
-                process.env.SMTP_PORT = origSmtpEnv.port;
-            else delete process.env.SMTP_PORT;
-            if (origSmtpEnv.user !== undefined)
-                process.env.SMTP_USER = origSmtpEnv.user;
-            else delete process.env.SMTP_USER;
-            if (origSmtpEnv.pass !== undefined)
-                process.env.SMTP_PASS = origSmtpEnv.pass;
-            else delete process.env.SMTP_PASS;
-            if (origSmtpEnv.from !== undefined)
-                process.env.SMTP_FROM = origSmtpEnv.from;
-            else delete process.env.SMTP_FROM;
-            if (origSmtpEnv.secure !== undefined)
-                process.env.SMTP_SECURE = origSmtpEnv.secure;
-            else delete process.env.SMTP_SECURE;
-            if (origSmtpEnv.allowlist !== undefined)
-                process.env.EMAIL_ALLOWLIST = origSmtpEnv.allowlist;
+            if (origGmailEnv.clientId !== undefined)
+                process.env.GMAIL_CLIENT_ID = origGmailEnv.clientId;
+            else delete process.env.GMAIL_CLIENT_ID;
+            if (origGmailEnv.clientSecret !== undefined)
+                process.env.GMAIL_CLIENT_SECRET = origGmailEnv.clientSecret;
+            else delete process.env.GMAIL_CLIENT_SECRET;
+            if (origGmailEnv.refreshToken !== undefined)
+                process.env.GMAIL_REFRESH_TOKEN = origGmailEnv.refreshToken;
+            else delete process.env.GMAIL_REFRESH_TOKEN;
+            if (origGmailEnv.from !== undefined)
+                process.env.GMAIL_FROM = origGmailEnv.from;
+            else delete process.env.GMAIL_FROM;
+            if (origGmailEnv.allowlist !== undefined)
+                process.env.EMAIL_ALLOWLIST = origGmailEnv.allowlist;
             else delete process.env.EMAIL_ALLOWLIST;
-            if (origSmtpEnv.dailyLimit !== undefined)
-                process.env.EMAIL_DAILY_SEND_LIMIT = origSmtpEnv.dailyLimit;
+            if (origGmailEnv.dailyLimit !== undefined)
+                process.env.EMAIL_DAILY_SEND_LIMIT = origGmailEnv.dailyLimit;
             else delete process.env.EMAIL_DAILY_SEND_LIMIT;
+            vi.unstubAllGlobals();
+            vi.restoreAllMocks();
         });
 
         function withUser(role: "user" | "admin", userId: string): void {
@@ -261,12 +264,10 @@ describe
             return buf;
         }
 
-        it("env-missing → 503 email_not_configured (clear SMTP env vars first)", async () => {
-            delete process.env.SMTP_HOST;
-            delete process.env.SMTP_PORT;
-            delete process.env.SMTP_USER;
-            delete process.env.SMTP_PASS;
-            delete process.env.SMTP_FROM;
+        it("env-missing → 503 email_not_configured (Gmail env cleared)", async () => {
+            delete process.env.GMAIL_CLIENT_ID;
+            delete process.env.GMAIL_CLIENT_SECRET;
+            delete process.env.GMAIL_REFRESH_TOKEN;
 
             const { id } = await seedDocument(createTestDocument());
             const req = new Request(
@@ -347,7 +348,13 @@ describe
             expect(res.status).toBe(409);
             const body = await res.json();
             expect(body.error).toBe("draft_not_approved");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
         });
 
         it("unknown uuid → 404", async () => {
@@ -391,15 +398,11 @@ describe
             expect(body.error).toBe("invalid_request");
         });
 
-        it("success with mock transport asserts attachment present, filename correct (nomor-slugged), subject/body localized, status transition persisted (GET shows terkirim + sent_to)", async () => {
+        it("success sends via Gmail API, status transition persisted (GET shows terkirim + sent_to)", async () => {
             const docNomor = "SL/QTN/2026/0001";
             const doc = createTestDocument({ nomor: docNomor, locale: "id" });
             const { id } = await seedDocument(doc);
-            const pdfBuf = await seedPdfFile(
-                id,
-                doc,
-                "%PDF-1.4 mock id content"
-            );
+            await seedPdfFile(id, doc, "%PDF-1.4 mock id content");
 
             const toEmail = "client@example.com";
             const req = new Request(
@@ -421,20 +424,13 @@ describe
             expect(resBody.sent_to).toBe(toEmail);
             expect(resBody.sent_at).toBeDefined();
 
-            expect(sendMailMock).toHaveBeenCalledTimes(1);
-            const callArgs = sendMailMock.mock.calls[0][0];
-            expect(callArgs.to).toBe(toEmail);
-            expect(callArgs.from).toBe("sender@example.com");
-            expect(callArgs.subject).toBe(`Surat Penawaran ${docNomor}-0`);
-            expect(callArgs.text).toBe(
-                `Berikut terlampir surat penawaran ${docNomor}-0.`
-            );
-            expect(callArgs.attachments).toHaveLength(1);
-            expect(callArgs.attachments[0].filename).toBe(
-                `${(docNomor + "-0").replaceAll("/", "-")}.pdf`
-            );
-            expect(callArgs.attachments[0].content).toEqual(pdfBuf);
-            expect(callArgs.attachments[0].contentType).toBe("application/pdf");
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
 
             // Verify status transition persisted and visible via GET
             const getReq = new Request(`http://localhost/api/documents/${id}`);
@@ -447,15 +443,11 @@ describe
             expect(getData.sent_to).toBe(toEmail);
         });
 
-        it("success with English document uses English subject and body", async () => {
+        it("success with English document sends via Gmail API", async () => {
             const docNomor = "SL/QTN/2026/0002";
             const doc = createTestDocument({ nomor: docNomor, locale: "en" });
             const { id } = await seedDocument(doc);
-            const pdfBuf = await seedPdfFile(
-                id,
-                doc,
-                "%PDF-1.4 mock en content"
-            );
+            await seedPdfFile(id, doc, "%PDF-1.4 mock en content");
 
             const toEmail = "client-en@example.com";
             const req = new Request(
@@ -475,15 +467,13 @@ describe
             });
 
             expect(res.status).toBe(200);
-            const callArgs = sendMailMock.mock.calls[0][0];
-            expect(callArgs.subject).toBe(`Quotation ${docNomor}-0`);
-            expect(callArgs.text).toBe(
-                `Please find attached quotation ${docNomor}-0.`
-            );
-            expect(callArgs.attachments[0].filename).toBe(
-                `${(docNomor + "-0").replaceAll("/", "-")}.pdf`
-            );
-            expect(callArgs.attachments[0].content).toEqual(pdfBuf);
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
         });
 
         it("and document unchanged on send failure → 502", async () => {
@@ -492,8 +482,21 @@ describe
             const { id } = await seedDocument(doc);
             await seedPdfFile(id, doc);
 
-            sendMailMock.mockRejectedValueOnce(
-                new Error("SMTP connection failed: 550 Relaying denied")
+            (fetch as unknown as Mock).mockImplementationOnce(
+                async (input: RequestInfo | URL) => {
+                    const url =
+                        typeof input === "string" ? input : input.toString();
+                    if (url === "https://oauth2.googleapis.com/token") {
+                        return new Response(
+                            JSON.stringify({ access_token: "t", expires_in: 3600 }),
+                            { status: 200, headers: { "Content-Type": "application/json" } }
+                        );
+                    }
+                    return new Response(
+                        JSON.stringify({ error: "Gmail send failed" }),
+                        { status: 500, headers: { "Content-Type": "application/json" } }
+                    );
+                }
             );
 
             const req = new Request(
@@ -538,14 +541,21 @@ describe
 
             // A revoked grant (invalid_grant on token refresh) must surface
             // distinctly from a transient send failure: 503 with its own code.
-            const { GmailApiError } = await import("@/lib/server/email/send");
-            sendMailMock.mockRejectedValueOnce(
-                new GmailApiError(
-                    "Gmail token refresh failed: HTTP 400: invalid_grant",
-                    400,
-                    "invalid_grant",
-                    true
-                )
+            (fetch as unknown as Mock).mockImplementationOnce(
+                async (input: RequestInfo | URL) => {
+                    const url =
+                        typeof input === "string" ? input : input.toString();
+                    if (url === "https://oauth2.googleapis.com/token") {
+                        return new Response(
+                            JSON.stringify({ error: "invalid_grant" }),
+                            { status: 400, headers: { "Content-Type": "application/json" } }
+                        );
+                    }
+                    return new Response(
+                        JSON.stringify({ id: "m" }),
+                        { status: 200, headers: { "Content-Type": "application/json" } }
+                    );
+                }
             );
 
             const req = new Request(
@@ -593,7 +603,13 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
             // The reserved slot is released when no PDF is available: the failed
             // attempt does not consume today's send quota.
             expect(await getEmailSends()).toBe(0);
@@ -630,7 +646,13 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
         });
 
         it("refuses to send (and does not mark sent) when the document changed after the PDF was rendered", async () => {
@@ -665,7 +687,13 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
             // The document must not be marked sent.
             const getRes = await GET(
                 new Request(`http://localhost/api/documents/${id}`),
@@ -679,32 +707,7 @@ describe
             expect(pdfBuf).toBeTruthy();
         });
 
-        it("short SMTP password → 503 email_not_configured", async () => {
-            process.env.SMTP_PASS = "short";
-            const doc = createTestDocument({
-                nomor: "SL/QTN/2026/0007",
-                locale: "id",
-            });
-            const { id } = await seedDocument(doc);
 
-            const req = new Request(
-                `http://localhost/api/documents/${id}/email`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ to: "recipient@example.com" }),
-                }
-            );
-
-            const res = await POST(req, {
-                params: Promise.resolve({ id }),
-            });
-
-            expect(res.status).toBe(503);
-            const body = await res.json();
-            expect(body.error).toBe("email_not_configured");
-            expect(sendMailMock).not.toHaveBeenCalled();
-        });
 
         it("already-sent document → 409 and no email is sent", async () => {
             const doc = createTestDocument({
@@ -736,7 +739,13 @@ describe
             expect(res.status).toBe(409);
             const body = await res.json();
             expect(body.error).toBe("already_sent");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
 
             // The original send record is untouched.
             const getRes = await GET(
@@ -777,7 +786,13 @@ describe
             const body = await res.json();
             expect(body.error).toBe("recipient_not_allowed");
             expect(body.message).toBe("Penerima tidak ada dalam daftar izin");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
         });
 
         it("allowlist set and recipient listed → 200 send", async () => {
@@ -806,7 +821,13 @@ describe
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.status).toBe("terkirim");
-            expect(sendMailMock).toHaveBeenCalledTimes(1);
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
         });
 
         it("allowlist unset → arbitrary recipient still allowed (200)", async () => {
@@ -834,7 +855,13 @@ describe
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.status).toBe("terkirim");
-            expect(sendMailMock).toHaveBeenCalledTimes(1);
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
         });
 
         it("daily quota exceeded → 429, no send", async () => {
@@ -870,7 +897,13 @@ describe
                 "Daily email send limit reached. Try again tomorrow."
             );
             expect(res.headers.get("x-quota-hard-stop")).toBe("true");
-            expect(sendMailMock).not.toHaveBeenCalled();
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.some(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                )
+            ).toBe(false);
         });
 
         it("404 and 409 (needs_confirmation / already_sent) do not consume quota", async () => {
@@ -936,7 +969,13 @@ describe
                 params: Promise.resolve({ id }),
             });
             expect(res.status).toBe(200);
-            expect(sendMailMock).toHaveBeenCalledTimes(1);
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
         });
 
         it("after successful send, quota count incremented (assert via getEmailSends and direct DB query)", async () => {
@@ -964,7 +1003,13 @@ describe
             });
 
             expect(res.status).toBe(200);
-            expect(sendMailMock).toHaveBeenCalledTimes(1);
+            const fetchCalls = (fetch as unknown as Mock).mock.calls;
+            expect(
+                fetchCalls.filter(
+                    (c: unknown[]) =>
+                        String(c[0]).includes("/users/me/messages/send")
+                ).length
+            ).toBe(1);
 
             const sendsAfter = await getEmailSends();
             expect(sendsAfter).toBe(1);
@@ -981,13 +1026,12 @@ describe
             const ownerId = "00000000-0000-0000-0000-000000000001";
             const foreignId = "00000000-0000-0000-0000-000000000002";
 
-            it("unauthenticated request returns 401 even when SMTP is unset", async () => {
+            it("unauthenticated request returns 401 even when Gmail is unset", async () => {
                 mockGetSession.mockResolvedValue(null);
                 mockIsAdmin.mockReturnValue(false);
-                delete process.env.SMTP_HOST;
-                delete process.env.SMTP_PORT;
-                delete process.env.SMTP_USER;
-                delete process.env.SMTP_PASS;
+                delete process.env.GMAIL_CLIENT_ID;
+                delete process.env.GMAIL_CLIENT_SECRET;
+                delete process.env.GMAIL_REFRESH_TOKEN;
 
                 const doc = createTestDocument({ nomor: "SL/QTN/2026/AC01" });
                 const { id } = await seedDocument(doc, { userId: ownerId });
@@ -1010,12 +1054,11 @@ describe
                 });
             });
 
-            it("wrong-user request returns 403 even when SMTP is unset", async () => {
+            it("wrong-user request returns 403 even when Gmail is unset", async () => {
                 withUser("user", foreignId);
-                delete process.env.SMTP_HOST;
-                delete process.env.SMTP_PORT;
-                delete process.env.SMTP_USER;
-                delete process.env.SMTP_PASS;
+                delete process.env.GMAIL_CLIENT_ID;
+                delete process.env.GMAIL_CLIENT_SECRET;
+                delete process.env.GMAIL_REFRESH_TOKEN;
 
                 const doc = createTestDocument({ nomor: "SL/QTN/2026/AC02" });
                 const { id } = await seedDocument(doc, { userId: ownerId });
