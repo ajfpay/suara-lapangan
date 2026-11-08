@@ -11,10 +11,8 @@ checking and PDF work arrives in the tickets that follow.
 
 ## Live demo
 
-Judges can open the app at [https://suara.ajfbyte.com](https://suara.ajfbyte.com) and log in
-with `judge-demo@suara-lapangan.test`. The demo password is shared with the
-judges directly and is not in this repository. Transcription goes through the
-Meta API, so the host must have a working `MODEL_API_KEY`.
+Judges can open the app at [https://suara.ajfbyte.com]
+
 
 ## Hackathon provenance
 
