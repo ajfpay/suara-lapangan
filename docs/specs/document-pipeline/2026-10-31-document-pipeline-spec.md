@@ -140,9 +140,10 @@ owner citation follows from one.
   B4), which already serves `Content-Disposition: attachment`
   (`app/api/pdf/[id]/route.ts:88-93`). The route must refuse with 409 while the document is
   `perlu_konfirmasi` (unchanged, B4).
-- R20. **Kirim** sends the PDF by email via SMTP with credentials exclusively in environment
-  variables (D6). No credential may appear in code, config files, logs, or error messages (the
-  redaction standard of `lib/server/asr/log.ts` applies).
+- R20. **Kirim** sends the PDF by email via the Gmail API (OAuth2 user authorization with a refresh token) with
+  credentials exclusively in environment variables (D6). No credential may appear in code,
+  config files, logs, or error messages (the redaction standard of `lib/server/asr/log.ts`
+  applies).
 - R21. Kirim must be implemented **last** in the ticket plan (owner decision 4): the document
   flow is complete without it, and Unduh works before any mail configuration exists.
 - R22. A successful send marks the document `terkirim` and records the recipient and timestamp;
@@ -330,36 +331,36 @@ returning last_number;
 
 ### D6 — Email approach (Kirim)
 
-**Nodemailer over SMTP, configured entirely by environment variables.** One route:
+**Gmail API (OAuth2), configured entirely by environment variables.** One route:
 `POST /api/documents/{id}/email` with body `{to: string}` (zod-validated, RFC-style email check).
 
-- Requested by R20/R21; the dependency is `nodemailer` (MIT, added to `package.json` +
-  `THIRD-PARTY.md` per the licensing rule of `docs/03-GATE-GO-NO-GO.md` / Pre-Flight item on
-  licences). No email SDK from a vendor; the leftover `SendPdfEmail.tsx` React template and its
-  `@react-email/*` imports are **not** revived (they are dead invoify code — B16).
-- Env contract: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` (plus optional
-  `SMTP_SECURE`). All five required; if any is missing the route answers
+- Requested by R20/R21; the dependency is `nodemailer` (MIT, used only to compose the MIME
+  message, added to `package.json` + `THIRD-PARTY.md` per the licensing rule of
+  `docs/03-GATE-GO-NO-GO.md` / Pre-Flight item on licences). No email SDK from a vendor; the
+  leftover `SendPdfEmail.tsx` React template and its `@react-email/*` imports are **not** revived
+  (they are dead invoify code — B16). SMTP is **not** used — sending goes through the Gmail API.
+- Env contract: `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET`, `GMAIL_REFRESH_TOKEN` (plus optional
+  `GMAIL_FROM`). All three required; if any is missing the route answers
   503 `email_not_configured` with the same user-message style as the ASR error table
   (`lib/server/asr/errors.ts`). Credentials never appear in logs — failure logs go through
-  `redactSecrets` (`lib/server/asr/log.ts:7-31`), and the SMTP password is added to its scrub
-  list.
+  `redactSecrets` (`lib/server/asr/log.ts:7-31`).
 - Behaviour: read the document, refuse 409 if not `siap`/`terkirim`, read the PDF from disk
-  (`pdf_path`), send one message with the PDF attached and a short localized subject/body
-  (`Surat Penawaran <nomor>` / `Quotation <nomor>`), then set `status = 'terkirim'`, `sent_to`,
-  `sent_at` (R22). Send failure returns a mapped 502 with a user message; the document is
-  unchanged so the user can retry.
-- Why SMTP/nodemailer over a provider SDK: it keeps the demo deployable to any host without a
-  vendor account, needs exactly one dependency, and satisfies "credentials in env, never in code"
-  without adding a secrets service — consistent with the MVP spec's minimal-dependency stance
-  (its Testing/Notes sections list Vitest as the only new non-runtime dependency, an approach this
-  spec follows with nodemailer).
+  (`pdf_path`), compose the message (nodemailer `streamTransport`) and send it via the Gmail API
+  with the PDF attached and a short localized subject/body (`Surat Penawaran <nomor>` /
+  `Quotation <nomor>`), then set `status = 'terkirim'`, `sent_to`, `sent_at` (R22). Send failure
+  returns a mapped 502 with a user message; the document is unchanged so the user can retry. A
+  revoked Gmail grant (invalid_grant on token refresh) returns 503 `gmail_revoked_grant`.
+- Why Gmail API over SMTP: the production inbox (`jackwefirst@gmail.com` / Gmail API) is already
+  wired and verified, avoids SMTP relay credentials, and keeps "credentials in env, never in code"
+  consistent with the MVP spec's minimal-dependency stance. Nodemailer is retained only to build
+  the MIME payload, not to send.
 - Scheduled last in the plan (R21).
 
 ### D7 — Error handling (client and server)
 
 - Server error contract stays as built: `{error: {code, message}}` bodies with mapped statuses
   (B1's ASR-style table; PATCH's existing 400/404 shapes, `[id]/route.ts:27-52, 79-96`). New
-  codes: `not_configured` (503, no DB or no SMTP), `quota_exceeded` (429 + `X-Quota-Hard-Stop`,
+  codes: `not_configured` (503, no DB), `email_not_configured` (503, no Gmail), `quota_exceeded` (429 + `X-Quota-Hard-Stop`,
   same shape as the ASR route, `app/api/asr/transcribe/route.ts:109-128`), `rate_limited`
   (429 with `Retry-After`, from `withRateLimit`, `lib/server/quota/rate-limit.ts:172-198`).
 - Client: `KonfirmasiPanel` and the Dokumen screen map every non-ok response to a visible,
@@ -402,9 +403,9 @@ Seams, fewest-first, reusing existing ones:
    Dokumen renders → PDF downloads (closes the gap noted in the Phase 1 audit: no test ends in a
    PDF download today). External 12-test harness: its POST test keeps passing unchanged (story
    16); the citation test keeps working because the turns endpoints are untouched.
-6. **Email (last ticket).** SMTP stubbed (nodemailer's mock transport): attachment present,
-   filename `<nomor>.pdf`, status flips to `terkirim` with `sent_to`/`sent_at` (R22); missing env
-   → 503 (R20). No live send in CI.
+6. **Email (last ticket).** Gmail API mocked (fetch): attachment present, filename `<nomor>.pdf`,
+   status flips to `terkirim` with `sent_to`/`sent_at` (R22); missing env → 503 (R20). No live
+   send in CI.
 
 ## Out of Scope
 

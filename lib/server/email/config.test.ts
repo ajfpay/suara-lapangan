@@ -1,15 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getGmailConfig, getEmailConfig, getSmtpConfig } from "./config";
+import { getGmailConfig, getEmailConfig } from "./config";
 
 const ENV_KEYS = [
-    "SMTP_HOST",
-    "SMTP_PORT",
-    "SMTP_USER",
-    "SMTP_PASS",
-    "SMTP_FROM",
-    "SMTP_SECURE",
-    "SMTP_REQUIRE_TLS",
     "GMAIL_CLIENT_ID",
     "GMAIL_CLIENT_SECRET",
     "GMAIL_REFRESH_TOKEN",
@@ -36,95 +29,6 @@ function restoreEnv(
         }
     }
 }
-
-function setBaseEnv(): void {
-    process.env.SMTP_HOST = "smtp.example.com";
-    process.env.SMTP_PORT = "587";
-    process.env.SMTP_USER = "user@example.com";
-    process.env.SMTP_PASS = "long-enough-password";
-    process.env.SMTP_FROM = "sender@example.com";
-    delete process.env.SMTP_SECURE;
-    delete process.env.SMTP_REQUIRE_TLS;
-}
-
-describe("getSmtpConfig", () => {
-    let saved: ReturnType<typeof saveEnv>;
-
-    beforeEach(() => {
-        saved = saveEnv();
-        setBaseEnv();
-    });
-
-    afterEach(() => {
-        restoreEnv(saved);
-    });
-
-    it("returns null when any required variable is missing", () => {
-        delete process.env.SMTP_HOST;
-        expect(getSmtpConfig()).toBeNull();
-
-        setBaseEnv();
-        delete process.env.SMTP_PORT;
-        expect(getSmtpConfig()).toBeNull();
-
-        setBaseEnv();
-        delete process.env.SMTP_USER;
-        expect(getSmtpConfig()).toBeNull();
-
-        setBaseEnv();
-        delete process.env.SMTP_PASS;
-        expect(getSmtpConfig()).toBeNull();
-
-        setBaseEnv();
-        delete process.env.SMTP_FROM;
-        expect(getSmtpConfig()).toBeNull();
-    });
-
-    it("returns null for a port outside 1-65535", () => {
-        process.env.SMTP_PORT = "0";
-        expect(getSmtpConfig()).toBeNull();
-
-        process.env.SMTP_PORT = "70000";
-        expect(getSmtpConfig()).toBeNull();
-
-        process.env.SMTP_PORT = "not-a-number";
-        expect(getSmtpConfig()).toBeNull();
-    });
-
-    it("requires a password of at least 8 characters", () => {
-        process.env.SMTP_PASS = "short";
-        expect(getSmtpConfig()).toBeNull();
-    });
-
-    it("defaults to non-secure with requireTLS on port 587", () => {
-        const config = getSmtpConfig();
-        expect(config).not.toBeNull();
-        expect(config!.secure).toBe(false);
-        expect(config!.requireTls).toBe(true);
-    });
-
-    it("infers implicit TLS on port 465", () => {
-        process.env.SMTP_PORT = "465";
-        const config = getSmtpConfig();
-        expect(config).not.toBeNull();
-        expect(config!.secure).toBe(true);
-        expect(config!.requireTls).toBe(false);
-    });
-
-    it("SMTP_SECURE=true forces implicit TLS even on port 587", () => {
-        process.env.SMTP_SECURE = "true";
-        const config = getSmtpConfig();
-        expect(config!.secure).toBe(true);
-        expect(config!.requireTls).toBe(false);
-    });
-
-    it("SMTP_REQUIRE_TLS=false turns off the STARTTLS requirement", () => {
-        process.env.SMTP_REQUIRE_TLS = "false";
-        const config = getSmtpConfig();
-        expect(config!.secure).toBe(false);
-        expect(config!.requireTls).toBe(false);
-    });
-});
 
 describe("getGmailConfig", () => {
     let saved: ReturnType<typeof saveEnv>;
@@ -179,17 +83,18 @@ describe("getGmailConfig", () => {
         expect(config!.from).toBe("noreply@suara-lapangan-test.local");
     });
 
-    it("getEmailConfig prefers Gmail when both are configured", () => {
+    it("getEmailConfig returns the Gmail config when set", () => {
         setGmailBaseEnv();
-        setBaseEnv();
 
         expect(getEmailConfig()?.kind).toBe("gmail");
     });
 
-    it("getEmailConfig falls back to SMTP when Gmail is unset", () => {
-        setBaseEnv();
-
-        expect(getEmailConfig()?.kind).toBe("smtp");
+    it("getEmailConfig returns null when no Gmail config is set", () => {
+        // Clear ambient GMAIL_* vars so the test does not depend on the host environment.
+        for (const key of ENV_KEYS) {
+            delete process.env[key];
+        }
+        expect(getEmailConfig()).toBeNull();
     });
 
     it("warns when Gmail config is partial and names missing keys", () => {

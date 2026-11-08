@@ -147,7 +147,7 @@ export const auth = betterAuth({
                 }
             } else if (process.env.NODE_ENV !== "production") {
                 console.log(
-                    `[auth] SMTP not configured. Verification URL for ${user.email}: ${url}`
+                    `[auth] Email not configured. Verification URL for ${user.email}: ${url}`
                 );
             }
         },
