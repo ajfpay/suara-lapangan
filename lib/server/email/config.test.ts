@@ -90,6 +90,10 @@ describe("getGmailConfig", () => {
     });
 
     it("getEmailConfig returns null when no Gmail config is set", () => {
+        // Clear ambient GMAIL_* vars so the test does not depend on the host environment.
+        for (const key of ENV_KEYS) {
+            delete process.env[key];
+        }
         expect(getEmailConfig()).toBeNull();
     });
 

@@ -52,6 +52,30 @@ beforeEach(() => {
 
 const TEST_DATABASE_URL = process.env.ASR_TEST_DATABASE_URL;
 
+/**
+ * Number of fetch calls that hit the Gmail send endpoint. Lives outside the
+ * tests so the URL is asserted in one place.
+ */
+function getSendCallCount(): number {
+    return (fetch as unknown as Mock).mock.calls.filter((c: unknown[]) =>
+        String(c[0]).includes("/users/me/messages/send")
+    ).length;
+}
+
+/**
+ * Decoded RFC 822 body of the (single) Gmail send call, so tests can assert
+ * the composed message: subject, attachment filename, and PDF bytes.
+ */
+function getSentMime(): string {
+    const calls = (fetch as unknown as Mock).mock.calls.filter(
+        (c: unknown[]) => String(c[0]).includes("/users/me/messages/send")
+    );
+    expect(calls.length).toBe(1);
+    return Buffer.from(
+        (calls[0][1] as { body: Buffer }).body
+    ).toString("utf-8");
+}
+
 if (TEST_DATABASE_URL !== undefined) {
     process.env.DATABASE_URL = TEST_DATABASE_URL;
 }
@@ -348,13 +372,7 @@ describe
             expect(res.status).toBe(409);
             const body = await res.json();
             expect(body.error).toBe("draft_not_approved");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
         });
 
         it("unknown uuid → 404", async () => {
@@ -424,13 +442,14 @@ describe
             expect(resBody.sent_to).toBe(toEmail);
             expect(resBody.sent_at).toBeDefined();
 
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            const mime = getSentMime();
+            expect(mime).toContain("Subject: Surat Penawaran SL/QTN/2026/0001-0");
+            expect(mime).toContain("filename=SL-QTN-2026-0001-0.pdf");
+            expect(mime).toContain("Content-Type: application/pdf");
+            // The attached PDF is the snapshot written to disk.
+            expect(mime).toContain(
+                Buffer.from("%PDF-1.4 mock id content").toString("base64")
+            );
 
             // Verify status transition persisted and visible via GET
             const getReq = new Request(`http://localhost/api/documents/${id}`);
@@ -467,13 +486,12 @@ describe
             });
 
             expect(res.status).toBe(200);
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            const mime = getSentMime();
+            expect(mime).toContain("Subject: Quotation SL/QTN/2026/0002-0");
+            expect(mime).toContain("filename=SL-QTN-2026-0002-0.pdf");
+            expect(mime).toContain(
+                Buffer.from("%PDF-1.4 mock en content").toString("base64")
+            );
         });
 
         it("and document unchanged on send failure → 502", async () => {
@@ -543,7 +561,8 @@ describe
 
             // A revoked grant (invalid_grant on token refresh) must surface
             // distinctly from a transient send failure: 503 with its own code.
-            (fetch as unknown as Mock).mockImplementationOnce(
+            // Persistent (not Once) so every fetch call is handled here.
+            (fetch as unknown as Mock).mockImplementation(
                 async (input: RequestInfo | URL) => {
                     const url =
                         typeof input === "string" ? input : input.toString();
@@ -605,13 +624,7 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
             // The reserved slot is released when no PDF is available: the failed
             // attempt does not consume today's send quota.
             expect(await getEmailSends()).toBe(0);
@@ -648,13 +661,7 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
         });
 
         it("refuses to send (and does not mark sent) when the document changed after the PDF was rendered", async () => {
@@ -689,13 +696,7 @@ describe
             expect(res.status).toBe(502);
             const body = await res.json();
             expect(body.error).toBe("send_failure");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
             // The document must not be marked sent.
             const getRes = await GET(
                 new Request(`http://localhost/api/documents/${id}`),
@@ -741,13 +742,7 @@ describe
             expect(res.status).toBe(409);
             const body = await res.json();
             expect(body.error).toBe("already_sent");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
 
             // The original send record is untouched.
             const getRes = await GET(
@@ -788,13 +783,7 @@ describe
             const body = await res.json();
             expect(body.error).toBe("recipient_not_allowed");
             expect(body.message).toBe("Penerima tidak ada dalam daftar izin");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
         });
 
         it("allowlist set and recipient listed → 200 send", async () => {
@@ -823,13 +812,7 @@ describe
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.status).toBe("terkirim");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            expect(getSendCallCount()).toBe(1);
         });
 
         it("allowlist unset → arbitrary recipient still allowed (200)", async () => {
@@ -857,13 +840,7 @@ describe
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.status).toBe("terkirim");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            expect(getSendCallCount()).toBe(1);
         });
 
         it("daily quota exceeded → 429, no send", async () => {
@@ -899,13 +876,7 @@ describe
                 "Daily email send limit reached. Try again tomorrow."
             );
             expect(res.headers.get("x-quota-hard-stop")).toBe("true");
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.some(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                )
-            ).toBe(false);
+            expect(getSendCallCount()).toBe(0);
         });
 
         it("404 and 409 (needs_confirmation / already_sent) do not consume quota", async () => {
@@ -971,13 +942,7 @@ describe
                 params: Promise.resolve({ id }),
             });
             expect(res.status).toBe(200);
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            expect(getSendCallCount()).toBe(1);
         });
 
         it("after successful send, quota count incremented (assert via getEmailSends and direct DB query)", async () => {
@@ -1005,13 +970,7 @@ describe
             });
 
             expect(res.status).toBe(200);
-            const fetchCalls = (fetch as unknown as Mock).mock.calls;
-            expect(
-                fetchCalls.filter(
-                    (c: unknown[]) =>
-                        String(c[0]).includes("/users/me/messages/send")
-                ).length
-            ).toBe(1);
+            expect(getSendCallCount()).toBe(1);
 
             const sendsAfter = await getEmailSends();
             expect(sendsAfter).toBe(1);

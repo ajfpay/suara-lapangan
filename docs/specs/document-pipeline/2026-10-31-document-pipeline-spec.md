@@ -140,7 +140,7 @@ owner citation follows from one.
   B4), which already serves `Content-Disposition: attachment`
   (`app/api/pdf/[id]/route.ts:88-93`). The route must refuse with 409 while the document is
   `perlu_konfirmasi` (unchanged, B4).
-- R20. **Kirim** sends the PDF by email via the Gmail API (OAuth2 service account) with
+- R20. **Kirim** sends the PDF by email via the Gmail API (OAuth2 user authorization with a refresh token) with
   credentials exclusively in environment variables (D6). No credential may appear in code,
   config files, logs, or error messages (the redaction standard of `lib/server/asr/log.ts`
   applies).
@@ -360,7 +360,7 @@ returning last_number;
 
 - Server error contract stays as built: `{error: {code, message}}` bodies with mapped statuses
   (B1's ASR-style table; PATCH's existing 400/404 shapes, `[id]/route.ts:27-52, 79-96`). New
-  codes: `not_configured` (503, no DB or no Gmail), `quota_exceeded` (429 + `X-Quota-Hard-Stop`,
+  codes: `not_configured` (503, no DB), `email_not_configured` (503, no Gmail), `quota_exceeded` (429 + `X-Quota-Hard-Stop`,
   same shape as the ASR route, `app/api/asr/transcribe/route.ts:109-128`), `rate_limited`
   (429 with `Retry-After`, from `withRateLimit`, `lib/server/quota/rate-limit.ts:172-198`).
 - Client: `KonfirmasiPanel` and the Dokumen screen map every non-ok response to a visible,
