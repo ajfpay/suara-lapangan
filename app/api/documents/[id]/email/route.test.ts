@@ -482,10 +482,12 @@ describe
             const { id } = await seedDocument(doc);
             await seedPdfFile(id, doc);
 
-            (fetch as unknown as Mock).mockImplementationOnce(
+            // Persistent (not Once): both the token refresh and the send call
+            // must go through this mock; Once would let the send fall through
+            // to the beforeEach stub and succeed.
+            (fetch as unknown as Mock).mockImplementation(
                 async (input: RequestInfo | URL) => {
-                    const url =
-                        typeof input === "string" ? input : input.toString();
+                    const url = input.toString();
                     if (url === "https://oauth2.googleapis.com/token") {
                         return new Response(
                             JSON.stringify({ access_token: "t", expires_in: 3600 }),
