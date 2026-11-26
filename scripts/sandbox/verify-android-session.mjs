@@ -6,27 +6,27 @@ import { betterAuth } from "better-auth";
 import pg from "pg";
 import {
     parseAndValidateSandboxUrl,
-    validateDbIdentityResult,
+    verifySandboxIdentity,
 } from "./dbGuard.mjs";
+import { hasSecureSessionCookie, parseCurlResponse } from "./androidProof.mjs";
 
-const target = parseAndValidateSandboxUrl(process.env.DATABASE_URL);
-assert.equal(
-    target.database,
-    "suara_lapangan_test",
-    "Android proof requires the disposable test database"
-);
-const origin = new URL(process.env.BETTER_AUTH_URL);
-assert.equal(origin.origin, "https://53a2d20f8168.tailadc164.ts.net:3443");
-const serial = "LGMV300L3f605971";
+let origin, serial, pool;
 const id = crypto.randomUUID();
 const email = `sandbox-${id}@suara-lapangan.test`;
 const password = crypto.randomBytes(32).toString("hex");
 const jar = `/data/local/tmp/slm-${id}.cookies`;
-const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    connectionTimeoutMillis: 10000,
-});
-let seeded = false;
+let identityVerified = false;
+let interrupted = false;
+const interrupt = () => {
+    interrupted = true;
+    process.exitCode = 1;
+};
+process.once("SIGINT", interrupt);
+process.once("SIGTERM", interrupt);
+
+function checkInterrupted() {
+    if (interrupted) throw new Error("Android session proof interrupted");
+}
 
 function shell(command, input) {
     return execFileSync("adb", ["-s", serial, "shell", "-T", command], {
@@ -37,38 +37,39 @@ function shell(command, input) {
     });
 }
 function request(path, options = "", input) {
+    checkInterrupted();
     const raw = shell(
         `umask 077; curl --max-time 20 -sS -w '\\n%{http_code}' ${options} '${origin.origin}${path}'`,
         input
     );
-    const split = raw.lastIndexOf("\n");
-    return { status: Number(raw.slice(split + 1)), body: raw.slice(0, split) };
+    return parseCurlResponse(raw);
 }
 
 try {
-    const {
-        rows: [identity],
-    } = await pool.query(
-        "SELECT current_database() AS db, current_user AS usr, rolsuper FROM pg_roles WHERE rolname=current_user"
-    );
-    validateDbIdentityResult({
-        currentDatabase: identity.db,
-        currentUser: identity.usr,
-        rolsuper: identity.rolsuper,
-        expectedDatabase: target.database,
-        expectedUser: target.user,
+    parseAndValidateSandboxUrl(process.env.DATABASE_URL);
+    origin = new URL(process.env.BETTER_AUTH_URL);
+    assert.equal(origin.origin, "https://53a2d20f8168.tailadc164.ts.net:3443");
+    serial = process.env.ANDROID_SERIAL || "LGMV300L3f605971";
+    pool = new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        connectionTimeoutMillis: 10000,
+        query_timeout: 10000,
     });
+    await verifySandboxIdentity(pool);
+    identityVerified = true;
+    checkInterrupted();
     const auth = betterAuth({
         secret: crypto.randomBytes(32).toString("hex"),
         database: pool,
         emailAndPassword: { enabled: true },
     });
     const hash = await (await auth.$context).password.hash(password);
+    checkInterrupted();
     await pool.query(
         "INSERT INTO auth_user (id,email,email_verified,name,role) VALUES ($1,$2,true,'Sandbox proof','user')",
         [id, email]
     );
-    seeded = true;
+    checkInterrupted();
     await pool.query(
         "INSERT INTO auth_account (id,account_id,provider_id,user_id,password) VALUES ($1,$2::uuid::text,'credential',$2::uuid,$3)",
         [crypto.randomUUID(), id, hash]
@@ -80,12 +81,8 @@ try {
     );
     assert.equal(login.status, 200, "Android login HTTP status");
     console.log("Android sign-in: HTTP 200");
-    const cookie = shell(`cat '${jar}'`)
-        .split("\n")
-        .map((line) => line.split("\t"))
-        .find((parts) => parts[5]?.endsWith("session_token"));
     assert.ok(
-        cookie && cookie[0].startsWith("#HttpOnly_") && cookie[3] === "TRUE",
+        hasSecureSessionCookie(shell(`cat '${jar}'`)),
         "session cookie must be Secure and HttpOnly"
     );
     console.log("Android cookie: Secure, HttpOnly");
@@ -106,23 +103,35 @@ try {
     console.error(
         "Android session proof failed:",
         error instanceof assert.AssertionError
-            ? error.message.split("\n")[0]
+            ? "HTTP or session assertion failed"
             : (error.code ?? error.name)
     );
     process.exitCode = 1;
 } finally {
     try {
-        shell(`rm -f '${jar}'`);
+        if (serial) shell(`rm -f '${jar}'`);
     } catch {
         process.exitCode = 1;
     }
     try {
-        if (seeded)
+        if (identityVerified)
             await pool.query("DELETE FROM auth_user WHERE id=$1 AND email=$2", [
                 id,
                 email,
             ]);
+    } catch {
+        console.error("Android proof account cleanup failed");
+        process.exitCode = 1;
     } finally {
-        await pool.end();
+        if (pool) {
+            try {
+                await pool.end();
+            } catch {
+                console.error("Android proof database close failed");
+                process.exitCode = 1;
+            }
+        }
+        process.removeListener("SIGINT", interrupt);
+        process.removeListener("SIGTERM", interrupt);
     }
 }

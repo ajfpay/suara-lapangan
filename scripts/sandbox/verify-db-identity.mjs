@@ -1,65 +1,71 @@
 #!/usr/bin/env node
 import pg from "pg";
+import { readdir } from "node:fs/promises";
 import {
     parseAndValidateSandboxUrl,
-    validateDbIdentityResult,
+    verifySandboxIdentity,
 } from "./dbGuard.mjs";
+import { assertMigrationsReady } from "./migrationReadiness.mjs";
 
-const rawUrl = process.env.DATABASE_URL;
-const target = parseAndValidateSandboxUrl(rawUrl);
-
-const pool = new pg.Pool({
-    connectionString: rawUrl,
-    connectionTimeoutMillis: 10000,
-    max: 1,
-});
-
+let pool;
 try {
-    const idResult = await pool.query(
-        "SELECT current_database() AS db, current_user AS usr, inet_server_port() AS server_port, version() AS pg_version"
-    );
-    const privResult = await pool.query(
-        "SELECT rolsuper, rolcreatedb, rolcreaterole, rolbypassrls FROM pg_roles WHERE rolname = current_user"
-    );
-    const migResult = await pool.query(
-        "SELECT to_regclass('public.schema_migrations') AS mig_table"
-    );
-
-    const row = idResult.rows[0];
-    const priv = privResult.rows[0];
-
-    validateDbIdentityResult({
-        currentDatabase: row.db,
-        currentUser: row.usr,
-        rolsuper: Boolean(priv?.rolsuper),
-        expectedDatabase: target.database,
-        expectedUser: target.user,
+    const args = process.argv.slice(2);
+    const identityOnly = args.length === 1 && args[0] === "--identity-only";
+    if (args.length && !identityOnly)
+        throw new Error("Unknown verification argument");
+    const rawUrl = process.env.DATABASE_URL;
+    const target = parseAndValidateSandboxUrl(rawUrl);
+    pool = new pg.Pool({
+        connectionString: rawUrl,
+        connectionTimeoutMillis: 10000,
+        query_timeout: 10000,
+        max: 1,
     });
-
-    let migrationsApplied = 0;
-    if (migResult.rows[0]?.mig_table) {
-        const countResult = await pool.query(
-            "SELECT count(*)::int AS total FROM schema_migrations"
-        );
-        migrationsApplied = countResult.rows[0].total;
-    }
-
-    console.log(
-        JSON.stringify(
-            {
-                ok: true,
-                host: target.host,
-                port: target.port,
-                database: row.db,
-                user: row.usr,
-                privileges: priv,
-                migrationsApplied,
-                pgVersion: row.pg_version,
-            },
-            null,
-            2
+    const identity = await verifySandboxIdentity(pool);
+    const result = {
+        ok: true,
+        mode: identityOnly ? "identity-only" : "readiness",
+        host: target.host,
+        port: target.port,
+        database: identity.db,
+        user: identity.usr,
+        privileges: {
+            rolsuper: identity.rolsuper,
+            rolcreatedb: identity.rolcreatedb,
+            rolcreaterole: identity.rolcreaterole,
+            rolbypassrls: identity.rolbypassrls,
+        },
+        pgVersion: identity.pg_version,
+    };
+    if (!identityOnly) {
+        const expected = (
+            await readdir(new URL("../../db/migrations/", import.meta.url))
         )
+            .filter((name) => name.endsWith(".sql"))
+            .sort();
+        const { rows } = await pool.query(
+            "SELECT version FROM public.schema_migrations"
+        );
+        assertMigrationsReady(
+            expected,
+            rows.map((row) => row.version)
+        );
+        result.migrationsApplied = rows.length;
+        result.requiredMigrations = expected.length;
+    }
+    console.log(JSON.stringify(result, null, 2));
+} catch {
+    console.error(
+        "Sandbox database verification failed. Check the dedicated connection, role privileges, and migrations."
     );
+    process.exitCode = 1;
 } finally {
-    await pool.end();
+    if (pool) {
+        try {
+            await pool.end();
+        } catch {
+            console.error("Sandbox verification database close failed");
+            process.exitCode = 1;
+        }
+    }
 }

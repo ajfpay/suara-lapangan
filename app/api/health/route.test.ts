@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockProbeDatabase } = vi.hoisted(() => ({
-    mockProbeDatabase: vi.fn(),
+const { mockDatabaseReadiness } = vi.hoisted(() => ({
+    mockDatabaseReadiness: vi.fn(),
 }));
 
 vi.mock("./healthCheck", async (importOriginal) => {
     const actual = await importOriginal<typeof import("./healthCheck")>();
     return {
         ...actual,
-        probeDatabase: mockProbeDatabase,
+        databaseReadiness: () => actual.checkHealth(mockDatabaseReadiness),
     };
 });
 
@@ -20,7 +20,7 @@ describe("GET /api/health", () => {
     });
 
     it("returns 200 ok with database readiness and no-store caching", async () => {
-        mockProbeDatabase.mockResolvedValueOnce(undefined);
+        mockDatabaseReadiness.mockResolvedValueOnce(undefined);
 
         const response = await GET();
         const body = await response.json();
@@ -40,7 +40,7 @@ describe("GET /api/health", () => {
     });
 
     it("returns 503 degraded when the database probe fails without leaking credentials", async () => {
-        mockProbeDatabase.mockRejectedValueOnce(
+        mockDatabaseReadiness.mockRejectedValueOnce(
             new Error(
                 "connect failed for postgresql://suara_lapangan_test:super-secret-pass@100.69.30.9:5432/suara_lapangan_test"
             )

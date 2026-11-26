@@ -49,6 +49,52 @@ describe("sandbox database guard", () => {
         ).toThrow(/sslmode=disable/i);
     });
 
+    it.each([
+        "postgresql://dev:pw@100.69.30.9/suara_lapangan_test?sslmode=disable",
+        "postgresql://suara_lapangan_test:pw@100.69.30.9/suara_lapangan_test_other?sslmode=disable",
+        "postgresql://suara_lapangan_test@100.69.30.9/suara_lapangan_test?sslmode=disable",
+    ])("rejects unauthorized sandbox credentials or database: %s", (url) => {
+        expect(() => parseAndValidateSandboxUrl(url)).toThrow();
+    });
+
+    it("does not accept caller-selected database or role as the source of truth", () => {
+        expect(() =>
+            validateDbIdentityResult({
+                currentDatabase: "suara_lapangan_test_other",
+                currentUser: "dev",
+                ...{
+                    expectedDatabase: "suara_lapangan_test_other",
+                    expectedUser: "dev",
+                },
+                rolsuper: false,
+                ...{
+                    rolcreatedb: false,
+                    rolcreaterole: false,
+                    rolbypassrls: false,
+                },
+            })
+        ).toThrow();
+    });
+
+    it.each(["rolcreatedb", "rolcreaterole", "rolbypassrls"])(
+        "rejects privilege %s",
+        (flag) => {
+            expect(() =>
+                validateDbIdentityResult({
+                    currentDatabase: "suara_lapangan_test",
+                    currentUser: "suara_lapangan_test",
+                    rolsuper: false,
+                    ...{
+                        rolcreatedb: false,
+                        rolcreaterole: false,
+                        rolbypassrls: false,
+                        [flag]: true,
+                    },
+                })
+            ).toThrow();
+        }
+    );
+
     it("rejects query parameters that can override the validated connection identity", () => {
         for (const suffix of [
             "&host=localhost",
@@ -70,8 +116,9 @@ describe("sandbox database guard", () => {
                 currentDatabase: "suara_lapangan_test",
                 currentUser: "other",
                 rolsuper: false,
-                expectedDatabase: "suara_lapangan_test",
-                expectedUser: "suara_lapangan_test",
+                rolcreatedb: false,
+                rolcreaterole: false,
+                rolbypassrls: false,
             })
         ).toThrow();
     });
@@ -82,8 +129,9 @@ describe("sandbox database guard", () => {
                 currentDatabase: "suara_lapangan_test",
                 currentUser: "dev",
                 rolsuper: true,
-                expectedDatabase: "suara_lapangan_test",
-                expectedUser: "suara_lapangan_test",
+                rolcreatedb: false,
+                rolcreaterole: false,
+                rolbypassrls: false,
             })
         ).toThrow(/superuser/i);
     });
@@ -94,8 +142,9 @@ describe("sandbox database guard", () => {
                 currentDatabase: "suara_lapangan_test",
                 currentUser: "suara_lapangan_test",
                 rolsuper: false,
-                expectedDatabase: "suara_lapangan_test",
-                expectedUser: "suara_lapangan_test",
+                rolcreatedb: false,
+                rolcreaterole: false,
+                rolbypassrls: false,
             })
         ).not.toThrow();
     });
