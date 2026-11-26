@@ -582,7 +582,9 @@ async function handleGet(
 
     let lineage: StoredDocument[];
     try {
-        lineage = await getPostgresDocumentStore().listByRootId(stored.rootId);
+        lineage = (await getPostgresDocumentStore().listByRootId(stored.rootId)).filter(
+            (sibling) => canAccessDocument(session, sibling.userId ?? null)
+        );
     } catch {
         return NextResponse.json(
             {
@@ -593,6 +595,9 @@ async function handleGet(
         );
     }
 
+    const visibleIds = new Set(lineage.map((sibling) => sibling.id));
+    const visibleSuccessor = (id: string | null | undefined) =>
+        id && visibleIds.has(id) ? id : null;
     return NextResponse.json(
         {
             document: toResponseDocument({
@@ -606,13 +611,13 @@ async function handleGet(
             sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,
             version: stored.version,
             root_id: stored.rootId,
-            superseded_by: stored.supersededBy ?? null,
+            superseded_by: visibleSuccessor(stored.supersededBy),
             versions: lineage.map((sibling) => ({
                 id: sibling.id,
                 version: sibling.version,
                 nomor: sibling.nomor,
                 status: sibling.status,
-                superseded_by: sibling.supersededBy ?? null,
+                superseded_by: visibleSuccessor(sibling.supersededBy),
             })),
         },
         { status: 200 }

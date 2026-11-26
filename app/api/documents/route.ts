@@ -358,6 +358,7 @@ const listQuerySchema = z
             .trim()
             .max(200)
             .refine((value) => !value.includes("\0"))
+            .transform((value) => value || undefined)
             .optional(),
         status: z.enum(["draf", "disetujui", "terkirim"]).optional(),
         cursor: z.string().max(256).optional(),
@@ -381,7 +382,7 @@ const cursorSchema = z
     })
     .strict();
 
-export async function GET(request: Request): Promise<Response> {
+async function handleList(request: Request): Promise<Response> {
     const session = await getSession(request);
     if (!session)
         return NextResponse.json(
@@ -414,8 +415,17 @@ export async function GET(request: Request): Promise<Response> {
             );
         }
     }
+    let store;
     try {
-        const rows = await getPostgresDocumentStore().listOwnedLatest(
+        store = getPostgresDocumentStore();
+    } catch {
+        return NextResponse.json(
+            { error: "not_configured", message: "DATABASE_URL is not set" },
+            { status: 503 }
+        );
+    }
+    try {
+        const rows = await store.listOwnedLatest(
             session.user.id,
             { ...query, cursor }
         );
@@ -441,3 +451,5 @@ export async function GET(request: Request): Promise<Response> {
         );
     }
 }
+
+export const GET = withRateLimitFlat(handleList, { route: "/api/documents/list" });

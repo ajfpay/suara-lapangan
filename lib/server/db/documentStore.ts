@@ -94,11 +94,11 @@ export type DocumentListItem = {
     rootId: string;
     nomor: string | null;
     status: "draf" | "disetujui" | "terkirim";
-    proyek: string;
-    klien: string;
+    proyek: string | null;
+    klien: string | null;
     locale: "id" | "en";
-    mata_uang: "IDR" | "USD";
-    total: number;
+    mata_uang: "IDR" | "USD" | null;
+    total: number | null;
     createdAt: string;
     version: number;
 };
@@ -112,9 +112,10 @@ export type DocumentListQuery = {
 
 const LIST_COLUMNS = `id, coalesce(root_id,id) AS "rootId", nomor,
     case status when 'perlu_konfirmasi' then 'draf' when 'siap' then 'disetujui' else status end AS status,
-    data_json->'proyek'->>'nama' AS proyek, data_json->'proyek'->>'klien' AS klien,
-    locale, data_json->>'mata_uang' AS mata_uang,
-    (data_json->>'total_nominal')::numeric::float8 AS total,
+    case when jsonb_typeof(data_json->'proyek'->'nama') = 'string' then data_json->'proyek'->>'nama' end AS proyek,
+    case when jsonb_typeof(data_json->'proyek'->'klien') = 'string' then data_json->'proyek'->>'klien' end AS klien,
+    locale, case when data_json->>'mata_uang' in ('IDR','USD') then data_json->>'mata_uang' end AS mata_uang,
+    case when jsonb_typeof(data_json->'total_nominal') = 'number' then data_json->'total_nominal' end AS total,
     to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAt",
     version`;
 
@@ -724,7 +725,10 @@ export function createPostgresDocumentStore(
                     query.limit + 1,
                 ]
             );
-            return result.rows;
+            return result.rows.map((row) => ({
+                ...row,
+                total: Number.isFinite(row.total) ? row.total : null,
+            }));
         },
 
         async listOwnedVersions(userId, id) {
@@ -736,7 +740,10 @@ export function createPostgresDocumentStore(
                      order by version desc,id desc`,
                 [userId, id]
             );
-            return result.rows;
+            return result.rows.map((row) => ({
+                ...row,
+                total: Number.isFinite(row.total) ? row.total : null,
+            }));
         },
 
         async listByUser(userId: string): Promise<StoredDocument[]> {

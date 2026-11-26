@@ -462,6 +462,61 @@ describe
             expect(getData.sent_to).toBe(toEmail);
         });
 
+        it("reports delivery without marking a concurrently changed document, as declared by OpenAPI", async () => {
+            const doc = createTestDocument({ nomor: "SL/QTN/2026/0099" });
+            const { id } = await seedDocument(doc);
+            await seedPdfFile(id, doc);
+            (fetch as unknown as Mock).mockImplementation(
+                async (input: RequestInfo | URL) => {
+                    if (String(input) === "https://oauth2.googleapis.com/token") {
+                        return Response.json({
+                            access_token: "fixture-access-token",
+                            expires_in: 3600,
+                        });
+                    }
+                    if (String(input).includes("/users/me/messages/send")) {
+                        await pool.query(
+                            "update documents set data_json=jsonb_set(data_json,'{total_nominal}','600000'::jsonb) where id=$1",
+                            [id]
+                        );
+                        return Response.json({ id: "fixture-message" });
+                    }
+                    throw new Error("Unexpected outbound request");
+                }
+            );
+            const response = await POST(
+                new Request("http://localhost/api/documents/" + id + "/email", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ to: "recipient@example.com" }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(response.status).toBe(200);
+            const body = await response.json();
+            expect(body.status).toBe("not_marked");
+            expect(body.sent_to).toBe("recipient@example.com");
+            expect(body.message).toBeTruthy();
+            expect(getSendCallCount()).toBe(1);
+            const contract = JSON.parse(
+                await fs.readFile("contracts/openapi/openapi.json", "utf8")
+            );
+            const schemas =
+                contract.paths["/api/documents/{id}/email"].post.responses["200"]
+                    .content["application/json"].schema.oneOf;
+            const declared = schemas.find(
+                (schema: { properties: { status: { enum: string[] } } }) =>
+                    schema.properties.status.enum.includes(body.status)
+            );
+            expect(declared).toBeDefined();
+            expect(Object.keys(body).sort()).toEqual([...declared.required].sort());
+            const detail = await GET(
+                new Request("http://localhost/api/documents/" + id),
+                { params: Promise.resolve({ id }) }
+            );
+            expect((await detail.json()).status).toBe("disetujui");
+        });
+
         it("success with English document sends via Gmail API", async () => {
             const docNomor = "SL/QTN/2026/0002";
             const doc = createTestDocument({ nomor: docNomor, locale: "en" });

@@ -1,8 +1,18 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from "vitest";
 import { Pool } from "pg";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import * as auth from "@/lib/server/auth";
 import { GET } from "@/app/api/documents/route";
+import { GET as detail } from "@/app/api/documents/[id]/route";
+import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import { GET as versions } from "@/app/api/documents/[id]/versions/route";
 import { resetDocumentStoreForTesting } from "@/lib/server/db/documentStore";
 
@@ -19,6 +29,7 @@ describe.skipIf(!url)("private document list", () => {
         randomUUID(),
     ];
     let pool: Pool;
+    beforeEach(() => resetRateLimits());
     const call = (query = "") =>
         GET(new Request("http://localhost/api/documents" + query));
     function login(id: string, role = "user") {
@@ -84,6 +95,21 @@ describe.skipIf(!url)("private document list", () => {
         login(owner);
         expect((await call("?limit=0")).status).toBe(400);
         expect((await call("?cursor=garbage")).status).toBe(400);
+        for (const query of [
+            "?limit=101",
+            "?limit=007",
+            "?limit=bad",
+            "?search=" + "a".repeat(201),
+            "?cursor=" +
+                Buffer.from(
+                    JSON.stringify({
+                        createdAt: "2026-02-30T00:00:00.000000Z",
+                        id: ids[0],
+                    })
+                ).toString("base64url"),
+        ]) {
+            expect((await call(query)).status).toBe(400);
+        }
     });
     it("returns only latest owned rows with stable timestamp ties and minimal DTO", async () => {
         login(owner);
@@ -118,6 +144,14 @@ describe.skipIf(!url)("private document list", () => {
             ].sort()
         );
         expect(first.items[0].createdAt).toBe("2026-01-01T00:00:00.123456Z");
+        const contract = JSON.parse(
+            await import("node:fs/promises").then((fs) =>
+                fs.readFile("contracts/openapi/openapi.json", "utf8")
+            )
+        );
+        expect(Object.keys(first.items[0]).sort()).toEqual(
+            [...contract.components.schemas.DocumentListItem.required].sort()
+        );
     });
     it("searches literal wildcards and does not grant admins cross-account list access", async () => {
         login(owner);
@@ -171,6 +205,33 @@ describe.skipIf(!url)("private document list", () => {
             [revision, randomUUID(), other, ids[1]]
         );
         try {
+            await pool.query(
+                "update documents set superseded_by=$1 where id=$2",
+                [revision, ids[1]]
+            );
+            login(owner);
+            const oldDetail = await detail(
+                new Request("http://localhost/api/documents/" + ids[1]),
+                { params: Promise.resolve({ id: ids[1] }) }
+            );
+            expect(oldDetail.status).toBe(200);
+            const oldBody = await oldDetail.json();
+            expect(oldBody.versions.map((x: { id: string }) => x.id)).toEqual([
+                ids[1],
+                ids[0],
+            ]);
+            expect(oldBody.superseded_by).toBeNull();
+            expect(JSON.stringify(oldBody)).not.toContain(revision);
+            login(other, "admin");
+            const adminDetail = await detail(
+                new Request("http://localhost/api/documents/" + ids[1]),
+                { params: Promise.resolve({ id: ids[1] }) }
+            );
+            expect(
+                (await adminDetail.json()).versions.map(
+                    (x: { id: string }) => x.id
+                )
+            ).toEqual([revision, ids[1], ids[0]]);
             login(owner);
             const list = await (await call()).json();
             expect(list.items.map((x: { id: string }) => x.id).sort()).toEqual(
@@ -198,8 +259,132 @@ describe.skipIf(!url)("private document list", () => {
                 ).status
             ).toBe(404);
         } finally {
+            await pool.query(
+                "update documents set superseded_by=null where id=$1",
+                [ids[1]]
+            );
             await pool.query("delete from documents where id=$1", [revision]);
         }
+    });
+    it("returns a usable page even if an owned legacy row has malformed summary data", async () => {
+        const { rows } = await pool.query(
+            "select data_json from documents where id=$1",
+            [ids[2]]
+        );
+        await pool.query("update documents set data_json=$2 where id=$1", [
+            ids[2],
+            JSON.stringify({
+                total_nominal: "invalid",
+                proyek: { nama: 42 },
+                mata_uang: "bad",
+            }),
+        ]);
+        try {
+            login(owner);
+            const res = await call();
+            expect(res.status).toBe(200);
+            const item = (await res.json()).items.find(
+                (x: { id: string }) => x.id === ids[2]
+            );
+            expect(item).toMatchObject({
+                total: null,
+                proyek: null,
+                klien: null,
+                mata_uang: null,
+            });
+        } finally {
+            await pool.query("update documents set data_json=$2 where id=$1", [
+                ids[2],
+                JSON.stringify(rows[0].data_json),
+            ]);
+        }
+    });
+    it("returns 503 if the document store is not configured", async () => {
+        login(owner);
+        resetDocumentStoreForTesting();
+        vi.stubEnv("DATABASE_URL", undefined);
+        try {
+            expect((await call()).status).toBe(503);
+            expect(
+                (
+                    await versions(
+                        new Request(
+                            "http://localhost/api/documents/" +
+                                ids[0] +
+                                "/versions"
+                        ),
+                        { params: Promise.resolve({ id: ids[0] }) }
+                    )
+                ).status
+            ).toBe(503);
+        } finally {
+            vi.stubEnv("DATABASE_URL", url);
+            resetDocumentStoreForTesting();
+        }
+    });
+    it("rate limits the list and history separately from writes", async () => {
+        login(owner);
+        for (let i = 0; i < 30; i++)
+            expect((await call("?limit=0")).status).toBe(400);
+        const denied = await call("?limit=0");
+        expect(denied.status).toBe(429);
+        expect(denied.headers.get("Retry-After")).toBeTruthy();
+        const history = () =>
+            versions(
+                new Request("http://localhost/api/documents/invalid/versions"),
+                { params: Promise.resolve({ id: "invalid" }) }
+            );
+        for (let i = 0; i < 30; i++) expect((await history()).status).toBe(400);
+        expect((await history()).status).toBe(429);
+    });
+    it("checks real signed cookies and account isolation without mocking auth", async () => {
+        vi.restoreAllMocks();
+        const cookies: string[] = [];
+        const cookieName = (await auth.auth.$context).authCookies.sessionToken
+            .name;
+        for (const id of [owner, other]) {
+            const token = randomBytes(32).toString("hex");
+            await pool.query(
+                "insert into auth_session(id,expires_at,token,user_id) values($1,now()+interval '10 minutes',$2,$3)",
+                [randomUUID(), token, id]
+            );
+            const signature = createHmac("sha256", auth.AUTH_SECRET)
+                .update(token)
+                .digest("base64");
+            cookies.push(
+                cookieName + "=" + encodeURIComponent(token + "." + signature)
+            );
+        }
+        const req = (path: string, cookie: string) =>
+            new Request("http://localhost" + path, { headers: { cookie } });
+        for (const [index, expected] of [
+            [0, [ids[1], ids[2]]],
+            [1, [ids[3]]],
+        ] as const) {
+            const res = await GET(req("/api/documents", cookies[index]));
+            expect(res.status).toBe(200);
+            expect(
+                (await res.json()).items.map((x: { id: string }) => x.id).sort()
+            ).toEqual([...expected].sort());
+        }
+        const path = "/api/documents/" + ids[0] + "/versions";
+        expect(
+            (
+                await versions(req(path, cookies[0]), {
+                    params: Promise.resolve({ id: ids[0] }),
+                })
+            ).status
+        ).toBe(200);
+        expect(
+            (
+                await versions(req(path, cookies[1]), {
+                    params: Promise.resolve({ id: ids[0] }),
+                })
+            ).status
+        ).toBe(404);
+        expect(
+            (await GET(req("/api/documents", cookieName + "=invalid"))).status
+        ).toBe(401);
     });
     it("defaults to 20 items and continues through the remaining roots", async () => {
         await pool.query(

@@ -53,8 +53,28 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Document store not configured",
             "content": {
               "application/json": {
                 "schema": {
@@ -104,7 +124,7 @@
             }
           }
         ],
-        "description": "Private list, including for admins. Latest owned version per root before filtering; literal case-insensitive search of number, project and client. Sort createdAt and UUID descending. Pass nextCursor unchanged with the same filters; null means no more items."
+        "description": "Private list, including for admins. Latest owned version per root before filtering; literal case-insensitive search of number, project and client. Sort createdAt and UUID descending. Pass nextCursor unchanged with the same filters; null means no more items. Rate limit: 30 requests per minute in a separate read bucket."
       },
       "post": {
         "operationId": "createDocument",
@@ -114,7 +134,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocumentResult"
+                  "$ref": "#/components/schemas/CreateDocumentResult"
                 }
               }
             }
@@ -211,7 +231,7 @@
                   "turns": {
                     "type": "array",
                     "items": {
-                      "$ref": "#/components/schemas/Turn"
+                      "$ref": "#/components/schemas/InputTurn"
                     }
                   }
                 },
@@ -266,8 +286,28 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Document store not configured",
             "content": {
               "application/json": {
                 "schema": {
@@ -288,7 +328,7 @@
             }
           }
         ],
-        "description": "All owned versions in descending version order. Foreign or unowned document identifiers return 404, including for admins."
+        "description": "All owned versions in descending version order. Foreign or unowned document identifiers return 404, including for admins. Rate limit: 30 requests per minute in a separate read bucket."
       }
     },
     "/api/documents/{id}": {
@@ -377,7 +417,7 @@
             }
           }
         ],
-        "description": "Existing detail route retains legacy admin access."
+        "description": "Existing detail access for owners and admins. Version metadata and successor links are filtered by the same access rule."
       },
       "patch": {
         "operationId": "editDocument",
@@ -701,22 +741,47 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": ["terkirim"]
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["terkirim"]
+                        },
+                        "sent_to": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "sent_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      },
+                      "required": ["status", "sent_to", "sent_at"]
                     },
-                    "sent_to": {
-                      "type": "string",
-                      "format": "email"
-                    },
-                    "sent_at": {
-                      "type": "string",
-                      "format": "date-time"
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": ["not_marked"]
+                        },
+                        "sent_to": {
+                          "type": "string",
+                          "format": "email"
+                        },
+                        "sent_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["status", "sent_to", "sent_at", "message"]
                     }
-                  },
-                  "required": ["status", "sent_to", "sent_at"]
+                  ]
                 }
               }
             }
@@ -840,7 +905,7 @@
             }
           }
         ],
-        "description": "Existing Gmail API delivery. Rate limit 10 requests per minute."
+        "description": "Existing Gmail API delivery. Rate limit 10 requests per minute. A 200 not_marked response means email was delivered but the current revision was not marked sent. Do not retry automatically."
       }
     },
     "/api/pdf/{id}": {
@@ -1166,7 +1231,17 @@
               }
             }
           },
-          "409": {
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Request rejected or operation failed",
             "content": {
               "application/json": {
@@ -1979,21 +2054,53 @@
             "enum": ["draf", "disetujui", "terkirim"]
           },
           "proyek": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the stored legacy summary field is missing or invalid."
           },
           "klien": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the stored legacy summary field is missing or invalid."
           },
           "locale": {
             "type": "string",
             "enum": ["id", "en"]
           },
           "mata_uang": {
-            "type": "string",
-            "enum": ["IDR", "USD"]
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["IDR", "USD"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the stored legacy summary field is missing or invalid."
           },
           "total": {
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the stored legacy summary field is missing or invalid."
           },
           "createdAt": {
             "type": "string",
@@ -2329,13 +2436,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "draf",
-              "disetujui",
-              "terkirim",
-              "perlu_konfirmasi",
-              "siap"
-            ]
+            "enum": ["draf", "disetujui", "terkirim"]
           },
           "butuh_konfirmasi": {
             "type": "array",
@@ -2599,6 +2700,174 @@
             "format": "date-time"
           }
         }
+      },
+      "InputTurn": {
+        "type": "object",
+        "properties": {
+          "turn_id": {
+            "type": "string"
+          },
+          "startMs": {
+            "type": "number"
+          },
+          "endMs": {
+            "type": "number"
+          },
+          "transcript": {
+            "type": "string"
+          },
+          "final": {
+            "type": "boolean"
+          }
+        },
+        "required": ["turn_id", "startMs", "endMs", "transcript"]
+      },
+      "CreateDocumentResult": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Quotation"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draf", "perlu_konfirmasi", "siap"]
+          },
+          "butuh_konfirmasi": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "field_changes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "version": {
+            "type": "integer"
+          },
+          "root_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "nomor": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["draf", "disetujui", "terkirim"]
+                },
+                "superseded_by": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["id", "version", "nomor", "status", "superseded_by"]
+            }
+          },
+          "sent_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pdf_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["document", "status", "butuh_konfirmasi"]
       }
     }
   }
