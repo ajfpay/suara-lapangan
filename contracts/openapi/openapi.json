@@ -1,0 +1,2605 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Suara Lapangan REST API",
+    "version": "0.1.0",
+    "description": "Existing web-compatible API and private mobile document list. Cookie session; existing ASR and document error envelopes intentionally differ. Native auth changes belong to ticket 04."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "sessionCookie": []
+    },
+    {
+      "secureSessionCookie": []
+    }
+  ],
+  "paths": {
+    "/api/documents": {
+      "get": {
+        "operationId": "listDocuments",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["draf", "disetujui", "terkirim"]
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        ],
+        "description": "Private list, including for admins. Latest owned version per root before filtering; literal case-insensitive search of number, project and client. Sort createdAt and UUID descending. Pass nextCursor unchanged with the same filters; null means no more items."
+      },
+      "post": {
+        "operationId": "createDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": ["id", "en"]
+                  },
+                  "project": {
+                    "$ref": "#/components/schemas/Project"
+                  },
+                  "turns": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Turn"
+                    }
+                  }
+                },
+                "required": ["sessionId"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{id}/versions": {
+      "get": {
+        "operationId": "listDocumentVersions",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "All owned versions in descending version order. Foreign or unowned document identifiers return 404, including for admins."
+      }
+    },
+    "/api/documents/{id}": {
+      "get": {
+        "operationId": "getDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Existing detail route retains legacy admin access."
+      },
+      "patch": {
+        "operationId": "editDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchDocument"
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/documents/{id}/approve": {
+      "post": {
+        "operationId": "approveDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/documents/{id}/new-version": {
+      "post": {
+        "operationId": "createDocumentVersion",
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/documents/{id}/email": {
+      "post": {
+        "operationId": "emailDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["terkirim"]
+                    },
+                    "sent_to": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "sent_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": ["status", "sent_to", "sent_at"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                },
+                "required": ["to"]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Existing Gmail API delivery. Rate limit 10 requests per minute."
+      }
+    },
+    "/api/pdf/{id}": {
+      "get": {
+        "operationId": "downloadPdf",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/documents/{id}/pdf": {
+      "get": {
+        "operationId": "downloadDocumentPdf",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/pdf/{id}/preview": {
+      "get": {
+        "operationId": "previewDocument",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/asr/transcribe": {
+      "post": {
+        "operationId": "transcribe",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Turn"
+                      }
+                    }
+                  },
+                  "required": ["sessionId", "turns"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Maximum 32 MiB"
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                  },
+                  "locale": {
+                    "type": "string",
+                    "enum": ["id", "en"]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["ENDPOINTING", "DIARIZATION"],
+                    "default": "ENDPOINTING"
+                  }
+                },
+                "required": ["audio", "sessionId", "locale"]
+              }
+            }
+          }
+        },
+        "description": "Multipart audio, maximum 32 MiB, rate limit 30 requests/minute plus server quota."
+      }
+    },
+    "/api/sessions/{sessionId}/turns": {
+      "get": {
+        "operationId": "getSessionTurns",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sessionId": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9_-]{1,64}$"
+                    },
+                    "locale": {
+                      "type": "string",
+                      "enum": ["id", "en"]
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Turn"
+                      }
+                    }
+                  },
+                  "required": ["sessionId", "locale", "turns"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AsrError"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/api/auth/sign-up/email": {
+      "post": {
+        "operationId": "register",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AuthUser"
+                    },
+                    "token": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "redirect": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["user"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8
+                  },
+                  "callbackURL": {
+                    "type": "string"
+                  }
+                },
+                "required": ["name", "email", "password"]
+              }
+            }
+          }
+        },
+        "security": [],
+        "description": "Better Auth existing email/password endpoint; login requires verified email."
+      }
+    },
+    "/api/auth/sign-in/email": {
+      "post": {
+        "operationId": "login",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/AuthUser"
+                    },
+                    "token": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "redirect": {
+                      "type": "boolean"
+                    },
+                    "url": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["user"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "callbackURL": {
+                    "type": "string"
+                  },
+                  "rememberMe": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "security": [],
+        "description": "Better Auth existing email/password endpoint; login requires verified email."
+      }
+    },
+    "/api/auth/get-session": {
+      "get": {
+        "operationId": "getAuthSession",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/sign-out": {
+      "post": {
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/send-verification-email": {
+      "post": {
+        "operationId": "sendVerificationEmail",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "callbackURL": {
+                    "type": "string"
+                  }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/verify-email": {
+      "get": {
+        "operationId": "verifyEmail",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean"
+                    },
+                    "user": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/AuthUser"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["status"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect to callback URL"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "callbackURL",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "description": "May redirect to callbackURL when supplied."
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Database ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database degraded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token",
+        "description": "HTTPS uses __Secure-better-auth.session_token; preserve Better Auth cookie handling."
+      },
+      "secureSessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Secure-better-auth.session_token",
+        "description": "Better Auth session cookie on HTTPS."
+      }
+    },
+    "schemas": {
+      "FlatError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["error", "message"]
+      },
+      "AsrError": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": ["code", "message"]
+          }
+        },
+        "required": ["error"]
+      },
+      "AuthError": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": ["message"]
+      },
+      "DocumentListItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rootId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nomor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["draf", "disetujui", "terkirim"]
+          },
+          "proyek": {
+            "type": "string"
+          },
+          "klien": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string",
+            "enum": ["id", "en"]
+          },
+          "mata_uang": {
+            "type": "string",
+            "enum": ["IDR", "USD"]
+          },
+          "total": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "rootId",
+          "nomor",
+          "status",
+          "proyek",
+          "klien",
+          "locale",
+          "mata_uang",
+          "total",
+          "createdAt",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentListItem"
+            }
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["items", "nextCursor"],
+        "additionalProperties": false
+      },
+      "DocumentHistory": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentListItem"
+            }
+          }
+        },
+        "required": ["items"],
+        "additionalProperties": false
+      },
+      "Turn": {
+        "type": "object",
+        "properties": {
+          "turn_id": {
+            "type": "string"
+          },
+          "startMs": {
+            "type": "number"
+          },
+          "endMs": {
+            "type": "number"
+          },
+          "transcript": {
+            "type": "string"
+          },
+          "final": {
+            "type": "boolean"
+          },
+          "speaker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["turn_id", "startMs", "endMs", "transcript", "final"]
+      },
+      "Project": {
+        "type": "object",
+        "properties": {
+          "nama": {
+            "type": "string"
+          },
+          "lokasi": {
+            "type": "string"
+          },
+          "klien": {
+            "type": "string"
+          }
+        },
+        "required": ["nama", "lokasi", "klien"]
+      },
+      "AuthUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "role": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "email", "name", "emailVerified"]
+      },
+      "AuthSession": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "user": {
+                "$ref": "#/components/schemas/AuthUser"
+              },
+              "session": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "userId": {
+                    "type": "string"
+                  },
+                  "expiresAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": ["id", "userId", "expiresAt"]
+              }
+            },
+            "required": ["user", "session"]
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "Quotation": {
+        "title": "Surat Penawaran / Quotation (K2)",
+        "description": "The document the server stores and the PDF renders, in either locale. Sent to Muse Spark 1.3 with text.format {type: json_schema, strict: true}: every object closes itself with additionalProperties:false and every property is listed in required. nomor, jumlah, total_nominal and terbilang are computed by the server and must never be taken from model output (spec D3/D4 rule 5). `mata_uang` is recomputed from the locale by the server, so this schema does not tie the two together: a strict `json_schema` request refuses a top-level `anyOf`.",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jenis",
+          "locale",
+          "mata_uang",
+          "nomor",
+          "tanggal",
+          "proyek",
+          "pekerjaan",
+          "total_nominal",
+          "terbilang",
+          "butuh_konfirmasi"
+        ],
+        "properties": {
+          "jenis": {
+            "type": "string",
+            "enum": ["surat_penawaran"],
+            "description": "Document type. Field names stay Indonesian for both locales; locale and mata_uang decide what is printed."
+          },
+          "locale": {
+            "type": "string",
+            "enum": ["en", "id"],
+            "description": "en -> Quotation / Estimate, USD, amountInWords(). id -> Surat Penawaran, IDR, terbilang()."
+          },
+          "mata_uang": {
+            "type": "string",
+            "enum": ["USD", "IDR"],
+            "description": "Follows locale: en -> USD, id -> IDR."
+          },
+          "nomor": {
+            "type": ["string", "null"],
+            "pattern": "^SL/QTN/[1-9][0-9]{3}/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})$",
+            "description": "Server-made document number: calendar year and a four-digit sequence (0001..9999) that resets each year. Null while the draft has not been approved (ticket 01). Never spoken by the user and never invented by the model."
+          },
+          "tanggal": {
+            "type": "string",
+            "pattern": "^\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|02-(?:0[1-9]|[12]\\d))$",
+            "description": "ISO date the document is issued."
+          },
+          "proyek": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["nama", "lokasi", "klien"],
+            "properties": {
+              "nama": {
+                "type": "string",
+                "minLength": 1
+              },
+              "lokasi": {
+                "type": "string",
+                "minLength": 1
+              },
+              "klien": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "pekerjaan": {
+            "type": "array",
+            "minItems": 1,
+            "description": "One row per priced item. Every row must cite the turn it came from.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "uraian",
+                "volume",
+                "satuan",
+                "harga_satuan",
+                "jumlah",
+                "sumber_kutipan"
+              ],
+              "properties": {
+                "uraian": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "volume": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "satuan": {
+                  "type": "string",
+                  "enum": [
+                    "m2",
+                    "m3",
+                    "meter",
+                    "sq_ft",
+                    "lin_ft",
+                    "sak",
+                    "batang",
+                    "titik",
+                    "bag",
+                    "sheet",
+                    "bar",
+                    "point",
+                    "hour",
+                    "unit",
+                    "hari",
+                    "fixture"
+                  ],
+                  "description": "Canonical unit. Adding one is a contract change, not a fixture edit."
+                },
+                "harga_satuan": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "jumlah": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Server-computed: volume × harga_satuan."
+                },
+                "sumber_kutipan": {
+                  "type": "string",
+                  "pattern": "^(turn_[1-9][0-9]*|manual)$",
+                  "description": "Turn id (K3) inside the same session, final=true only."
+                }
+              }
+            }
+          },
+          "total_nominal": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Server-computed: the sum of every pekerjaan[].jumlah."
+          },
+          "terbilang": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Server-computed: amountInWords() for en, terbilang() for id."
+          },
+          "butuh_konfirmasi": {
+            "type": "array",
+            "description": "Guard findings (K3 payload). A non-empty list holds the document at perlu_konfirmasi.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "alasan", "sumber_kutipan"],
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "alasan": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sumber_kutipan": {
+                  "type": ["string", "null"],
+                  "pattern": "^turn_[1-9][0-9]*$",
+                  "description": "The turn being questioned, or null when the field is simply missing and no turn can be quoted."
+                }
+              }
+            }
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "_spark_path": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DocumentResult": {
+        "type": "object",
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/Quotation"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draf",
+              "disetujui",
+              "terkirim",
+              "perlu_konfirmasi",
+              "siap"
+            ]
+          },
+          "butuh_konfirmasi": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "field_changes": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "version": {
+            "type": "integer"
+          },
+          "root_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "superseded_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "version": {
+                  "type": "integer"
+                },
+                "nomor": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["draf", "disetujui", "terkirim"]
+                },
+                "superseded_by": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["id", "version", "nomor", "status", "superseded_by"]
+            }
+          },
+          "sent_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pdf_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["document", "status", "butuh_konfirmasi"]
+      },
+      "PatchDocument": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "nilai": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              }
+            },
+            "required": ["field", "nilai"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": ["add_line"]
+              },
+              "item": {
+                "type": "object",
+                "properties": {
+                  "uraian": {
+                    "type": "string"
+                  },
+                  "volume": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "satuan": {
+                    "type": "string"
+                  },
+                  "harga_satuan": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                },
+                "required": ["uraian", "volume", "satuan", "harga_satuan"]
+              }
+            },
+            "required": ["op", "item"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": ["remove_line"]
+              },
+              "index": {
+                "type": "integer"
+              }
+            },
+            "required": ["op", "index"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": ["move_line"]
+              },
+              "fromIndex": {
+                "type": "integer"
+              },
+              "toIndex": {
+                "type": "integer"
+              }
+            },
+            "required": ["op", "fromIndex", "toIndex"]
+          }
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "required": ["status", "service", "database", "timestamp"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok", "degraded"]
+          },
+          "service": {
+            "type": "string",
+            "const": "suara-lapangan"
+          },
+          "database": {
+            "type": "object",
+            "required": ["status", "latencyMs"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["ok", "error"]
+              },
+              "latencyMs": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}

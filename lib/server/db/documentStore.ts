@@ -89,6 +89,35 @@ export type CreateDocumentInput = {
     userId?: string | null;
 };
 
+export type DocumentListItem = {
+    id: string;
+    rootId: string;
+    nomor: string | null;
+    status: "draf" | "disetujui" | "terkirim";
+    proyek: string;
+    klien: string;
+    locale: "id" | "en";
+    mata_uang: "IDR" | "USD";
+    total: number;
+    createdAt: string;
+    version: number;
+};
+
+export type DocumentListQuery = {
+    limit: number;
+    search?: string;
+    status?: DocumentListItem["status"];
+    cursor?: { createdAt: string; id: string };
+};
+
+const LIST_COLUMNS = `id, coalesce(root_id,id) AS "rootId", nomor,
+    case status when 'perlu_konfirmasi' then 'draf' when 'siap' then 'disetujui' else status end AS status,
+    data_json->'proyek'->>'nama' AS proyek, data_json->'proyek'->>'klien' AS klien,
+    locale, data_json->>'mata_uang' AS mata_uang,
+    (data_json->>'total_nominal')::numeric::float8 AS total,
+    to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAt",
+    version`;
+
 export interface DocumentStore {
     /** The document an identical create (same session, same turns, same calendar day) reuses. */
     findByIdempotencyKey(
@@ -138,6 +167,14 @@ export interface DocumentStore {
         id: string,
         options?: { userId?: string }
     ): Promise<CreateVersionResult>;
+    listOwnedLatest(
+        userId: string,
+        query: DocumentListQuery
+    ): Promise<DocumentListItem[]>;
+    listOwnedVersions(
+        userId: string,
+        id: string
+    ): Promise<DocumentListItem[]>;
     listByUser(userId: string): Promise<StoredDocument[]>;
     listByRootId(rootId: string): Promise<StoredDocument[]>;
     listAll(): Promise<AdminDocument[]>;
@@ -662,6 +699,44 @@ export function createPostgresDocumentStore(
             } finally {
                 if (!clientReleased) client.release();
             }
+        },
+
+        async listOwnedLatest(userId, query) {
+            const result = await pool.query<DocumentListItem>(
+                `with latest as (
+                        select distinct on (coalesce(root_id,id)) *
+                        from documents where user_id = $1::uuid
+                        order by coalesce(root_id,id), version desc, id desc
+                    )
+                    select ${LIST_COLUMNS} from latest
+                    where ($2::text is null or case status when 'perlu_konfirmasi' then 'draf' when 'siap' then 'disetujui' else status end = $2)
+                    and ($3::text is null or strpos(lower(coalesce(nomor,'')),lower($3)) > 0
+                        or strpos(lower(coalesce(data_json->'proyek'->>'nama','')),lower($3)) > 0
+                        or strpos(lower(coalesce(data_json->'proyek'->>'klien','')),lower($3)) > 0)
+                    and ($4::timestamptz is null or (created_at,id) < ($4::timestamptz,$5::uuid))
+                    order by created_at desc,id desc limit $6`,
+                [
+                    userId,
+                    query.status ?? null,
+                    query.search ?? null,
+                    query.cursor?.createdAt ?? null,
+                    query.cursor?.id ?? null,
+                    query.limit + 1,
+                ]
+            );
+            return result.rows;
+        },
+
+        async listOwnedVersions(userId, id) {
+            const result = await pool.query<DocumentListItem>(
+                `select ${LIST_COLUMNS} from documents
+                     where user_id = $1::uuid and coalesce(root_id,id) = (
+                         select coalesce(root_id,id) from documents where id = $2::uuid and user_id = $1::uuid
+                     )
+                     order by version desc,id desc`,
+                [userId, id]
+            );
+            return result.rows;
         },
 
         async listByUser(userId: string): Promise<StoredDocument[]> {

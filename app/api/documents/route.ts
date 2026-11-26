@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getTurnsStore, type TurnsStore } from "@/lib/server/db/store";
 import { applyGuard } from "@/lib/server/guard/rules";
@@ -344,3 +345,99 @@ async function handlePost(request: Request): Promise<Response> {
 export const POST = withRateLimitFlat(handlePost, {
     route: "/api/documents",
 });
+
+const listQuerySchema = z
+    .object({
+        limit: z
+            .string()
+            .regex(/^(?:[1-9]|[1-9][0-9]|100)$/)
+            .default("20")
+            .transform(Number),
+        search: z
+            .string()
+            .trim()
+            .max(200)
+            .refine((value) => !value.includes("\0"))
+            .optional(),
+        status: z.enum(["draf", "disetujui", "terkirim"]).optional(),
+        cursor: z.string().max(256).optional(),
+    })
+    .strict();
+
+const cursorSchema = z
+    .object({
+        createdAt: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/)
+            .refine((value) => {
+                const date = new Date(value);
+                return (
+                    Number.isFinite(date.getTime()) &&
+                    date.toISOString() === value.slice(0, 23) + "Z" &&
+                    !value.startsWith("0000")
+                );
+            }),
+        id: z.string().uuid(),
+    })
+    .strict();
+
+export async function GET(request: Request): Promise<Response> {
+    const session = await getSession(request);
+    if (!session)
+        return NextResponse.json(
+            { error: "unauthorized", message: "Login required" },
+            { status: 401 }
+        );
+    const params = new URL(request.url).searchParams;
+    const parsed = listQuerySchema.safeParse(Object.fromEntries(params));
+    if (
+        !parsed.success ||
+        new Set(params.keys()).size !== [...params.keys()].length
+    ) {
+        return NextResponse.json(
+            { error: "invalid_request", message: "Invalid list query" },
+            { status: 400 }
+        );
+    }
+    const { cursor: rawCursor, ...query } = parsed.data;
+    let cursor;
+    if (rawCursor !== undefined) {
+        try {
+            if (!/^[A-Za-z0-9_-]+$/.test(rawCursor)) throw new Error();
+            const decoded = Buffer.from(rawCursor, "base64url");
+            if (decoded.toString("base64url") !== rawCursor) throw new Error();
+            cursor = cursorSchema.parse(JSON.parse(decoded.toString("utf8")));
+        } catch {
+            return NextResponse.json(
+                { error: "invalid_request", message: "Invalid cursor" },
+                { status: 400 }
+            );
+        }
+    }
+    try {
+        const rows = await getPostgresDocumentStore().listOwnedLatest(
+            session.user.id,
+            { ...query, cursor }
+        );
+        const items = rows.slice(0, query.limit);
+        const last = items.at(-1);
+        const nextCursor =
+            rows.length > query.limit && last
+                ? Buffer.from(
+                      JSON.stringify({ createdAt: last.createdAt, id: last.id })
+                  ).toString("base64url")
+                : null;
+        return NextResponse.json(
+            { items, nextCursor },
+            { headers: { "Cache-Control": "private, no-store" } }
+        );
+    } catch {
+        return NextResponse.json(
+            {
+                error: "store_failure",
+                message: "Failed to access document database",
+            },
+            { status: 500 }
+        );
+    }
+}
