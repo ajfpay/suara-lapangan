@@ -158,8 +158,8 @@ test.describe("Ticket 02: Rekam native, WAV 16 kHz, antrean offline", () => {
 
     test("shows 'Unggah Tertunda' when offline and preserves recordings in IndexedDB", async ({ page, context }) => {
         await page.goto("/id/rekam");
-        // Wait for the client gate to resolve (signed-in session from the
-        // global storage state) before going offline.
+        // The recorder also renders while session resolution is pending.
+        await expect(page.getByTestId("user-menu-button")).toBeVisible();
         await expect(page.getByTestId("record-button")).toBeVisible();
 
         // Go offline (airplane mode)

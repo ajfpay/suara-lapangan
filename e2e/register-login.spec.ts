@@ -20,10 +20,11 @@ const TEST_PASSWORD = "reg-e2e-pass-9f3k2m";
 test.describe("register and login email auth flows", () => {
     let testEmail = "";
 
-    test.beforeAll(async ({ request }) => {
+    test.beforeAll(async ({ request, baseURL }) => {
         // Unique per run; tolerates reruns by treating an existing email as set up.
         testEmail = `e2e-reg-${Date.now().toString(36)}@suara-lapangan.test`;
         const res = await request.post("/api/auth/sign-up/email", {
+            headers: { Origin: new URL(baseURL!).origin },
             data: {
                 name: "E2E User",
                 email: testEmail,
@@ -130,26 +131,26 @@ test.describe("register and login email auth flows", () => {
 
         await context.close();
     });
-    test("web recovery shows a neutral response and rejects an invalid token", async ({ browser }) => {
-        const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
-        try {
-            const page = await context.newPage();
-            await page.goto("/en/login");
-            await page.getByRole("link", { name: "Forgot password?" }).click();
-            await expect(page).toHaveURL(/\/en\/forgot-password$/);
-            await page.getByTestId("reset-email").fill("e2e-reset-" + Date.now() + "@example.test");
-            await page.getByRole("button", { name: "Send reset link" }).click();
-            await expect(page.getByTestId("reset-message")).toContainText("If this account");
-            await page.goto("/en/reset-password#token=fixture-invalid");
-            await expect(page.getByTestId("reset-new-password")).toBeVisible();
-            await expect(page).toHaveURL(/\/en\/reset-password$/);
-            await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
-            await page.locator("#confirm-password").fill(TEST_PASSWORD);
-            await page.getByRole("button", { name: "Reset password" }).click();
-            await expect(page.getByRole("alert")).toContainText("invalid or expired");
-        } finally {
-            await context.close();
-        }
-    });
+});
 
+test("web recovery shows a neutral response and rejects an invalid token", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+        const page = await context.newPage();
+        await page.goto("/en/login");
+        await page.getByRole("link", { name: "Forgot password?" }).click();
+        await expect(page).toHaveURL(/\/en\/forgot-password$/);
+        await page.getByTestId("reset-email").fill("e2e-reset-" + Date.now() + "@example.test");
+        await page.getByRole("button", { name: "Send reset link" }).click();
+        await expect(page.getByTestId("reset-message")).toContainText("If this account");
+        await page.goto("/en/reset-password#token=fixture-invalid");
+        await expect(page.getByTestId("reset-new-password")).toBeVisible();
+        await expect(page).toHaveURL(/\/en\/reset-password$/);
+        await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
+        await page.locator("#confirm-password").fill(TEST_PASSWORD);
+        await page.getByRole("button", { name: "Reset password" }).click();
+        await expect(page.getByRole("alert").filter({ hasText: "invalid or expired" })).toBeVisible();
+    } finally {
+        await context.close();
+    }
 });
