@@ -370,7 +370,12 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
             "select pg_try_advisory_xact_lock($1::bigint) as locked",
             [key]
         );
-        if (!lock.rows[0]?.locked) return invalid();
+        if (!lock.rows[0]?.locked) {
+            return Response.json(
+                { code: "RESET_IN_PROGRESS", message: "Try again later" },
+                { status: 409 }
+            );
+        }
         return await auth.handler(request);
     } catch {
         return unavailable();

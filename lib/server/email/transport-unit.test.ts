@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import nodemailer from "nodemailer";
+import { formatWithOptions } from "node:util";
 import { sendEmail } from "./send";
 
 const smtp = {
@@ -57,7 +58,11 @@ describe("SMTP delivery boundary", () => {
         } as never);
         const log = vi.spyOn(console, "error").mockImplementation(() => {});
         await expect(sendEmail(smtp, mail)).rejects.toBe(failure);
-        const output = JSON.stringify(log.mock.calls);
+        const output = log.mock.calls
+            .map((args) =>
+                formatWithOptions({ colors: false, depth: null }, ...args)
+            )
+            .join("\n");
         expect(output).toContain("ETIMEDOUT");
         expect(output).not.toContain("private-fixture");
         expect(output).not.toContain("secret-fixture");

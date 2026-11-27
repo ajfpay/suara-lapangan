@@ -171,37 +171,56 @@ test("web recovery shows a neutral response and rejects an invalid token", async
     }
 });
 
-test("web recovery retains the reset form after a temporary server failure", async ({
-    browser,
-}) => {
-    const context = await browser.newContext({
-        storageState: { cookies: [], origins: [] },
-    });
-    try {
-        const page = await context.newPage();
-        await page.route("**/api/auth/reset-password", async (route) => {
-            await route.fulfill({
-                status: 503,
-                contentType: "application/json",
-                body: JSON.stringify({
-                    code: "SERVICE_UNAVAILABLE",
-                    message: "Try again later",
-                }),
+for (const failure of [
+    { status: 503, code: "SERVICE_UNAVAILABLE" },
+    { status: 409, code: "RESET_IN_PROGRESS" },
+]) {
+    test(
+        "web recovery retains the reset form after HTTP " + failure.status,
+        async ({ browser }) => {
+            const context = await browser.newContext({
+                storageState: { cookies: [], origins: [] },
             });
-        });
-        await page.goto("/en/reset-password#token=fixture-temporary");
-        await expect(page.getByTestId("reset-new-password")).toBeVisible();
-        await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
-        await page.locator("#confirm-password").fill(TEST_PASSWORD);
-        await page.getByRole("button", { name: "Reset password" }).click();
-        await expect(
-            page.getByRole("alert").filter({ hasText: "Try again later" })
-        ).toBeVisible();
-        await expect(page.getByTestId("reset-new-password")).toBeVisible();
-        await expect(
-            page.getByRole("link", { name: "Send reset link" })
-        ).toHaveCount(0);
-    } finally {
-        await context.close();
-    }
-});
+            try {
+                const page = await context.newPage();
+                await page.route(
+                    "**/api/auth/reset-password",
+                    async (route) => {
+                        await route.fulfill({
+                            status: failure.status,
+                            contentType: "application/json",
+                            body: JSON.stringify({
+                                code: failure.code,
+                                message: "Try again later",
+                            }),
+                        });
+                    }
+                );
+                await page.goto("/en/reset-password#token=fixture-temporary");
+                await expect(
+                    page.getByTestId("reset-new-password")
+                ).toBeVisible();
+                await page
+                    .getByTestId("reset-new-password")
+                    .fill(TEST_PASSWORD);
+                await page.locator("#confirm-password").fill(TEST_PASSWORD);
+                await page
+                    .getByRole("button", { name: "Reset password" })
+                    .click();
+                await expect(
+                    page
+                        .getByRole("alert")
+                        .filter({ hasText: "Try again later" })
+                ).toBeVisible();
+                await expect(
+                    page.getByTestId("reset-new-password")
+                ).toBeVisible();
+                await expect(
+                    page.getByRole("link", { name: "Send reset link" })
+                ).toHaveCount(0);
+            } finally {
+                await context.close();
+            }
+        }
+    );
+}

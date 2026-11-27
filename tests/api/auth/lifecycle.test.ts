@@ -203,11 +203,45 @@ describe.skipIf(!database)("authentication lifecycle", () => {
                     !r.identifier.includes(token)
             )
         ).toBe(true);
+        const lockClient = await pool.connect();
+        try {
+            await lockClient.query("begin");
+            const key = createHash("sha256")
+                .update("password-reset:" + token)
+                .digest()
+                .readBigInt64BE()
+                .toString();
+            await lockClient.query("select pg_advisory_xact_lock($1::bigint)", [
+                key,
+            ]);
+            const busy = await request("reset-password", {
+                token,
+                newPassword: final,
+            });
+            expect(busy.status).toBe(409);
+            expect(await busy.json()).toMatchObject({
+                code: "RESET_IN_PROGRESS",
+            });
+        } finally {
+            try {
+                await lockClient.query("rollback");
+                lockClient.release();
+            } catch {
+                lockClient.release(true);
+            }
+        }
+
         const outcomes = await Promise.all([
             request("reset-password", { token, newPassword: final }),
             request("reset-password", { token, newPassword: final }),
         ]);
-        expect(outcomes.map((r) => r.status).sort()).toEqual([200, 400]);
+        expect(outcomes.filter((r) => r.status === 200)).toHaveLength(1);
+        const rejected = outcomes.find((r) => r.status !== 200)!;
+        expect([400, 409]).toContain(rejected.status);
+        expect(await rejected.json()).toMatchObject({
+            code:
+                rejected.status === 409 ? "RESET_IN_PROGRESS" : "INVALID_TOKEN",
+        });
         expect(
             (await request("reset-password", { token, newPassword: final }))
                 .status

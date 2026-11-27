@@ -37,7 +37,7 @@ AUTH_TEST_SMTP=1 npm exec -- vitest run lib/server/email/transport.test.ts
 Run the manual recovery HTTP proof against the verified local sandbox (not production):
 
 ```sh
-node scripts/sandbox/verify-db-identity.mjs
+node scripts/sandbox/verify-db-identity.mjs && \
 "$HOME/.local/bin/hurl" --test \
   --variable base_url=http://localhost:3010 \
   --variable unknown_email="ticket04-$(node -e 'process.stdout.write(require("crypto").randomUUID())')@example.test" \

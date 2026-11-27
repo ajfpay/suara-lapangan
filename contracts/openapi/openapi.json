@@ -2260,7 +2260,7 @@
     "/api/auth/reset-password": {
       "post": {
         "operationId": "resetPassword",
-        "description": "Consume the reset token and revoke old sessions. Send token in JSON body.",
+        "description": "Consume the reset token and revoke old sessions. Send token in JSON body. HTTP 409 RESET_IN_PROGRESS indicates a competing reset; retry without discarding the token.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2315,6 +2315,16 @@
           },
           "403": {
             "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Reset in progress; retry with the same token.",
             "content": {
               "application/json": {
                 "schema": {
