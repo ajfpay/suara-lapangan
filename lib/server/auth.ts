@@ -52,17 +52,69 @@ export const authSecret = AUTH_SECRET;
  * itself; `npm run dev` does not, so developers must export it by hand.
  * Without a matching origin better-auth rejects credentialed POSTs with 403.
  */
-const envTrustedOrigins = (process.env.TRUSTED_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+function parseOrigins(
+    raw: string,
+    variable: string,
+    valid: (origin: string) => boolean
+): string[] {
+    return raw
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+        .filter((origin, index) => {
+            if (valid(origin)) return true;
+            console.warn(
+                "[auth] rejected " + variable + " entry " + (index + 1)
+            );
+            return false;
+        });
+}
 
-const nativeOrigins = (process.env.NATIVE_AUTH_ORIGINS ?? "suara-lapangan://")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter((origin) =>
-        /^suara-lapangan(?:-development|-staging)?:\/\/$/.test(origin)
-    );
+const envTrustedOrigins = parseOrigins(
+    process.env.TRUSTED_ORIGINS ?? "",
+    "TRUSTED_ORIGINS",
+    (origin) => {
+        try {
+            const url = new URL(origin);
+            return (
+                (url.protocol === "https:" || url.protocol === "http:") &&
+                origin === url.origin &&
+                !origin.includes("*")
+            );
+        } catch {
+            return false;
+        }
+    }
+);
+const nativeOrigins = parseOrigins(
+    process.env.NATIVE_AUTH_ORIGINS ?? "suara-lapangan://",
+    "NATIVE_AUTH_ORIGINS",
+    (origin) => /^suara-lapangan(?:-development|-staging)?:\/\/$/.test(origin)
+);
+
+function authLogCategory(message: string): string {
+    if (message.startsWith("Invalid origin:")) return "invalid origin";
+    if (
+        /^Invalid (callbackURL|redirectTo|errorCallbackURL|newUserCallbackURL):/.test(
+            message
+        )
+    )
+        return "invalid callback";
+    if (message.startsWith("Blocked cross-site navigation"))
+        return "CSRF rejected";
+    if (message === "Reset Password: User not found")
+        return "reset account unavailable";
+    if (message === "Invalid password" || message === "User not found")
+        return "credentials rejected";
+    if (message.startsWith("Failed to get user info"))
+        return "provider user info failed";
+    if (message.startsWith("Provider not found")) return "provider unavailable";
+    if (message.startsWith("Invalid id token"))
+        return "provider token rejected";
+    if (message.startsWith("Reset password isn't enabled"))
+        return "reset not configured";
+    return "other";
+}
 
 const nativePlugin = expo();
 const allowResetRequest = createResetRequestLimiter(AUTH_SECRET);
@@ -95,24 +147,11 @@ async function sendAuthMail(
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
-    trustedOrigins: [
-        ...envTrustedOrigins.filter((origin) => {
-            try {
-                const url = new URL(origin);
-                return (
-                    (url.protocol === "https:" || url.protocol === "http:") &&
-                    origin === url.origin &&
-                    !origin.includes("*")
-                );
-            } catch {
-                return false;
-            }
-        }),
-        ...nativeOrigins,
-    ],
+    trustedOrigins: [...envTrustedOrigins, ...nativeOrigins],
     logger: {
         level: "warn",
-        log: (level) => console.warn("[auth] Better Auth " + level),
+        log: (level, message) =>
+            console.warn("[auth] Better Auth", level, authLogCategory(message)),
     },
     rateLimit: {
         enabled: true,
@@ -306,13 +345,23 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
         .digest()
         .readBigInt64BE()
         .toString();
-    resetLockPool ??= new Pool({
-        connectionString: authConnectionString,
-        max: 2,
-        connectionTimeoutMillis: 5000,
-        idleTimeoutMillis: 10000,
-        query_timeout: 5000,
-    });
+    if (!resetLockPool) {
+        resetLockPool = new Pool({
+            connectionString: authConnectionString,
+            max: 2,
+            connectionTimeoutMillis: 5000,
+            idleTimeoutMillis: 10000,
+            query_timeout: 5000,
+        });
+        resetLockPool.on("error", (error) => {
+            console.error(
+                "[auth] reset lock database connection failed",
+                (error as { code?: string }).code === "57P01"
+                    ? "server shutdown"
+                    : "connection error"
+            );
+        });
+    }
     const client = await resetLockPool.connect().catch(() => null);
     if (!client) return unavailable();
     try {

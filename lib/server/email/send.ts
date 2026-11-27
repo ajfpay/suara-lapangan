@@ -37,6 +37,52 @@ export class GmailApiError extends Error {
     }
 }
 
+export function emailFailureDetails(cause: unknown): string {
+    if (cause instanceof GmailApiError) {
+        const code = cause.apiErrorCode;
+        const safeCodes = [
+            "invalid_grant",
+            "invalid_client",
+            "unauthorized_client",
+            "PERMISSION_DENIED",
+            "RESOURCE_EXHAUSTED",
+            "UNAUTHENTICATED",
+        ];
+        return JSON.stringify({
+            transport: "gmail",
+            status: cause.apiStatus,
+            code:
+                typeof code === "number"
+                    ? code
+                    : safeCodes.includes(String(code))
+                      ? code
+                      : "unknown",
+            revoked: cause.revoked,
+        });
+    }
+    const error = cause as { code?: unknown; responseCode?: unknown } | null;
+    const codes = [
+        "ECONNECTION",
+        "ECONNREFUSED",
+        "ECONNRESET",
+        "ETIMEDOUT",
+        "EDNS",
+        "EAUTH",
+        "EENVELOPE",
+        "EMESSAGE",
+        "ESOCKET",
+        "ENOTFOUND",
+        "EHOSTUNREACH",
+    ];
+    return JSON.stringify({
+        code: codes.includes(String(error?.code)) ? error?.code : "unknown",
+        status:
+            typeof error?.responseCode === "number"
+                ? error.responseCode
+                : undefined,
+    });
+}
+
 // --- Gmail API (send-only) ---
 
 export const GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -343,7 +389,11 @@ export async function sendEmail(
         }
         await sendViaGmailApi(config, options);
     } catch (cause) {
-        console.error("[email] delivery failed");
+        console.error(
+            "[email] delivery failed",
+            config.kind,
+            emailFailureDetails(cause)
+        );
         throw cause;
     }
 }

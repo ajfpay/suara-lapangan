@@ -28,6 +28,12 @@ describe("development mail transport", () => {
         vi.stubEnv("GMAIL_REFRESH_TOKEN", undefined);
         expect(getEmailConfig()).toBeNull();
     });
+    it("uses default SMTP port for blank configuration", () => {
+        vi.stubEnv("NODE_ENV", "development");
+        vi.stubEnv("SMTP_HOST", "mail.test");
+        vi.stubEnv("SMTP_PORT", " ");
+        expect(getEmailConfig()).toMatchObject({ kind: "smtp", port: 1025 });
+    });
     it("fails closed on malformed configured SMTP ports", () => {
         vi.stubEnv("NODE_ENV", "development");
         vi.stubEnv("SMTP_HOST", "100.94.246.116");
@@ -65,6 +71,7 @@ describe("development mail transport", () => {
                     (message) => message.Subject === subject
                 )
             ).toBe(true);
-        }
+        },
+        25000
     );
 });

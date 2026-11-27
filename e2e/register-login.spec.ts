@@ -88,7 +88,9 @@ test.describe("register and login email auth flows", () => {
         await page.getByTestId("input-password").fill(TEST_PASSWORD);
         await page.getByTestId("btn-submit-register").click();
 
-        await expect(page).toHaveURL(/\/en\/verify-email\?email=/, { timeout: 20_000 });
+        await expect(page).toHaveURL(/\/en\/verify-email\?email=/, {
+            timeout: 20_000,
+        });
         await page.goto("/en/dokumen/saya");
         await expect(page).toHaveURL(/\/en\/login\?callbackUrl=/);
 
@@ -133,23 +135,72 @@ test.describe("register and login email auth flows", () => {
     });
 });
 
-test("web recovery shows a neutral response and rejects an invalid token", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+test("web recovery shows a neutral response and rejects an invalid token", async ({
+    browser,
+}) => {
+    const context = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+    });
     try {
         const page = await context.newPage();
         await page.goto("/en/login");
         await page.getByRole("link", { name: "Forgot password?" }).click();
         await expect(page).toHaveURL(/\/en\/forgot-password$/);
-        await page.getByTestId("reset-email").fill("e2e-reset-" + Date.now() + "@example.test");
+        await page
+            .getByTestId("reset-email")
+            .fill("e2e-reset-" + Date.now() + "@example.test");
         await page.getByRole("button", { name: "Send reset link" }).click();
-        await expect(page.getByTestId("reset-message")).toContainText("If this account");
+        await expect(page.getByTestId("reset-message")).toContainText(
+            "If this account"
+        );
         await page.goto("/en/reset-password#token=fixture-invalid");
         await expect(page.getByTestId("reset-new-password")).toBeVisible();
         await expect(page).toHaveURL(/\/en\/reset-password$/);
         await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
         await page.locator("#confirm-password").fill(TEST_PASSWORD);
         await page.getByRole("button", { name: "Reset password" }).click();
-        await expect(page.getByRole("alert").filter({ hasText: "invalid or expired" })).toBeVisible();
+        await expect(
+            page.getByRole("status").filter({ hasText: "invalid or expired" })
+        ).toBeVisible();
+        await expect(page.getByTestId("reset-new-password")).toHaveCount(0);
+        await expect(
+            page.getByRole("link", { name: "Send reset link" })
+        ).toHaveAttribute("href", "/en/forgot-password");
+    } finally {
+        await context.close();
+    }
+});
+
+test("web recovery retains the reset form after a temporary server failure", async ({
+    browser,
+}) => {
+    const context = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+    });
+    try {
+        const page = await context.newPage();
+        await page.route("**/api/auth/reset-password", async (route) => {
+            await route.fulfill({
+                status: 503,
+                contentType: "application/json",
+                body: JSON.stringify({
+                    code: "SERVICE_UNAVAILABLE",
+                    message: "Try again later",
+                }),
+            });
+        });
+        await page.goto("/en/reset-password#token=fixture-temporary");
+        await expect(page.getByTestId("reset-new-password")).toBeVisible();
+        await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
+        await page.locator("#confirm-password").fill(TEST_PASSWORD);
+        await page.getByRole("button", { name: "Reset password" }).click();
+        await expect(
+            page.getByRole("alert").filter({ hasText: "Try again later" })
+        ).toBeVisible();
+        await expect(page.getByTestId("reset-new-password")).toBeVisible();
+        await expect(
+            page.getByRole("link", { name: "Send reset link" })
+        ).toHaveCount(0);
     } finally {
         await context.close();
     }

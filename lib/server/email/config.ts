@@ -76,7 +76,7 @@ export function getGmailConfig(): GmailConfig | null {
 export function getEmailConfig(): EmailConfig | null {
     const host = nonEmpty(process.env.SMTP_HOST);
     if (process.env.NODE_ENV !== "production" && host) {
-        const port = process.env.SMTP_PORT ?? "1025";
+        const port = nonEmpty(process.env.SMTP_PORT) ?? "1025";
         if (
             !/^\d{1,5}$/.test(port) ||
             Number(port) < 1 ||

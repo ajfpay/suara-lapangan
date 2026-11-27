@@ -12,6 +12,7 @@ export default function ResetPasswordPage() {
     const locale = String(useParams().locale ?? "id");
     const query = useSearchParams();
     const [token, setToken] = useState("");
+    const [ready, setReady] = useState(false);
     const [password, setPassword] = useState("");
     const [confirmation, setConfirmation] = useState("");
     const [pending, setPending] = useState(false);
@@ -25,6 +26,7 @@ export default function ResetPasswordPage() {
             setToken(value);
             window.history.replaceState(null, "", window.location.pathname);
         }
+        setReady(true);
     }, [query]);
 
     async function submit(event: React.FormEvent) {
@@ -41,7 +43,13 @@ export default function ResetPasswordPage() {
                 newPassword: password,
             });
             if (result.error) {
-                setMessage(t("resetInvalid"));
+                if (result.error.code === "INVALID_TOKEN") {
+                    setToken("");
+                    setPassword("");
+                    setConfirmation("");
+                } else {
+                    setMessage(t("resetTryAgain"));
+                }
                 return;
             }
             setComplete(true);
@@ -63,7 +71,7 @@ export default function ResetPasswordPage() {
             }
             footer={<Link href={"/" + locale + "/login"}>{t("login")}</Link>}
         >
-            {complete ? null : !token ? (
+            {complete || !ready ? null : !token ? (
                 <p role="status">
                     {t("resetInvalid")}{" "}
                     <Link

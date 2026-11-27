@@ -325,6 +325,7 @@ describe.skipIf(!database)("authentication lifecycle", () => {
         ).toBe(429);
     });
     it("keeps the recovery response generic if the email transport fails", async () => {
+        const callsBefore = mail.mock.calls.length;
         mail.mockRejectedValueOnce(new Error("Synthetic transport failure"));
         const known = await request("request-password-reset", {
             email,
@@ -336,5 +337,6 @@ describe.skipIf(!database)("authentication lifecycle", () => {
         });
         expect(known.status).toBe(200);
         expect(await known.json()).toEqual(await unknown.json());
+        expect(mail.mock.calls.length).toBe(callsBefore + 1);
     });
 });

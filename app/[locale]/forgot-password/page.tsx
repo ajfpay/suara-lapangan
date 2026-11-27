@@ -50,6 +50,8 @@ export default function ForgotPasswordPage() {
                     required
                     type="email"
                     autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-12 w-full rounded-xl border border-border bg-background px-4"

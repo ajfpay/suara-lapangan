@@ -22,9 +22,7 @@ const STATE_PATH = "e2e/.auth/state.json";
 export default async function globalSetup(config: FullConfig): Promise<void> {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
-        throw new Error(
-            "DATABASE_URL is required for the e2e auth session"
-        );
+        throw new Error("DATABASE_URL is required for the e2e auth session");
     }
     const secret = process.env.BETTER_AUTH_SECRET;
     if (!secret) {
@@ -63,12 +61,18 @@ export default async function globalSetup(config: FullConfig): Promise<void> {
     const baseURL = config.projects[0]?.use.baseURL;
     if (!baseURL) throw new Error("Missing Playwright base URL");
     const session = await fetch(new URL("/api/auth/get-session", baseURL), {
-        headers: { Cookie: `${SESSION_COOKIE}=${E2E_SESSION_TOKEN}.${signature}` },
+        headers: {
+            Cookie: `${SESSION_COOKIE}=${E2E_SESSION_TOKEN}.${signature}`,
+        },
         signal: AbortSignal.timeout(10000),
     });
-    const body = await session.json();
+    const body = await session.json().catch(() => null);
     if (!session.ok || body?.user?.id !== E2E_USER_ID) {
-        throw new Error("Seeded E2E session is not accepted by the server");
+        throw new Error(
+            "Seeded E2E session is not accepted by the server (HTTP " +
+                session.status +
+                ")"
+        );
     }
 
     await fs.mkdir(path.dirname(STATE_PATH), { recursive: true });
