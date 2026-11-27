@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import type { EmailConfig } from "./config";
-import { redactSecrets } from "@/lib/server/asr/log";
 
 export type EmailAttachment = {
     filename: string;
@@ -67,7 +66,8 @@ function isAbortError(err: unknown): boolean {
         if (typeof message === "string" && message.includes("aborted")) {
             return true;
         }
-        const cause = (err as { cause?: { name?: unknown; message?: unknown } }).cause;
+        const cause = (err as { cause?: { name?: unknown; message?: unknown } })
+            .cause;
         if (cause && typeof cause === "object") {
             if (cause.name === "AbortError" || cause.name === "TimeoutError") {
                 return true;
@@ -327,11 +327,23 @@ export async function sendEmail(
     options: SendEmailOptions
 ): Promise<void> {
     try {
+        if (config.kind === "smtp") {
+            if (process.env.NODE_ENV === "production")
+                throw new Error("SMTP is disabled in production");
+            const transport = nodemailer.createTransport({
+                host: config.host,
+                port: config.port,
+                secure: false,
+                connectionTimeout: 5000,
+                greetingTimeout: 5000,
+                socketTimeout: 10000,
+            });
+            await transport.sendMail({ from: config.from, ...options });
+            return;
+        }
         await sendViaGmailApi(config, options);
     } catch (cause) {
-        console.error(
-            redactSecrets(`[email] delivery failed: ${String(cause)}`)
-        );
+        console.error("[email] delivery failed");
         throw cause;
     }
 }

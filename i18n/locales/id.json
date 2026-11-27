@@ -130,6 +130,19 @@
         "home": "Ke langkah 1 — Rekam"
     },
     "auth": {
+    "forgotPassword": "Lupa kata sandi?",
+    "resetDescription": "Masukkan email akun Anda untuk meminta tautan reset.",
+    "sendResetLink": "Kirim tautan reset",
+    "resetRequested": "Jika kata sandi akun dapat diatur ulang, tautan akan dikirim ke email Anda. Akun Google dapat masuk melalui Google.",
+    "resetTryAgain": "Permintaan belum dapat diproses. Coba lagi nanti.",
+    "resetPasswordTitle": "Atur ulang kata sandi",
+    "resetPasswordDescription": "Buat kata sandi baru dengan minimal 8 karakter.",
+    "newPassword": "Kata sandi baru",
+    "confirmNewPassword": "Konfirmasi kata sandi baru",
+    "passwordMismatch": "Kata sandi tidak sama.",
+    "resetInvalid": "Tautan reset tidak valid atau kedaluwarsa. Minta tautan baru.",
+    "resetDone": "Kata sandi sudah diatur ulang. Masuk dengan kata sandi baru.",
+
         "login": "Masuk",
         "loginTitle": "Masuk ke akun Anda",
         "register": "Daftar",

@@ -14,7 +14,14 @@ export type GmailConfig = {
     from: string | null;
 };
 
-export type EmailConfig = GmailConfig;
+export type SmtpConfig = {
+    kind: "smtp";
+    host: string;
+    port: number;
+    from: string;
+};
+
+export type EmailConfig = GmailConfig | SmtpConfig;
 
 function nonEmpty(value: string | undefined): string | null {
     const trimmed = value?.trim();
@@ -66,11 +73,26 @@ export function getGmailConfig(): GmailConfig | null {
     };
 }
 
-/**
- * Unified entry point for mail senders: the Gmail API path from GMAIL_*.
- * Returns null when GMAIL_* is not fully configured (callers answer 503
- * email_not_configured).
- */
 export function getEmailConfig(): EmailConfig | null {
+    const host = nonEmpty(process.env.SMTP_HOST);
+    if (process.env.NODE_ENV !== "production" && host) {
+        const port = process.env.SMTP_PORT ?? "1025";
+        if (
+            !/^\d{1,5}$/.test(port) ||
+            Number(port) < 1 ||
+            Number(port) > 65535
+        ) {
+            console.warn("[email] Invalid development SMTP port");
+            return null;
+        }
+        return {
+            kind: "smtp",
+            host,
+            port: Number(port),
+            from:
+                nonEmpty(process.env.SMTP_FROM) ??
+                "sandbox@suara-lapangan.test",
+        };
+    }
     return getGmailConfig();
 }

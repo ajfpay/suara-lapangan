@@ -21,3 +21,11 @@ HURL_BIN="$HOME/.local/bin/hurl" node tests/api/documents/run-list-hurl.mjs
 ```
 
 Load the same test database and signing secret as the running sandbox. The runner checks the database identity, creates two short-lived test sessions, and deletes only its own fixture rows after the run. Never use production credentials.
+
+## Authentication (ticket 04)
+
+The backend and Expo server plugin use Better Auth 1.5.5. The mobile application should use the same client version. Configure exact native origins with NATIVE_AUTH_ORIGINS (suara-lapangan://, or explicitly selected -development / -staging schemes). Do not enable Expo Go wildcard origins.
+
+Recovery requests use request-password-reset and return a generic response. The email links to the localized web form with the token in a fragment; submit the token in the JSON body to reset-password. Password reset revokes old sessions. The native client can request a reset and use this web fallback.
+
+SMTP_HOST, SMTP_PORT and SMTP_FROM select Mailpit only outside production; production uses Gmail API exclusively. Run AUTH_TEST_SMTP=1 with the email transport test for the explicitly configured development service. This sends a synthetic message, not a real account recovery email.
