@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import crypto from "node:crypto";
 import { getEmailConfig } from "@/lib/server/email/config";
 import { sendEmail } from "@/lib/server/email/send";
+import { createResetRequestLimiter } from "@/lib/server/reset-request-limiter";
 import { redactSecrets } from "@/lib/server/asr/log";
 
 const authConnectionString =
@@ -64,32 +65,14 @@ const nativeOrigins = (process.env.NATIVE_AUTH_ORIGINS ?? "suara-lapangan://")
     );
 
 const nativePlugin = expo();
-const resetRequests = new Map<string, { count: number; expiresAt: number }>();
-const RESET_WINDOW_MS = 15 * 60_000;
-const RESET_LIMIT = 5;
+const allowResetRequest = createResetRequestLimiter(AUTH_SECRET);
 
 function checkResetIdentity(email: string): void {
-    const now = Date.now();
-    for (const [key, entry] of resetRequests) {
-        if (entry.expiresAt <= now) resetRequests.delete(key);
-    }
-    const key = crypto
-        .createHmac("sha256", AUTH_SECRET)
-        .update(email.trim().toLowerCase())
-        .digest("hex");
-    const entry = resetRequests.get(key);
-    if (
-        (entry?.count ?? 0) >= RESET_LIMIT ||
-        (!entry && resetRequests.size >= 10000)
-    ) {
+    if (!allowResetRequest(email)) {
         throw new APIError("TOO_MANY_REQUESTS", {
             message: "Too many requests. Try again later.",
         });
     }
-    resetRequests.set(key, {
-        count: (entry?.count ?? 0) + 1,
-        expiresAt: entry?.expiresAt ?? now + RESET_WINDOW_MS,
-    });
 }
 
 async function sendAuthMail(
