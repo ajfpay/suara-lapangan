@@ -130,6 +130,19 @@
         "home": "Go to step 1 — Rekam"
     },
     "auth": {
+    "forgotPassword": "Forgot password?",
+    "resetDescription": "Enter your account email to request a reset link.",
+    "sendResetLink": "Send reset link",
+    "resetRequested": "If this account can reset its password, a link will be sent to your email. Accounts using Google can sign in with Google.",
+    "resetTryAgain": "Unable to complete the request. Try again later.",
+    "resetPasswordTitle": "Reset password",
+    "resetPasswordDescription": "Choose a new password with at least 8 characters.",
+    "newPassword": "New password",
+    "confirmNewPassword": "Confirm new password",
+    "passwordMismatch": "Passwords do not match.",
+    "resetInvalid": "The reset link is invalid or expired. Request a new link.",
+    "resetDone": "Your password has been reset. Sign in with your new password.",
+
         "login": "Log in",
         "loginTitle": "Log in to your account",
         "register": "Register",

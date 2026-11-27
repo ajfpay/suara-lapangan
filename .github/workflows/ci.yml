@@ -159,6 +159,7 @@ jobs:
             --add-host=host.docker.internal:host-gateway \
             -e DATABASE_URL=postgres://suara:suara@host.docker.internal:5432/suara \
             -e BETTER_AUTH_SECRET=suara-lapangan-docker-smoke-test-secret-min-32-chars \
+            -e BETTER_AUTH_URL=http://localhost:3000 \
             -e NODE_ENV=production \
             suara-lapangan:ci
           for i in $(seq 1 30); do
@@ -182,6 +183,8 @@ jobs:
           node scripts/ci-smoke-seed.mjs > /tmp/smoke_cookie.txt
           COOKIE=$(cat /tmp/smoke_cookie.txt)
           AUTH_HEADER="Cookie: better-auth.session_token=${COOKIE}"
+          curl -fsS http://localhost:${SMOKE_PORT}/api/auth/get-session \
+            -H "${AUTH_HEADER}" | node -e "const s=JSON.parse(require('fs').readFileSync(0,'utf8')); if (!s?.user?.id) process.exit(1)"
           DOC_ID=$(curl -fsS -X POST http://localhost:${SMOKE_PORT}/api/documents \
             -H "${AUTH_HEADER}" \
             -H "Content-Type: application/json" \

@@ -76,6 +76,7 @@ export default defineConfig({
         // Same secret the global setup signs the seeded session with.
         env: {
             BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+            BETTER_AUTH_URL: BASE_URL,
             TRUSTED_ORIGINS: `http://127.0.0.1:${PORT},http://localhost:${PORT},http://127.0.0.1:3100,http://localhost:3100`,
         },
         // A cold build is slow on a cold cache.

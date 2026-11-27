@@ -1,6 +1,5 @@
 import nodemailer from "nodemailer";
 import type { EmailConfig } from "./config";
-import { redactSecrets } from "@/lib/server/asr/log";
 
 export type EmailAttachment = {
     filename: string;
@@ -38,6 +37,52 @@ export class GmailApiError extends Error {
     }
 }
 
+export function emailFailureDetails(cause: unknown): string {
+    if (cause instanceof GmailApiError) {
+        const code = cause.apiErrorCode;
+        const safeCodes = [
+            "invalid_grant",
+            "invalid_client",
+            "unauthorized_client",
+            "PERMISSION_DENIED",
+            "RESOURCE_EXHAUSTED",
+            "UNAUTHENTICATED",
+        ];
+        return JSON.stringify({
+            transport: "gmail",
+            status: cause.apiStatus,
+            code:
+                typeof code === "number"
+                    ? code
+                    : safeCodes.includes(String(code))
+                      ? code
+                      : "unknown",
+            revoked: cause.revoked,
+        });
+    }
+    const error = cause as { code?: unknown; responseCode?: unknown } | null;
+    const codes = [
+        "ECONNECTION",
+        "ECONNREFUSED",
+        "ECONNRESET",
+        "ETIMEDOUT",
+        "EDNS",
+        "EAUTH",
+        "EENVELOPE",
+        "EMESSAGE",
+        "ESOCKET",
+        "ENOTFOUND",
+        "EHOSTUNREACH",
+    ];
+    return JSON.stringify({
+        code: codes.includes(String(error?.code)) ? error?.code : "unknown",
+        status:
+            typeof error?.responseCode === "number"
+                ? error.responseCode
+                : undefined,
+    });
+}
+
 // --- Gmail API (send-only) ---
 
 export const GMAIL_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -67,7 +112,8 @@ function isAbortError(err: unknown): boolean {
         if (typeof message === "string" && message.includes("aborted")) {
             return true;
         }
-        const cause = (err as { cause?: { name?: unknown; message?: unknown } }).cause;
+        const cause = (err as { cause?: { name?: unknown; message?: unknown } })
+            .cause;
         if (cause && typeof cause === "object") {
             if (cause.name === "AbortError" || cause.name === "TimeoutError") {
                 return true;
@@ -327,10 +373,26 @@ export async function sendEmail(
     options: SendEmailOptions
 ): Promise<void> {
     try {
+        if (config.kind === "smtp") {
+            if (process.env.NODE_ENV === "production")
+                throw new Error("SMTP is disabled in production");
+            const transport = nodemailer.createTransport({
+                host: config.host,
+                port: config.port,
+                secure: false,
+                connectionTimeout: 5000,
+                greetingTimeout: 5000,
+                socketTimeout: 10000,
+            });
+            await transport.sendMail({ from: config.from, ...options });
+            return;
+        }
         await sendViaGmailApi(config, options);
     } catch (cause) {
         console.error(
-            redactSecrets(`[email] delivery failed: ${String(cause)}`)
+            "[email] delivery failed",
+            config.kind,
+            emailFailureDetails(cause)
         );
         throw cause;
     }

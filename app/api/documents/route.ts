@@ -20,6 +20,7 @@ import {
     SPARK_DOCUMENT_EST_COST,
 } from "@/lib/server/quota/usage-meter";
 import {
+    documentIdSchema,
     postDocumentBodySchema,
     formatZodError,
 } from "@/lib/server/validation/document";
@@ -378,7 +379,7 @@ const cursorSchema = z
                     !value.startsWith("0000")
                 );
             }),
-        id: z.string().uuid(),
+        id: documentIdSchema,
     })
     .strict();
 

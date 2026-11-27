@@ -2,9 +2,7 @@ import { z } from "zod";
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-export const documentIdSchema = z
-    .string()
-    .uuid("id must be a UUID");
+export const documentIdSchema = z.guid("id must be a UUID");
 
 const localeSchema = z.enum(["en", "id"]);
 

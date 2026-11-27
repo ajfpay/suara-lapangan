@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
  *
  * Asserts the full lifecycle of a new user registering via email and password:
  * 1. Fresh registration redirects to the verify-email notice and remains unauthenticated.
- * 2. Duplicate registration with the same email is rejected with a visible error.
+ * 2. Duplicate registration returns a neutral verification notice.
  * 3. Login with an incorrect password is rejected with a visible error.
  * 4. Login with the correct password before email verification is rejected with
  *    the "Email not verified" message required by server auth policy.
@@ -20,10 +20,11 @@ const TEST_PASSWORD = "reg-e2e-pass-9f3k2m";
 test.describe("register and login email auth flows", () => {
     let testEmail = "";
 
-    test.beforeAll(async ({ request }) => {
+    test.beforeAll(async ({ request, baseURL }) => {
         // Unique per run; tolerates reruns by treating an existing email as set up.
         testEmail = `e2e-reg-${Date.now().toString(36)}@suara-lapangan.test`;
         const res = await request.post("/api/auth/sign-up/email", {
+            headers: { Origin: new URL(baseURL!).origin },
             data: {
                 name: "E2E User",
                 email: testEmail,
@@ -73,7 +74,7 @@ test.describe("register and login email auth flows", () => {
         await context.close();
     });
 
-    test("duplicate registration is rejected with a visible error", async ({
+    test("duplicate registration uses a neutral verification notice", async ({
         browser,
     }) => {
         const context = await browser.newContext({
@@ -87,9 +88,11 @@ test.describe("register and login email auth flows", () => {
         await page.getByTestId("input-password").fill(TEST_PASSWORD);
         await page.getByTestId("btn-submit-register").click();
 
-        const error = page.getByTestId("register-error");
-        await expect(error).toBeVisible({ timeout: 20_000 });
-        await expect(error).not.toBeEmpty();
+        await expect(page).toHaveURL(/\/en\/verify-email\?email=/, {
+            timeout: 20_000,
+        });
+        await page.goto("/en/dokumen/saya");
+        await expect(page).toHaveURL(/\/en\/login\?callbackUrl=/);
 
         await context.close();
     });
@@ -131,3 +134,93 @@ test.describe("register and login email auth flows", () => {
         await context.close();
     });
 });
+
+test("web recovery shows a neutral response and rejects an invalid token", async ({
+    browser,
+}) => {
+    const context = await browser.newContext({
+        storageState: { cookies: [], origins: [] },
+    });
+    try {
+        const page = await context.newPage();
+        await page.goto("/en/login");
+        await page.getByRole("link", { name: "Forgot password?" }).click();
+        await expect(page).toHaveURL(/\/en\/forgot-password$/);
+        await page
+            .getByTestId("reset-email")
+            .fill("e2e-reset-" + Date.now() + "@example.test");
+        await page.getByRole("button", { name: "Send reset link" }).click();
+        await expect(page.getByTestId("reset-message")).toContainText(
+            "If this account"
+        );
+        await page.goto("/en/reset-password#token=fixture-invalid");
+        await expect(page.getByTestId("reset-new-password")).toBeVisible();
+        await expect(page).toHaveURL(/\/en\/reset-password$/);
+        await page.getByTestId("reset-new-password").fill(TEST_PASSWORD);
+        await page.locator("#confirm-password").fill(TEST_PASSWORD);
+        await page.getByRole("button", { name: "Reset password" }).click();
+        await expect(
+            page.getByRole("status").filter({ hasText: "invalid or expired" })
+        ).toBeVisible();
+        await expect(page.getByTestId("reset-new-password")).toHaveCount(0);
+        await expect(
+            page.getByRole("link", { name: "Send reset link" })
+        ).toHaveAttribute("href", "/en/forgot-password");
+    } finally {
+        await context.close();
+    }
+});
+
+for (const failure of [
+    { status: 503, code: "SERVICE_UNAVAILABLE" },
+    { status: 409, code: "RESET_IN_PROGRESS" },
+]) {
+    test(
+        "web recovery retains the reset form after HTTP " + failure.status,
+        async ({ browser }) => {
+            const context = await browser.newContext({
+                storageState: { cookies: [], origins: [] },
+            });
+            try {
+                const page = await context.newPage();
+                await page.route(
+                    "**/api/auth/reset-password",
+                    async (route) => {
+                        await route.fulfill({
+                            status: failure.status,
+                            contentType: "application/json",
+                            body: JSON.stringify({
+                                code: failure.code,
+                                message: "Try again later",
+                            }),
+                        });
+                    }
+                );
+                await page.goto("/en/reset-password#token=fixture-temporary");
+                await expect(
+                    page.getByTestId("reset-new-password")
+                ).toBeVisible();
+                await page
+                    .getByTestId("reset-new-password")
+                    .fill(TEST_PASSWORD);
+                await page.locator("#confirm-password").fill(TEST_PASSWORD);
+                await page
+                    .getByRole("button", { name: "Reset password" })
+                    .click();
+                await expect(
+                    page
+                        .getByRole("alert")
+                        .filter({ hasText: "Try again later" })
+                ).toBeVisible();
+                await expect(
+                    page.getByTestId("reset-new-password")
+                ).toBeVisible();
+                await expect(
+                    page.getByRole("link", { name: "Send reset link" })
+                ).toHaveCount(0);
+            } finally {
+                await context.close();
+            }
+        }
+    );
+}

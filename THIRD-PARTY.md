@@ -19,9 +19,10 @@ here, or listed but no longer installed. Regenerate the table with
 <!-- BEGIN DEPENDENCIES -->
 | Package | Licence |
 | --- | --- |
+| `@better-auth/expo@1.5.5` | MIT |
 | `@fontsource/ibm-plex-sans@5.1.0` | OFL-1.1 |
 | `@fontsource/source-serif-4@5.1.0` | OFL-1.1 |
-| `better-auth@1.2.9` | MIT |
+| `better-auth@1.5.5` | MIT |
 | `clsx@2.1.1` | MIT |
 | `lucide-react@0.279.0` | ISC |
 | `next@15.3.8` | MIT |
@@ -32,7 +33,7 @@ here, or listed but no longer installed. Regenerate the table with
 | `react@18.2.0` | MIT |
 | `react-dom@18.2.0` | MIT |
 | `tailwind-merge@1.14.0` | MIT |
-| `zod@3.25.76` | MIT |
+| `zod@4.3.6` | MIT |
 | `@playwright/test@1.62.1` | Apache-2.0 |
 | `@testing-library/react@16.3.3` | MIT |
 | `@types/node@20.19.43` | MIT |

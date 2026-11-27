@@ -143,6 +143,10 @@ export default function LoginPage() {
                     />
                 </div>
 
+                <Link href={`/${locale}/forgot-password`} className="block text-right text-sm font-medium text-primary hover:underline">
+                    {t("forgotPassword")}
+                </Link>
+
                 <button
                     type="submit"
                     data-testid="btn-submit-login"
