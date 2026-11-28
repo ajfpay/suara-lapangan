@@ -1,11 +1,11 @@
+import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import {
     getPostgresDocumentStore,
-    contentHashOf,
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
-import { readOfficialPdf } from "@/lib/server/pdf/storage";
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
 import {
     documentIdSchema,
     formatZodError,
@@ -19,7 +19,7 @@ type RouteContext = {
 
 async function handleGet(
     _request: Request,
-    context: RouteContext
+    context?: RouteContext
 ): Promise<Response> {
     const session = await getSession(_request);
     if (!session) {
@@ -75,12 +75,7 @@ async function handleGet(
 
     if (stored.status !== "draf") {
         try {
-            if (
-                !stored.pdfPath ||
-                stored.pdfDocumentHash !== contentHashOf(stored.document)
-            )
-                throw new Error("Official PDF unavailable");
-            const pdf = await readOfficialPdf(stored.pdfPath);
+            const pdf = await verifiedOfficialPdf(stored);
             return new Response(new Uint8Array(pdf), {
                 headers: {
                     "Content-Type": "application/pdf",
@@ -90,7 +85,7 @@ async function handleGet(
         } catch (cause) {
             console.error(
                 redactSecrets(
-                    `[pdf-preview] snapshot verification failed: ${String(cause)}`
+                    `[pdf-preview] snapshot verification failed for ${id}: ${String(cause)}`
                 )
             );
             return NextResponse.json(
@@ -109,13 +104,15 @@ async function handleGet(
     });
 }
 
+const limitedGet = withRateLimitFlat(handleGet, { route: "/api/pdf/preview" });
+
 export async function GET(
     request: Request,
     context: RouteContext
 ): Promise<Response> {
     let response: Response;
     try {
-        response = await handleGet(request, context);
+        response = await limitedGet(request, context);
     } catch (cause) {
         console.error(
             redactSecrets(`[pdf-preview] request failed: ${String(cause)}`)

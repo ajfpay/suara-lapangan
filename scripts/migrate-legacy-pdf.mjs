@@ -27,6 +27,7 @@ export async function migrateLegacyPdf(pool, root, entry, apply = false) {
     )
         throw new Error("Invalid trusted manifest entry");
     const client = await pool.connect();
+    let discardConnection = false;
     try {
         await client.query("begin");
         const {
@@ -74,10 +75,12 @@ export async function migrateLegacyPdf(pool, root, entry, apply = false) {
         await client.query("commit");
         return apply ? "migrated" : "verified";
     } catch (error) {
-        await client.query("rollback");
+        await client.query("rollback").catch(() => {
+            discardConnection = true;
+        });
         throw error;
     } finally {
-        client.release();
+        client.release(discardConnection);
     }
 }
 
@@ -96,10 +99,21 @@ async function main() {
     if (!Array.isArray(manifest)) throw new Error("Manifest must be an array");
     const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
     try {
-        for (const entry of manifest)
-            console.log(
-                `${entry.id}: ${await migrateLegacyPdf(pool, resolvePdfStorageDir(), entry, flags.includes("--apply"))}`
-            );
+        for (const entry of manifest) {
+            const id =
+                typeof entry?.id === "string" && idPattern.test(entry.id)
+                    ? entry.id
+                    : "invalid entry";
+            try {
+                console.log(
+                    `${id}: ${await migrateLegacyPdf(pool, resolvePdfStorageDir(), entry, flags.includes("--apply"))}`
+                );
+            } catch (error) {
+                throw new Error(
+                    `${id}: ${error instanceof Error ? error.message : String(error)}`
+                );
+            }
+        }
     } finally {
         await pool.end();
     }
@@ -109,10 +123,22 @@ if (
     process.argv[1] &&
     path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-    main().catch(() => {
-        console.error(
-            "PDF migration failed; no mismatching entry was published. Verify the trusted manifest and storage."
+    main().catch((error) => {
+        let message = error instanceof Error ? error.message : String(error);
+        const url = process.env.DATABASE_URL;
+        if (url) message = message.replaceAll(url, "[redacted database URL]");
+        message = message.replace(
+            /postgres(?:ql)?:\/\/[^\s]+/gi,
+            "[redacted database URL]"
         );
+        if (url) {
+            try {
+                const password = decodeURIComponent(new URL(url).password);
+                if (password)
+                    message = message.replaceAll(password, "[redacted]");
+            } catch {}
+        }
+        console.error(`PDF migration failed: ${message}`);
         process.exitCode = 1;
     });
 }

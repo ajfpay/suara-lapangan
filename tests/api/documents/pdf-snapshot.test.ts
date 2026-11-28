@@ -33,7 +33,6 @@ it("recovers from failed writes and a leftover crash file, then publishes safely
     const { mkdir } = await import("node:fs/promises");
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
-    const { pathToFileURL } = await import("node:url");
     root = await mkdtemp(path.join(tmpdir(), "pdf-snapshot-cross-"));
     const blocking = path.join(root, "blocked");
     await writeFile(blocking, "not a directory");
@@ -42,8 +41,9 @@ it("recovers from failed writes and a leftover crash file, then publishes safely
     const dir = path.join(root, "snapshots");
     await mkdir(dir);
     await writeFile(path.join(dir, ".pdf-crashed.tmp"), "partial");
-    const moduleUrl = pathToFileURL(
-        path.resolve("lib/server/pdf/storage.ts")
+    const moduleUrl = new URL(
+        "../../../lib/server/pdf/storage.ts",
+        import.meta.url
     ).href;
     const script = `import { writeOfficialPdf } from ${JSON.stringify(moduleUrl)}; process.stdout.write(await writeOfficialPdf(Buffer.from(process.argv[1], 'base64'), process.argv[2]));`;
     const exec = promisify(execFile);

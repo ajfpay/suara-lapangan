@@ -31,6 +31,7 @@ type Summary = {
     nomor: string | null;
     status: DocumentStatus;
     pendingCount: number;
+    pdfRecoveryRevision: number | null;
     version: number;
     rootId: string;
     supersededBy: string | null;
@@ -204,6 +205,13 @@ function toSummary(
         nomor,
         status,
         pendingCount,
+        pdfRecoveryRevision:
+            b.pdf_recovery_available === true &&
+            typeof b.draft_revision === "number" &&
+            Number.isSafeInteger(b.draft_revision) &&
+            b.draft_revision > 0
+                ? b.draft_revision
+                : null,
         version,
         rootId,
         supersededBy,
@@ -273,6 +281,8 @@ export function DokumenView({
     }, [lineageVersions]);
     const [attempt, setAttempt] = useState(0);
     const [pdfAttempt, setPdfAttempt] = useState(0);
+    const [recoveringPdf, setRecoveringPdf] = useState(false);
+    const recoveryInFlight = useRef(false);
     const [downloadState, setDownloadState] = useState<
         "idle" | "loading" | "error"
     >("idle");
@@ -516,6 +526,53 @@ export function DokumenView({
             controller.abort();
         };
     }, [isPdfLoading, readyDocId, pdfAttempt, locale]);
+
+    const retryPdf = async (doc: Summary) => {
+        if (recoveryInFlight.current) return;
+        if (doc.pdfRecoveryRevision !== null) {
+            recoveryInFlight.current = true;
+            setRecoveringPdf(true);
+            try {
+                const response = await fetch(
+                    `/api/documents/${encodeURIComponent(doc.id)}/approve`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Idempotency-Key": crypto.randomUUID(),
+                        },
+                        body: JSON.stringify({
+                            draft_revision: doc.pdfRecoveryRevision,
+                            recover_pdf: true,
+                        }),
+                    }
+                );
+                if (response.status === 401) {
+                    window.location.href = getLoginUrl(locale, doc.id);
+                    return;
+                }
+                if (!response.ok) return;
+            } catch {
+                return;
+            } finally {
+                recoveryInFlight.current = false;
+                setRecoveringPdf(false);
+            }
+        }
+        setViewState((previous) =>
+            previous.kind === "ready" && previous.document.id === doc.id
+                ? {
+                      ...previous,
+                      document: {
+                          ...previous.document,
+                          pdfRecoveryRevision: null,
+                      },
+                      pdf: { kind: "loading" },
+                  }
+                : previous
+        );
+        setPdfAttempt((value) => value + 1);
+    };
 
     const downloadPdf = async () => {
         if (viewState.kind !== "ready" || downloadState === "loading") return;
@@ -1012,19 +1069,8 @@ export function DokumenView({
                                         </p>
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setPdfAttempt((c) => c + 1);
-                                                setViewState((prev) =>
-                                                    prev.kind === "ready"
-                                                        ? {
-                                                              ...prev,
-                                                              pdf: {
-                                                                  kind: "loading",
-                                                              },
-                                                          }
-                                                        : prev
-                                                );
-                                            }}
+                                            disabled={recoveringPdf}
+                                            onClick={() => void retryPdf(doc)}
                                             className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-secondary px-5 py-2 font-bold text-secondary-foreground transition-transform duration-150 ease-out active:[transform:scale(0.97)]"
                                         >
                                             {copy.retry}

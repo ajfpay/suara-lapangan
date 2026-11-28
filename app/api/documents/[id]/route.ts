@@ -332,6 +332,10 @@ async function handleGet(
             butuh_konfirmasi: stored.document.butuh_konfirmasi,
             status: stored.status,
             draft_revision: stored.draftRevision,
+            pdf_recovery_available:
+                stored.status === "disetujui" &&
+                Boolean(stored.approvalRequestKey) &&
+                !stored.pdfPath,
             field_changes: stored.fieldChanges ?? [],
             sent_to: stored.sentTo ?? null,
             sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,

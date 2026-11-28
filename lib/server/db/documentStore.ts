@@ -3,6 +3,10 @@ import {
     newDraftItemIds,
     withDraftItemIds,
 } from "@/lib/server/guard/draftIdentity";
+import {
+    DraftInputError,
+    recalculateDraft,
+} from "@/lib/server/guard/draftMoney";
 import { allocateDocumentNumber } from "./documentNumber";
 
 import { Pool } from "pg";
@@ -92,7 +96,8 @@ export type ApproveResult =
               | "needs_confirmation"
               | "invalid_state"
               | "stale_revision"
-              | "idempotency_conflict";
+              | "idempotency_conflict"
+              | "legacy_migration_required";
           draftRevision?: number;
           status?: DocumentStatus;
       };
@@ -206,7 +211,12 @@ export interface DocumentStore {
     approve(
         id: string,
         userId: string,
-        options: { approvalYear?: number; revision: number; key: string }
+        options: {
+            approvalYear?: number;
+            revision: number;
+            key: string;
+            recoverPdf?: boolean;
+        }
     ): Promise<ApproveResult>;
     publishPdfSnapshot(
         id: string,
@@ -644,16 +654,51 @@ export function createPostgresDocumentStore(
                 }
                 if (
                     stored.status === "disetujui" ||
-                    (stored.status === "terkirim" &&
-                        stored.approvalRequestKey === options.key &&
-                        stored.approvedBy === userId)
+                    stored.status === "terkirim"
                 ) {
-                    await client.query("commit");
-                    return { ok: true, document: stored };
+                    if (
+                        stored.status === "disetujui" &&
+                        !stored.approvalRequestKey &&
+                        (!stored.pdfPath ||
+                            !stored.pdfDocumentHash ||
+                            !/^snapshots\/[a-f0-9]{64}\.pdf$/.test(
+                                stored.pdfPath
+                            ))
+                    ) {
+                        await client.query("rollback");
+                        return {
+                            ok: false,
+                            reason: "legacy_migration_required",
+                        };
+                    }
+                    const replay =
+                        stored.approvalRequestKey === options.key &&
+                        stored.approvedBy === userId;
+                    // Explicit recovery is not a new approval. Authorization is checked at the route boundary.
+                    if (
+                        replay ||
+                        (options.recoverPdf &&
+                            stored.status === "disetujui" &&
+                            stored.approvalRequestKey)
+                    ) {
+                        await client.query("commit");
+                        return { ok: true, document: stored };
+                    }
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason:
+                            stored.status === "terkirim" &&
+                            !stored.approvalRequestKey
+                                ? "invalid_state"
+                                : "idempotency_conflict",
+                        status: stored.status,
+                        draftRevision: stored.draftRevision,
+                    };
                 }
 
                 // Invalid state if not draf
-                if (stored.status !== "draf") {
+                if (stored.status !== "draf" || options.recoverPdf) {
                     await client.query("rollback");
                     return {
                         ok: false,
@@ -666,9 +711,11 @@ export function createPostgresDocumentStore(
                 // raw status 'perlu_konfirmasi' with an empty
                 // butuh_konfirmasi array, so the raw status gates too.
                 if (
+                    !Array.isArray(stored.document.pekerjaan) ||
                     stored.document.pekerjaan.length === 0 ||
                     stored.document.pekerjaan.some(
                         (item) =>
+                            !item ||
                             item.harga_satuan_minor === null ||
                             item.harga_satuan == null
                     ) ||
@@ -676,6 +723,49 @@ export function createPostgresDocumentStore(
                     (stored.document.butuh_konfirmasi &&
                         stored.document.butuh_konfirmasi.length > 0)
                 ) {
+                    await client.query("rollback");
+                    return { ok: false, reason: "needs_confirmation" };
+                }
+
+                // Validate the reviewed values without modifying the approved payload.
+                try {
+                    const reviewed = stored.document;
+                    const calculated = structuredClone(reviewed);
+                    if (
+                        !Array.isArray(reviewed.butuh_konfirmasi) ||
+                        reviewed.pekerjaan.some(
+                            (item) =>
+                                typeof item.uraian !== "string" ||
+                                !item.uraian.trim()
+                        )
+                    )
+                        throw new DraftInputError("Invalid reviewed document");
+                    recalculateDraft(calculated);
+                    if (
+                        calculated.butuh_konfirmasi.length ||
+                        calculated.total_nominal !== reviewed.total_nominal ||
+                        (reviewed.total_nominal_minor !== undefined &&
+                            reviewed.total_nominal_minor !==
+                                calculated.total_nominal_minor) ||
+                        reviewed.pekerjaan.some((item, index) => {
+                            const expected = calculated.pekerjaan[index];
+                            return (
+                                item.volume !== expected.volume ||
+                                item.harga_satuan !== expected.harga_satuan ||
+                                item.jumlah !== expected.jumlah ||
+                                (item.harga_satuan_minor !== undefined &&
+                                    item.harga_satuan_minor !==
+                                        expected.harga_satuan_minor) ||
+                                (item.jumlah_minor !== undefined &&
+                                    item.jumlah_minor !== expected.jumlah_minor)
+                            );
+                        })
+                    )
+                        throw new DraftInputError(
+                            "Reviewed amounts do not match exact calculation"
+                        );
+                } catch (cause) {
+                    if (!(cause instanceof DraftInputError)) throw cause;
                     await client.query("rollback");
                     return { ok: false, reason: "needs_confirmation" };
                 }

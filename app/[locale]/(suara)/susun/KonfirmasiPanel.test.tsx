@@ -87,13 +87,44 @@ describe("KonfirmasiPanel", () => {
         }
     });
 
+    it("disables approval for an item with missing authoritative price", async () => {
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id: "missing-price",
+                    nomor: null,
+                    status: "draf",
+                    total_nominal: 0,
+                    pekerjaan: [{ harga_satuan: 0, harga_satuan_minor: null }],
+                },
+                draft_revision: 1,
+                butuh_konfirmasi: [],
+                status: "draf",
+            }),
+        });
+        render(
+            <KonfirmasiPanel
+                locale="id"
+                sessionId="missing-price-session"
+                onPlayEvidence={vi.fn()}
+            />
+        );
+        fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
+        expect(
+            ((await screen.findByTestId("btn-setujui")) as HTMLButtonElement)
+                .disabled
+        ).toBe(true);
+    });
+
     it("created: POST resolves 200 → shows nomor, a 'Lihat dokumen' link pointing at /{locale}/dokumen?doc=<id>, and NO navigation happened", async () => {
         const mockDoc = {
             id: "doc-uuid-created-1",
             nomor: "SL/QTN/2026/0001",
             status: "draf",
             total_nominal: 1250000,
-            pekerjaan: [{ harga_satuan: 1250000 }],
+            pekerjaan: [{ harga_satuan: 1250000, harga_satuan_minor: 1250000 }],
         };
 
         fetchMock.mockResolvedValueOnce({
@@ -275,7 +306,9 @@ describe("KonfirmasiPanel", () => {
             json: async () => ({
                 document: {
                     ...mockLockedDoc,
-                    pekerjaan: [{ harga_satuan: 1000 }],
+                    pekerjaan: [
+                        { harga_satuan: 1000, harga_satuan_minor: 1000 },
+                    ],
                 },
                 draft_revision: 1,
                 butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
@@ -353,7 +386,12 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
-                                pekerjaan: [{ harga_satuan: 1000 }],
+                                pekerjaan: [
+                                    {
+                                        harga_satuan: 1000,
+                                        harga_satuan_minor: 1000,
+                                    },
+                                ],
                                 butuh_konfirmasi: [],
                                 status: "draf",
                             },
@@ -370,7 +408,12 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
-                                pekerjaan: [{ harga_satuan: 1000 }],
+                                pekerjaan: [
+                                    {
+                                        harga_satuan: 1000,
+                                        harga_satuan_minor: 1000,
+                                    },
+                                ],
                                 butuh_konfirmasi: [],
                                 status: "disetujui",
                             },
@@ -385,7 +428,12 @@ describe("KonfirmasiPanel", () => {
                     json: async () => ({
                         document: {
                             ...mockLockedDoc,
-                            pekerjaan: [{ harga_satuan: 1000 }],
+                            pekerjaan: [
+                                {
+                                    harga_satuan: 1000,
+                                    harga_satuan_minor: 1000,
+                                },
+                            ],
                         },
                         draft_revision: 1,
                         butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
@@ -512,7 +560,12 @@ describe("KonfirmasiPanel", () => {
                     json: async () => ({
                         document: {
                             ...mockDraftDoc,
-                            pekerjaan: [{ harga_satuan: 1000 }],
+                            pekerjaan: [
+                                {
+                                    harga_satuan: 1000,
+                                    harga_satuan_minor: 1000,
+                                },
+                            ],
                         },
                         draft_revision: 1,
                         butuh_konfirmasi: [],
@@ -576,7 +629,12 @@ describe("KonfirmasiPanel", () => {
                     json: async () => ({
                         document: {
                             ...mockDraftDoc,
-                            pekerjaan: [{ harga_satuan: 1000 }],
+                            pekerjaan: [
+                                {
+                                    harga_satuan: 1000,
+                                    harga_satuan_minor: 1000,
+                                },
+                            ],
                         },
                         draft_revision: 1,
                         butuh_konfirmasi: [],
@@ -634,7 +692,12 @@ describe("KonfirmasiPanel", () => {
                     json: async () => ({
                         document: {
                             ...mockDraftDoc,
-                            pekerjaan: [{ harga_satuan: 1000 }],
+                            pekerjaan: [
+                                {
+                                    harga_satuan: 1000,
+                                    harga_satuan_minor: 1000,
+                                },
+                            ],
                         },
                         draft_revision: 1,
                         butuh_konfirmasi: [],
@@ -943,7 +1006,12 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
-                                pekerjaan: [{ harga_satuan: 1000 }],
+                                pekerjaan: [
+                                    {
+                                        harga_satuan: 1000,
+                                        harga_satuan_minor: 1000,
+                                    },
+                                ],
                                 butuh_konfirmasi:
                                     mockLockedDoc.butuh_konfirmasi,
                                 status: "draf",
@@ -959,7 +1027,12 @@ describe("KonfirmasiPanel", () => {
                     json: async () => ({
                         document: {
                             ...mockLockedDoc,
-                            pekerjaan: [{ harga_satuan: 1000 }],
+                            pekerjaan: [
+                                {
+                                    harga_satuan: 1000,
+                                    harga_satuan_minor: 1000,
+                                },
+                            ],
                         },
                         draft_revision: 1,
                         butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,

@@ -614,6 +614,58 @@ describe("DokumenView", () => {
         expect(screen.getByText(/invalid_response/)).toBeTruthy();
     });
 
+    it("recovers an approved but unpublished PDF after reload without the original approval key", async () => {
+        const id = "doc-recover";
+        const envelope = {
+            document: {
+                id,
+                nomor: "SL/QTN/2026/0004",
+                status: "disetujui",
+                butuh_konfirmasi: [],
+            },
+            status: "disetujui",
+            draft_revision: 3,
+            pdf_recovery_available: true,
+            butuh_konfirmasi: [],
+        };
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => envelope,
+        });
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
+        render(<DokumenView locale="en" docId={id} copy={en.dokumen} />);
+        await screen.findByText(en.dokumen.pdfUnavailable);
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                status: "disetujui",
+                pdf_path: "snapshots/verified.pdf",
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+        fireEvent.click(screen.getByRole("button", { name: en.dokumen.retry }));
+        await waitFor(() =>
+            expect(screen.getByTestId("pdf-frame")).toBeTruthy()
+        );
+        expect(fetchMock.mock.calls[2][0]).toBe(`/api/documents/${id}/approve`);
+        expect(fetchMock.mock.calls[2][1].method).toBe("POST");
+        expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({
+            draft_revision: 3,
+            recover_pdf: true,
+        });
+        expect(
+            new Headers(fetchMock.mock.calls[2][1].headers).get(
+                "Idempotency-Key"
+            )
+        ).toBeTruthy();
+    });
+
     it("handles PDF load error with retry button", async () => {
         const docId = "doc-pdf-fail";
         fetchMock.mockResolvedValueOnce({

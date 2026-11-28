@@ -621,7 +621,30 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FlatError"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/FlatError"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "type": "string",
+                          "enum": [
+                            "needs_confirmation",
+                            "invalid_state",
+                            "stale_revision",
+                            "idempotency_conflict",
+                            "legacy_migration_required"
+                          ]
+                        },
+                        "draft_revision": {
+                          "type": "integer",
+                          "minimum": 1
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -681,6 +704,10 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2147483647
+                  },
+                  "recover_pdf": {
+                    "type": "boolean",
+                    "description": "Explicitly recover an already approved unpublished PDF without allocating a number or changing approval attribution. Cannot approve a draft."
                   }
                 }
               }
@@ -1368,6 +1395,30 @@
                 "schema": {
                   "type": "string",
                   "enum": ["private, no-store"]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }
@@ -3418,6 +3469,10 @@
           "draft_revision": {
             "type": "integer",
             "minimum": 1
+          },
+          "pdf_recovery_available": {
+            "type": "boolean",
+            "description": "True only when an authorized caller may recover an approved unpublished PDF."
           }
         },
         "required": ["document", "status", "butuh_konfirmasi"]

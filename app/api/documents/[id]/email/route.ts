@@ -20,7 +20,7 @@ import {
     sendEmailBodySchema,
     GmailApiError,
 } from "@/lib/server/email";
-import { readOfficialPdf } from "@/lib/server/pdf/storage";
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
 import {
     reserveEmailSend,
     releaseEmailSend,
@@ -155,6 +155,7 @@ async function handlePost(
 
     if (
         stored.status === "perlu_konfirmasi" ||
+        !Array.isArray(stored.document.butuh_konfirmasi) ||
         stored.document.butuh_konfirmasi.length > 0
     ) {
         return NextResponse.json(
@@ -225,15 +226,11 @@ async function handlePost(
     const contentHash = contentHashOf(stored.document);
     let pdfBuffer: Buffer | null = null;
     try {
-        if (!stored.pdfPath || stored.pdfDocumentHash !== contentHash)
-            throw new Error(
-                "Official PDF not published or document hash mismatch"
-            );
-        pdfBuffer = await readOfficialPdf(stored.pdfPath);
+        pdfBuffer = await verifiedOfficialPdf(stored);
     } catch (cause) {
         console.error(
             redactSecrets(
-                `[email] snapshot verification failed: ${String(cause)}`
+                `[email] snapshot verification failed for ${id}: ${String(cause)}`
             )
         );
     }

@@ -43,3 +43,21 @@ for (const [name, route] of [
         });
     });
 }
+
+it("throttles repeated preview requests and preserves private no-store on 429", async () => {
+    resetRateLimits();
+    session.mockResolvedValue({ user: { id: "owner", role: "user" } });
+    lookup.mockResolvedValue(null);
+    for (let i = 0; i < 31; i++) {
+        const response = await preview(
+            new Request("http://localhost/api/pdf/" + id + "/preview"),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(response.status).toBe(i < 30 ? 404 : 429);
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+        if (i === 30)
+            expect(Number(response.headers.get("retry-after"))).toBeGreaterThan(
+                0
+            );
+    }
+});

@@ -22,7 +22,11 @@ function draftMarkerFor(locale: QuotationLocale): string {
     const messages = locale === "id" ? idMessages : enMessages;
     const marker = (messages as { dokumen?: { draftMarker?: unknown } }).dokumen
         ?.draftMarker;
-    return typeof marker === "string" && marker.length > 0 ? marker : "DRAF";
+    return typeof marker === "string" && marker.length > 0
+        ? marker
+        : locale === "id"
+          ? "DRAF"
+          : "DRAFT";
 }
 
 let cachedFontCss: string | null = null;
@@ -59,16 +63,15 @@ export function resetBundledFontCssForTesting(): void {
  * Render a complete, print-ready HTML document for a quotation. The same
  * function feeds the browser preview route and the headless Chromium PDF
  * renderer, so typography, margins, table layout, and totals match by
- * construction. For drafts (`nomor` null) the document-number field shows
- * the draft marker from the page locale, never a hardcoded literal.
+ * construction. Drafts have a blank number and a locale-specific watermark.
  */
 export function renderQuotationHtml(doc: QuotationDocument): string {
     const locale: QuotationLocale = doc.locale === "id" ? "id" : "en";
     const L = QUOTATION_LABELS[locale];
     const docNo = doc.nomor ?? "";
     const watermark =
-        doc.nomor === null
-            ? `<div class="draft-watermark" aria-label="${esc(draftMarkerFor(locale))}">${locale === "id" ? "DRAF" : "DRAFT"}</div>`
+        doc.nomor == null
+            ? `<div class="draft-watermark" role="img" aria-label="${esc(draftMarkerFor(locale))}">${locale === "id" ? "DRAF" : "DRAFT"}</div>`
             : "";
     const rows = doc.pekerjaan
         .map(

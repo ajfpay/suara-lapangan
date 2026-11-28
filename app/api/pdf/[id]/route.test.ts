@@ -305,7 +305,9 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         resetPdfCacheForTesting();
         resetRateLimits();
 
-        await pool.query("truncate documents, sessions, usage_meter cascade");
+        await pool.query(
+            "truncate documents, sessions, usage_meter, document_sequences cascade"
+        );
         await pool.query(
             "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"
         );
@@ -659,7 +661,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             resetRateLimits();
 
             await pool.query(
-                "truncate documents, sessions, usage_meter cascade"
+                "truncate documents, sessions, usage_meter, document_sequences cascade"
             );
             await pool.query(
                 "insert into sessions (id, locale, audio_sha256, audio_bytes, transcript) values ('seed-session', 'id', 'sha', 1, '') on conflict (id) do nothing"

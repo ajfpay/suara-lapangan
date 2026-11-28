@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import { getSession, canAccessDocument } from "@/lib/server/auth";
@@ -14,11 +15,9 @@ import {
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
-import {
-    renderPdf,
-    writeOfficialPdf,
-    readOfficialPdf,
-} from "@/lib/server/pdf/storage";
+import { renderPdf, writeOfficialPdf } from "@/lib/server/pdf/storage";
+
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -89,9 +88,9 @@ async function handleApprove(
             { status: 403 }
         );
 
-    const revision = draftRevisionSchema.safeParse(
-        await request.json().catch(() => null)
-    );
+    const revision = draftRevisionSchema
+        .extend({ recover_pdf: z.boolean().optional() })
+        .safeParse(await request.json().catch(() => null));
     const key = request.headers.get("Idempotency-Key");
     if (!revision.success || !key || !/^[\x21-\x7e]{1,128}$/.test(key)) {
         return NextResponse.json(
@@ -107,6 +106,7 @@ async function handleApprove(
         result = await store.approve(id, session.user.id, {
             revision: revision.data.draft_revision,
             key,
+            recoverPdf: revision.data.recover_pdf,
             approvalYear: new Date().getUTCFullYear(),
         });
     } catch (cause) {
@@ -124,7 +124,9 @@ async function handleApprove(
             invalid_state: `Document '${id}' cannot be approved in status '${result.status}'`,
             stale_revision: "Draft changed since it was reviewed",
             idempotency_conflict:
-                "Idempotency-Key was already used for a different revision",
+                "Approval was already recorded for another request or revision",
+            legacy_migration_required:
+                "This legacy official PDF requires verified migration; retry cannot regenerate it",
         };
         return NextResponse.json(
             {
@@ -157,23 +159,22 @@ async function handleApprove(
                 throw new Error("Document no longer publishable");
         }
         const published = await store.get(id);
-        if (
-            !published ||
-            published.pdfPath !== approved.pdfPath ||
-            published.pdfDocumentHash !== contentHashOf(published.document)
-        )
+        if (!published || published.pdfPath !== approved.pdfPath)
             throw new Error("Official PDF publication mismatch");
-        await readOfficialPdf(approved.pdfPath);
+        await verifiedOfficialPdf(published);
     } catch (cause) {
         console.error(
-            redactSecrets(`[approve] PDF generation failed: ${String(cause)}`)
+            redactSecrets(
+                `[approve] PDF publication/verification failed for ${id}: ${String(cause)}`
+            )
         );
         return NextResponse.json(
             {
                 ...responseDocument(approved),
                 error: "pdf_failed",
-                message:
-                    "Official PDF unavailable; retry approval with the same revision and key",
+                message: approved.pdfPath
+                    ? "Published PDF cannot be verified; restore its original verified bytes. It will not be regenerated."
+                    : "Official PDF unavailable; retry with the same revision and key or explicitly recover the unpublished PDF",
             },
             { status: 500 }
         );

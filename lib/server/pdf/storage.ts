@@ -318,7 +318,16 @@ export async function readOfficialPdf(
 ): Promise<Buffer> {
     const match = OFFICIAL_PATH.exec(relativePath);
     if (!match) throw new Error("Invalid official PDF snapshot path");
-    const pdf = await readFile(path.join(root, relativePath));
+    let pdf: Buffer;
+    try {
+        pdf = await readFile(path.join(root, relativePath));
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT")
+            throw new Error("Official PDF snapshot file missing", {
+                cause: error,
+            });
+        throw error;
+    }
     if (createHash("sha256").update(pdf).digest("hex") !== match[1]) {
         throw new Error("Official PDF snapshot digest mismatch");
     }

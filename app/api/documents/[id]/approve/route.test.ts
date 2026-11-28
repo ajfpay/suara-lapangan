@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import {
     afterAll,
+    afterEach,
     beforeAll,
     beforeEach,
     describe,
@@ -136,6 +137,10 @@ describe
             );
         });
 
+        afterEach(async () => {
+            await pool.query("truncate document_sequences");
+        });
+
         afterAll(async () => {
             await pool.end();
         });
@@ -167,57 +172,101 @@ describe
         }
 
         function approval(id: string, key: string, recover = false) {
-            return POST(new Request(`http://localhost/api/documents/${id}/approve`, {
-                method: "POST", headers: {"Content-Type":"application/json", "Idempotency-Key":key},
-                body: JSON.stringify({draft_revision:1, ...(recover ? {recover_pdf:true} : {})}),
-            }), {params:Promise.resolve({id})});
+            return POST(
+                new Request(`http://localhost/api/documents/${id}/approve`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": key,
+                    },
+                    body: JSON.stringify({
+                        draft_revision: 1,
+                        ...(recover ? { recover_pdf: true } : {}),
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
         }
 
         it("reports legacy migration instead of recommending an impossible retry", async () => {
             withUser("user", ownerId);
             for (const oldPath of [null, "2026/legacy.pdf"]) {
-                const id = await seedDocument(createTestDocument({nomor: `LEGACY-${oldPath ?? 'missing'}`}), {status:"disetujui",userId:ownerId});
-                await pool.query("update documents set pdf_path=$2 where id=$1", [id,oldPath]);
-                const result = await approval(id,"new-key");
+                const id = await seedDocument(
+                    createTestDocument({
+                        nomor: `LEGACY-${oldPath ?? "missing"}`,
+                    }),
+                    { status: "disetujui", userId: ownerId }
+                );
+                await pool.query(
+                    "update documents set pdf_path=$2 where id=$1",
+                    [id, oldPath]
+                );
+                const result = await approval(id, "new-key");
                 expect(result.status).toBe(409);
-                expect(await result.json()).toMatchObject({error:"legacy_migration_required"});
+                expect(await result.json()).toMatchObject({
+                    error: "legacy_migration_required",
+                });
             }
         });
 
         it("rejects different-key approvals but supports explicit recovery without changing approval attribution", async () => {
             withUser("user", ownerId);
-            const id = await seedDocument(createTestDocument(), {userId:ownerId});
+            const id = await seedDocument(createTestDocument(), {
+                userId: ownerId,
+            });
             const mod = await import("@/lib/server/pdf/renderQuotation");
-            const spy = vi.spyOn(mod,"renderQuotationHtml").mockImplementationOnce(() => {throw new Error("render failed");});
-            try { expect((await approval(id,"original-key")).status).toBe(500); } finally {spy.mockRestore();}
-            expect((await approval(id,"different-key")).status).toBe(409);
-            const recovered = await approval(id,"recovery-key",true);
+            const spy = vi
+                .spyOn(mod, "renderQuotationHtml")
+                .mockImplementationOnce(() => {
+                    throw new Error("render failed");
+                });
+            try {
+                expect((await approval(id, "original-key")).status).toBe(500);
+            } finally {
+                spy.mockRestore();
+            }
+            expect((await approval(id, "different-key")).status).toBe(409);
+            const recovered = await approval(id, "recovery-key", true);
             expect(recovered.status).toBe(200);
             const body = await recovered.json();
             expect(body.approved_by).toBe(ownerId);
             expect(body.pdf_path).toMatch(/^snapshots\//);
-            const again = await approval(id,"original-key");
+            const again = await approval(id, "original-key");
             expect(again.status).toBe(200);
-            expect(await again.json()).toMatchObject({pdf_path:body.pdf_path,document:{nomor:body.document.nomor}});
-            expect((await approval(id,"different-key")).status).toBe(409);
-            expect((await approval(id,"recovery-key",true)).status).toBe(200);
-            const sequence = await pool.query("select last_number from document_sequences where year=$1",[new Date().getUTCFullYear()]);
+            expect(await again.json()).toMatchObject({
+                pdf_path: body.pdf_path,
+                document: { nomor: body.document.nomor },
+            });
+            expect((await approval(id, "different-key")).status).toBe(409);
+            expect((await approval(id, "recovery-key", true)).status).toBe(200);
+            const sequence = await pool.query(
+                "select last_number from document_sequences where year=$1",
+                [new Date().getUTCFullYear()]
+            );
             expect(sequence.rows[0].last_number).toBe(1);
         }, 30000);
 
         it("refuses to freeze inconsistent amounts or invalid legacy line quantities", async () => {
             withUser("user", ownerId);
-            for (const invalid of [{jumlah:1},{volume:0},{uraian:"  "}]) {
+            for (const invalid of [
+                { jumlah: 1 },
+                { volume: 0 },
+                { uraian: "  " },
+            ]) {
                 const doc = createTestDocument();
-                Object.assign(doc.pekerjaan[0],invalid);
-                const id = await seedDocument(doc,{userId:ownerId});
-                const result = await approval(id,"invalid-line");
+                Object.assign(doc.pekerjaan[0], invalid);
+                const id = await seedDocument(doc, { userId: ownerId });
+                const result = await approval(id, "invalid-line");
                 expect(result.status).toBe(409);
-                expect(await result.json()).toMatchObject({error:"needs_confirmation"});
+                expect(await result.json()).toMatchObject({
+                    error: "needs_confirmation",
+                });
             }
-            const count = await pool.query("select count(*)::int as count from document_sequences");
+            const count = await pool.query(
+                "select count(*)::int as count from document_sequences"
+            );
             expect(count.rows[0].count).toBe(0);
-        },30000);
+        }, 30000);
 
         it("migrates only independently verified legacy bytes and preserves the original", async () => {
             const id = await seedDocument(

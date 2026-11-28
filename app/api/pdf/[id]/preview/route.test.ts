@@ -9,6 +9,9 @@ import {
     vi,
 } from "vitest";
 import fs from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import { GET } from "./route";
 import { writeOfficialPdf } from "@/lib/server/pdf/storage";
 import { contentHashOf } from "@/lib/server/db/documentStore";
@@ -106,8 +109,12 @@ describe
     .skipIf(!TEST_DATABASE_URL)
     .sequential("GET /api/pdf/[id]/preview", () => {
         let pool: Pool;
+        let storageDir: string;
+        const previousStorageDir = process.env.PDF_STORAGE_DIR;
 
         beforeAll(async () => {
+            storageDir = await fs.mkdtemp(path.join(tmpdir(), "pdf-preview-"));
+            process.env.PDF_STORAGE_DIR = storageDir;
             process.env.DATABASE_URL = TEST_DATABASE_URL;
             pool = new Pool({ connectionString: TEST_DATABASE_URL });
             for (const file of [
@@ -134,6 +141,7 @@ describe
         });
 
         beforeEach(async () => {
+            resetRateLimits();
             await pool.query(
                 "truncate documents, sessions, usage_meter cascade"
             );
@@ -144,6 +152,11 @@ describe
 
         afterAll(async () => {
             await pool.end();
+            if (previousStorageDir === undefined)
+                delete process.env.PDF_STORAGE_DIR;
+            else process.env.PDF_STORAGE_DIR = previousStorageDir;
+            if (storageDir)
+                await fs.rm(storageDir, { recursive: true, force: true });
         });
 
         async function seed(
@@ -205,6 +218,7 @@ describe
             );
             expect(res.status).toBe(200);
             expect(res.headers.get("content-type")).toBe("application/pdf");
+            expect(res.headers.get("cache-control")).toBe("private, no-store");
             expect(Buffer.from(await res.arrayBuffer())).toEqual(bytes);
         });
 

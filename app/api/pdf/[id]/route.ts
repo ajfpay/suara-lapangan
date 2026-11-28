@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import {
-    contentHashOf,
-    getPostgresDocumentStore,
-} from "@/lib/server/db/documentStore";
-import { readOfficialPdf } from "@/lib/server/pdf/storage";
+import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
 import {
     documentIdSchema,
     formatZodError,
@@ -62,23 +59,20 @@ async function handleGet(
             },
             { status: 409 }
         );
-    if (stored.document.butuh_konfirmasi.length > 0)
+    if (
+        !Array.isArray(stored.document.butuh_konfirmasi) ||
+        stored.document.butuh_konfirmasi.length > 0
+    )
         return NextResponse.json(
             {
                 error: "needs_confirmation",
-                message: "Document requires confirmation",
+                message:
+                    "Document requires confirmation. Resolve butuh_konfirmasi via PATCH /api/documents/{id} first.",
             },
             { status: 409 }
         );
     try {
-        if (
-            !stored.pdfPath ||
-            stored.pdfDocumentHash !== contentHashOf(stored.document)
-        )
-            throw new Error(
-                "Official PDF not published or document hash mismatch"
-            );
-        const bytes = await readOfficialPdf(stored.pdfPath);
+        const bytes = await verifiedOfficialPdf(stored);
         const filename = (stored.document.nomor ?? id).replace(
             /[^a-zA-Z0-9._-]/g,
             "-"
@@ -92,7 +86,7 @@ async function handleGet(
     } catch (cause) {
         console.error(
             redactSecrets(
-                `[pdf] snapshot verification failed: ${String(cause)}`
+                `[pdf] snapshot verification failed for ${id}: ${String(cause)}`
             )
         );
         return NextResponse.json(
