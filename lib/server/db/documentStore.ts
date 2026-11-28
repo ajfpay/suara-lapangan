@@ -428,7 +428,8 @@ export function createPostgresDocumentStore(
             try {
                 // Purge expired receipts across documents in a short, separate transaction.
                 // SKIP LOCKED avoids waiting on another mutation's receipt.
-                if (options) await client.query(`delete from document_patch_receipts
+                if (options)
+                    await client.query(`delete from document_patch_receipts
                     where (document_id, actor_id, request_key) in (
                         select document_id, actor_id, request_key from document_patch_receipts
                         where expires_at <= now() order by expires_at limit 1000 for update skip locked

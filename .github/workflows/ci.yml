@@ -98,6 +98,32 @@ jobs:
           BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
         run: npm run test:e2e
 
+      - name: Install Hurl
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/hurl.deb" https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl_8.1.0_amd64.deb
+          sudo apt-get install -y "$RUNNER_TEMP/hurl.deb"
+          hurl --version
+
+      - name: Draft HTTP contract (Hurl)
+        env:
+          DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+          BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
+          BETTER_AUTH_URL: http://127.0.0.1:3010
+          TRUSTED_ORIGINS: http://127.0.0.1:3010,http://localhost:3010
+          SLM_HURL_CI: "1"
+        run: |
+          set -eu
+          node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3010 > "$RUNNER_TEMP/draft-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 2 http://127.0.0.1:3010/api/health >/dev/null; then break; fi
+            kill -0 "$server"
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3010/api/health >/dev/null
+          npm run test:draft:http
+
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

@@ -199,7 +199,10 @@ async function handlePatch(
             return NextResponse.json(
                 {
                     error: cause.code,
-                    message: cause.code === "stale_revision" ? "Draft revision changed. Reload and review the latest draft." : "Idempotency-Key was already used for a different request.",
+                    message:
+                        cause.code === "stale_revision"
+                            ? "Draft revision changed. Reload and review the latest draft."
+                            : "Idempotency-Key was already used for a different request.",
                     draft_revision: cause.revision,
                 },
                 { status: 409 }

@@ -3,7 +3,8 @@ import type { Turn } from "@/lib/server/asr/turns";
 
 export type { Locale, Turn };
 
-export type CanonicalUnit = typeof import("@/lib/quotationUnits").CANONICAL_UNITS[number];
+export type CanonicalUnit =
+    (typeof import("@/lib/quotationUnits").CANONICAL_UNITS)[number];
 
 export type Proyek = {
     nama: string;

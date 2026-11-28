@@ -55,12 +55,22 @@ test("draft edits use revisions in Susun and Dokumen, and stale edits reload", a
             page.getByRole("alert").filter({ hasText: "The draft changed" })
         ).toBeVisible();
         await expect(editor.getByRole("heading")).toContainText("Revision 4");
+        await expect(editor.getByLabel("Payment terms (optional)")).toHaveValue(
+            "Payment within 30 days"
+        );
         response = await (await page.request.get(detail)).json();
         expect(response.document.syarat_pembayaran).toBe(
             "Payment within 14 days"
         );
         expect(response.document.masa_berlaku_hari).toBe(14);
         expect(response.draft_revision).toBe(4);
+        await editor.getByRole("button", { name: "Save terms" }).click();
+        await expect(editor.getByRole("heading")).toContainText("Revision 5");
+        response = await (await page.request.get(detail)).json();
+        expect(response.document.syarat_pembayaran).toBe(
+            "Payment within 30 days"
+        );
+        expect(response.document.masa_berlaku_hari).toBe(14);
     } finally {
         await deleteSession(sessionId);
     }

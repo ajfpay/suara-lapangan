@@ -50,7 +50,13 @@ export function KonfirmasiCard({
         setError(null);
         try {
             const operation = derived
-                ? { op: item.kind === "derived" ? "confirm_derived" : "confirm_source", field: item.field }
+                ? {
+                      op:
+                          item.kind === "derived"
+                              ? "confirm_derived"
+                              : "confirm_source",
+                      field: item.field,
+                  }
                 : { field: item.field, nilai };
             await mutate(operation);
         } catch (e) {
@@ -84,7 +90,13 @@ export function KonfirmasiCard({
                     {isIndo ? "Dengar bukti" : "Play evidence"}
                 </button>
             )}
-            {item.field === "pekerjaan" && <p>{isIndo ? "Tambah item melalui editor draf." : "Add an item in the draft editor."}</p>}
+            {item.field === "pekerjaan" && (
+                <p>
+                    {isIndo
+                        ? "Tambah item melalui editor draf."
+                        : "Add an item in the draft editor."}
+                </p>
+            )}
             {item.field !== "pekerjaan" && !derived && options.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                     {options.map((opt) => (
@@ -108,8 +120,12 @@ export function KonfirmasiCard({
                     className="mt-3 min-h-[44px] rounded-xl border border-input px-4 font-bold"
                 >
                     {isIndo
-                        ? item.kind === "derived" ? "Konfirmasi hitungan server" : "Setujui hitungan server setelah meninjau bukti suara"
-                        : item.kind === "derived" ? "Confirm calculated amount" : "Accept calculated amount after reviewing audio evidence"}
+                        ? item.kind === "derived"
+                            ? "Konfirmasi hitungan server"
+                            : "Setujui hitungan server setelah meninjau bukti suara"
+                        : item.kind === "derived"
+                          ? "Confirm calculated amount"
+                          : "Accept calculated amount after reviewing audio evidence"}
                 </button>
             ) : (
                 <form

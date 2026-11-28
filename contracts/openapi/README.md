@@ -71,3 +71,7 @@ A persisted draft is returned with `draft_revision` (initially 1). Every PATCH m
 Work item `id` values are issued by the server and remain stable through reorder/edit. Use `update_line` with `item_id` and a nonempty `changes` object for atomic edits; `remove_line` and `move_line` accept `item_id`. Positional scalar fields and indices remain supported only with a matching revision.
 
 Authoritative amounts are `harga_satuan_minor`, `jumlah_minor`, and `total_nominal_minor` (integer rupiah or USD cents). Existing major-unit display fields are retained for web/PDF compatibility; null minor price/amount indicates missing price rather than explicit zero. Mutation input price is a decimal major-unit string or number; null clears it. Derived totals cannot be supplied by the client. Optional `syarat_pembayaran` and `masa_berlaku_hari` can be edited or cleared with null. A grounded AI proposal remains pending until confirmed. Existing approved snapshots are unchanged.
+
+For manual review of a spoken-total mismatch, use `confirm_source` after reviewing the cited audio. `confirm_derived` accepts derived confirmations only. The server records the explicit acknowledgement and retains the calculated amount.
+
+Run `npm run test:draft:http` with the approved Lightvela sandbox environment, Hurl installed, and the production build listening on loopback port 3010 with matching test signing secret. CI runs the same suite against its existing disposable PostgreSQL service (explicit CI-only mode); the local sandbox guard remains unchanged.

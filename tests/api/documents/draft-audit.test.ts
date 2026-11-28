@@ -146,11 +146,21 @@ describe("derived confirmation and terms", () => {
         );
     });
     it("accepts explicit payment phrases and rejects partial-word evidence", () => {
-        const propose = (nilai: string, transcript: string) => applyGuard({...candidate, syarat_pembayaran:{nilai,sumber_kutipan:"turn_1"}}, [{...turns[0],transcript}]).document.syarat_pembayaran;
+        const propose = (nilai: string, transcript: string) =>
+            applyGuard(
+                {
+                    ...candidate,
+                    syarat_pembayaran: { nilai, sumber_kutipan: "turn_1" },
+                },
+                [{ ...turns[0], transcript }]
+            ).document.syarat_pembayaran;
         expect(propose("bayar", "pembayaran")).toBeUndefined();
-        expect(propose("jatuh tempo 14 hari", "Pembayaran jatuh tempo 14 hari.")).toBe("jatuh tempo 14 hari");
-        expect(propose("termin 2", "termin 2 setelah pekerjaan")).toBe("termin 2");
+        expect(
+            propose("jatuh tempo 14 hari", "Pembayaran jatuh tempo 14 hari.")
+        ).toBe("jatuh tempo 14 hari");
+        expect(propose("termin 2", "termin 2 setelah pekerjaan")).toBe(
+            "termin 2"
+        );
         expect(propose("net 30", "Invoice net 30.")).toBe("net 30");
     });
-
 });

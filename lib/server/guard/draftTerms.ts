@@ -32,7 +32,11 @@ export function applyTermProposals(
         let start = source.indexOf(needle);
         while (start !== -1) {
             const end = start + needle.length;
-            if (!/[\p{L}\p{N}_]/u.test(source[start - 1] ?? "") && !/[\p{L}\p{N}_]/u.test(source[end] ?? "")) return true;
+            if (
+                !/[\p{L}\p{N}_]/u.test(source[start - 1] ?? "") &&
+                !/[\p{L}\p{N}_]/u.test(source[end] ?? "")
+            )
+                return true;
             start = source.indexOf(needle, start + 1);
         }
         return false;
@@ -73,7 +77,9 @@ export function applyTermProposals(
                 ).some(
                     (n) =>
                         n.value === Number(value) &&
-                        /(?:berlaku|validity|valid|expires?)(?:\s+(?:selama|for|in|is))?\s*$/i.test(n.wordsBefore.join(" ")) &&
+                        /(?:berlaku|validity|valid|expires?)(?:\s+(?:selama|for|in|is))?\s*$/i.test(
+                            n.wordsBefore.join(" ")
+                        ) &&
                         /^(hari|days?)\b/i.test(n.wordsAfter.join(" "))
                 )
             )

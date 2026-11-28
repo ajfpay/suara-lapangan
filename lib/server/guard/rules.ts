@@ -125,9 +125,17 @@ export function applyGuard(
                 : `Pekerjaan ${index + 1}`;
 
         const amounts = (() => {
-            try { return lineMoney(rawItem.volume, rawItem.harga_satuan, mata_uang); }
-            catch (cause) {
-                if (cause instanceof DraftInputError) throw new DraftInputError(`${itemFieldPrefix}: ${cause.message}`);
+            try {
+                return lineMoney(
+                    rawItem.volume,
+                    rawItem.harga_satuan,
+                    mata_uang
+                );
+            } catch (cause) {
+                if (cause instanceof DraftInputError)
+                    throw new DraftInputError(
+                        `${itemFieldPrefix}: ${cause.message}`
+                    );
                 throw cause;
             }
         })();
@@ -277,7 +285,10 @@ export function applyGuard(
                         ext.wordsAfter.some((w) => PRICE_KEYWORDS.test(w)))
             );
 
-            if (amounts.harga_satuan_minor !== null && matchingRateMatches.length === 0) {
+            if (
+                amounts.harga_satuan_minor !== null &&
+                matchingRateMatches.length === 0
+            ) {
                 butuh_konfirmasi.push({
                     field: `${itemFieldPrefix}.harga_satuan`,
                     alasan: `Angka harga_satuan (${harga_satuan}) tidak cocok dengan transkrip ternormalisasi pada giliran (${sumber_kutipan})`,
@@ -312,7 +323,8 @@ export function applyGuard(
         const computedJumlah = amounts.jumlah;
 
         if (
-            amounts.jumlah_minor !== null && rawJumlah !== undefined &&
+            amounts.jumlah_minor !== null &&
+            rawJumlah !== undefined &&
             Math.abs(rawJumlah - computedJumlah) > 1e-4
         ) {
             // Only add if not already flagged

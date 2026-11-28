@@ -12,7 +12,19 @@ import {
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret || secret.length < 32)
     throw new Error("Set the isolated server's test signing secret");
-parseAndValidateSandboxUrl(process.env.DATABASE_URL);
+const ci =
+    process.env.SLM_HURL_CI === "1" && process.env.GITHUB_ACTIONS === "true";
+if (process.env.SLM_HURL_CI === "1" && !ci)
+    throw new Error("CI mode is restricted to GitHub Actions");
+if (ci) {
+    if (
+        process.env.DATABASE_URL !==
+        "postgres://suara:suara@localhost:5432/suara_test"
+    )
+        throw new Error("Expected the CI-only disposable service database");
+} else {
+    parseAndValidateSandboxUrl(process.env.DATABASE_URL);
+}
 const pool = new pg.Pool({
     connectionString: process.env.DATABASE_URL,
     connectionTimeoutMillis: 10000,
@@ -24,11 +36,28 @@ const documentId = randomUUID();
 const baseUrl = "http://127.0.0.1:3010";
 let directory;
 let verified = false;
+let stage = "database identity";
 try {
-    await verifySandboxIdentity(pool);
+    if (ci) {
+        const {
+            rows: [identity],
+        } = await pool.query(
+            "select current_database() as db, current_user as usr, inet_server_port() as port"
+        );
+        if (
+            identity?.db !== "suara_test" ||
+            identity.usr !== "suara" ||
+            identity.port !== 5432
+        )
+            throw new Error("CI test database identity mismatch");
+    } else {
+        await verifySandboxIdentity(pool);
+    }
     verified = true;
+    stage = "server health";
     if (!(await fetch(baseUrl + "/api/health")).ok)
         throw new Error("Sandbox not running");
+    stage = "synthetic fixtures";
     const token = randomBytes(32).toString("hex");
     const cookie = encodeURIComponent(
         token +
@@ -86,6 +115,7 @@ try {
             .join("\n"),
         { mode: 0o600 }
     );
+    stage = "HTTP assertions";
     const result = spawnSync(
         process.env.HURL_BIN || "hurl",
         [
@@ -111,7 +141,7 @@ try {
     }
     console.log("Hurl draft revision: 8 HTTP requests passed");
 } catch {
-    console.error("Ticket 22 HTTP proof failed");
+    console.error(`Ticket 22 HTTP proof failed during ${stage}`);
     process.exitCode = 1;
 } finally {
     if (directory) await rm(directory, { recursive: true, force: true });
@@ -119,6 +149,14 @@ try {
         if (verified) {
             await pool.query("delete from sessions where id=$1", [session]);
             await pool.query("delete from auth_user where id=$1", [user]);
+            if (
+                (
+                    await pool.query("select 1 from documents where id=$1", [
+                        documentId,
+                    ])
+                ).rowCount !== 0
+            )
+                throw new Error("Synthetic document cleanup failed");
         }
     } finally {
         await pool.end();

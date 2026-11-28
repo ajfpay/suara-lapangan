@@ -81,7 +81,11 @@ export function applyDraftMutation(
             throw new DraftInputError("Item not found");
         return i;
     }
-    function editLine(i: number, edits: Record<string, unknown>, explicitConfirmation = false) {
+    function editLine(
+        i: number,
+        edits: Record<string, unknown>,
+        explicitConfirmation = false
+    ) {
         const line = document.pekerjaan[i];
         const citation =
             typeof edits.sumber_kutipan === "string"
@@ -128,7 +132,11 @@ export function applyDraftMutation(
                 );
             }
             const path = itemPath(i, field);
-            if (explicitConfirmation && original === current && document.butuh_konfirmasi.some(c => c.field === path)) {
+            if (
+                explicitConfirmation &&
+                original === current &&
+                document.butuh_konfirmasi.some((c) => c.field === path)
+            ) {
                 record(path, original, current, line, citation, "confirmation");
             }
             if (original !== current || explicitConfirmation) clear(path);
@@ -166,23 +174,39 @@ export function applyDraftMutation(
             const path = itemPath(i, field);
             record(path, original, current, line, undefined, "edit");
             clear(path);
-            document.butuh_konfirmasi.push({field:path, alasan:`Nilai lama (${original}) perlu dikonfirmasi ulang`, sumber_kutipan:line.sumber_kutipan || null, kind:"source"});
+            document.butuh_konfirmasi.push({
+                field: path,
+                alasan: `Nilai lama (${original}) perlu dikonfirmasi ulang`,
+                sumber_kutipan: line.sumber_kutipan || null,
+                kind: "source",
+            });
         };
-        try { quantityMillis(line.volume); }
-        catch (error) {
+        try {
+            quantityMillis(line.volume);
+        } catch (error) {
             if (!(error instanceof DraftInputError)) throw error;
             const original = line.volume;
             const rounded = Math.round(Number(original) * 1000) / 1000;
-            line.volume = Number.isFinite(rounded) && rounded >= .001 && rounded <= 1000000 ? rounded : 1;
+            line.volume =
+                Number.isFinite(rounded) &&
+                rounded >= 0.001 &&
+                rounded <= 1000000
+                    ? rounded
+                    : 1;
             mark("volume", original, line.volume);
         }
         const price = draftPrice(document, i);
         if (price !== null) {
-            try { priceMinor(price, document.mata_uang); lineMoney(line.volume, price, document.mata_uang); }
-            catch (error) {
+            try {
+                priceMinor(price, document.mata_uang);
+                lineMoney(line.volume, price, document.mata_uang);
+            } catch (error) {
                 if (!(error instanceof DraftInputError)) throw error;
                 mark("harga_satuan", price, null);
-                Object.assign(line, lineMoney(line.volume, null, document.mata_uang));
+                Object.assign(
+                    line,
+                    lineMoney(line.volume, null, document.mata_uang)
+                );
             }
         }
     });
@@ -244,7 +268,12 @@ export function applyDraftMutation(
                 const pending = document.butuh_konfirmasi.find(
                     (c) => c.field === patch.field
                 );
-                if (!pending || (patch.op === "confirm_derived" ? pending.kind !== "derived" : pending.kind === "derived"))
+                if (
+                    !pending ||
+                    (patch.op === "confirm_derived"
+                        ? pending.kind !== "derived"
+                        : pending.kind === "derived")
+                )
                     throw new DraftInputError(
                         "No pending calculation confirmation"
                     );
@@ -265,7 +294,9 @@ export function applyDraftMutation(
                         "Complete missing prices before confirming the calculation"
                     );
                 recalculateDraft(document);
-                const value = match ? document.pekerjaan[Number(match[1])].jumlah : document.total_nominal;
+                const value = match
+                    ? document.pekerjaan[Number(match[1])].jumlah
+                    : document.total_nominal;
                 record(
                     patch.field,
                     pending.proposed_value ?? pending.alasan,
@@ -287,7 +318,11 @@ export function applyDraftMutation(
         const { field, nilai } = patch;
         const match = indexPath.exec(field);
         if (match) {
-            editLine(index(undefined, Number(match[1])), { [match[2]]: nilai }, true);
+            editLine(
+                index(undefined, Number(match[1])),
+                { [match[2]]: nilai },
+                true
+            );
         } else if (field.startsWith("proyek.")) {
             const key = field.slice(7) as keyof Proyek;
             document.proyek[key] = String(nilai);
@@ -309,16 +344,17 @@ export function applyDraftMutation(
                     : field === "syarat_pembayaran"
                       ? String(nilai)
                       : Number(nilai);
-            if (old !== next || pending) changes.push({
-                field,
-                original: old,
-                current: next,
-                changed_by: actorId,
-                changed_at: timestamp,
-                kind: old === next ? "confirmation" : "edit",
-                source_before: pending?.sumber_kutipan ?? null,
-                source_after: "manual",
-            });
+            if (old !== next || pending)
+                changes.push({
+                    field,
+                    original: old,
+                    current: next,
+                    changed_by: actorId,
+                    changed_at: timestamp,
+                    kind: old === next ? "confirmation" : "edit",
+                    source_before: pending?.sumber_kutipan ?? null,
+                    source_after: "manual",
+                });
             if (nilai === null) delete document[field];
             else if (field === "syarat_pembayaran")
                 document.syarat_pembayaran = String(nilai);

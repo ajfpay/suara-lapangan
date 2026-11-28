@@ -17,6 +17,14 @@ describe.skipIf(!url)("draft revision and replay", () => {
     let store: ReturnType<typeof createPostgresDocumentStore>;
     beforeAll(async () => {
         pool = new Pool({ connectionString: url });
+        const fs = await import("node:fs/promises");
+        for (const file of (await fs.readdir("db/migrations"))
+            .filter((name) => name.endsWith(".sql"))
+            .sort()) {
+            await pool.query(
+                await fs.readFile(`db/migrations/${file}`, "utf8")
+            );
+        }
         await pool.query(
             "insert into sessions(id,locale,audio_sha256,audio_bytes,transcript) values($1,'id','fixture',1,'')",
             [sessionId]
@@ -152,6 +160,19 @@ describe.skipIf(!url)("draft revision and replay", () => {
         });
         expect(await (await patch(body, "atomic")).json()).toEqual(changed);
         expect(
+            await (
+                await patch(
+                    {
+                        draft_revision: 1,
+                        changes: { harga_satuan: 7, volume: 2 },
+                        item_id: itemId,
+                        op: "update_line",
+                    },
+                    "atomic"
+                )
+            ).json()
+        ).toEqual(changed);
+        expect(
             (await patch({ ...body, changes: { volume: 3 } }, "atomic")).status
         ).toBe(409);
         const stale = await patch({ ...body, changes: { volume: 4 } }, "stale");
@@ -238,9 +259,14 @@ describe.skipIf(!url)("draft revision and replay", () => {
         expect(
             (await store.get(created.id))?.document.butuh_konfirmasi
         ).toHaveLength(1);
-        const nonfinal = await patch({ field: "pekerjaan[0].sumber_kutipan", nilai: "turn_3" }, 1);
+        const nonfinal = await patch(
+            { field: "pekerjaan[0].sumber_kutipan", nilai: "turn_3" },
+            1
+        );
         expect(nonfinal.status).toBe(400);
-        expect((await store.get(created.id))?.document.butuh_konfirmasi).toHaveLength(1);
+        expect(
+            (await store.get(created.id))?.document.butuh_konfirmasi
+        ).toHaveLength(1);
         const manual = await patch(
             { field: " pekerjaan[0].sumber_kutipan ", nilai: " manual " },
             1
@@ -255,6 +281,10 @@ describe.skipIf(!url)("draft revision and replay", () => {
             2
         );
         expect(edit.status).toBe(200);
+        expect(
+            (await patch({ op: "move_line", item_id: id, toIndex: 2 }, 3))
+                .status
+        ).toBe(400);
         const moved = await patch(
             { op: "move_line", item_id: id, toIndex: 1 },
             3
@@ -263,6 +293,14 @@ describe.skipIf(!url)("draft revision and replay", () => {
         const removed = await patch({ op: "remove_line", item_id: id }, 4);
         expect(removed.status).toBe(200);
         const body = await removed.json();
+        expect(
+            (
+                await patch(
+                    { op: "update_line", item_id: id, changes: { volume: 2 } },
+                    5
+                )
+            ).status
+        ).toBe(400);
         expect(
             body.document.pekerjaan.map((line: { id: string }) => line.id)
         ).not.toContain(id);
@@ -279,7 +317,11 @@ describe.skipIf(!url)("draft revision and replay", () => {
                     source_after: "turn_2",
                     original_source: "turn_1",
                 }),
-                expect.objectContaining({ item_id: id, kind: "remove" }),
+                expect.objectContaining({
+                    item_id: id,
+                    kind: "remove",
+                    field: `pekerjaan[${id}].item`,
+                }),
             ])
         );
         const outcomes = await Promise.all([
@@ -290,17 +332,74 @@ describe.skipIf(!url)("draft revision and replay", () => {
         expect((await store.get(created.id))?.draftRevision).toBe(6);
     });
     it("purges expired receipts across documents and safely allows an expired key with the current revision", async () => {
-        const doc: QuotationDocument = {jenis:"surat_penawaran",locale:"id",mata_uang:"IDR",nomor:null,tanggal:"2026-11-28",proyek:{nama:"Fixture",lokasi:"Location",klien:"Client"},pekerjaan:[{uraian:"Item",volume:1,satuan:"unit",harga_satuan:5,jumlah:5,sumber_kutipan:"manual"}],total_nominal:5,terbilang:"Lima rupiah",butuh_konfirmasi:[]};
-        const a = await store.create({sessionId,locale:"id",turnsHash:"expiry-a",document:doc});
-        const b = await store.create({sessionId,locale:"id",turnsHash:"expiry-b",document:doc});
-        const change = (document:QuotationDocument) => ({...document,proyek:{...document.proyek,nama:"Updated"}});
-        const options = {revision:1,actorId:"fixture",key:"expiring",fingerprint:"one"};
-        await store.update(a.id,change,options);
-        await pool.query("update document_patch_receipts set expires_at=now()-interval '1 second' where document_id=$1",[a.id]);
-        await store.update(b.id,change,options);
-        expect((await pool.query("select 1 from document_patch_receipts where document_id=$1",[a.id])).rowCount).toBe(0);
-        await expect(store.update(a.id,change,options)).rejects.toMatchObject({code:"stale_revision"});
-        expect((await store.update(a.id,change,{...options,revision:2,fingerprint:"two"}))?.draftRevision).toBe(3);
+        const doc: QuotationDocument = {
+            jenis: "surat_penawaran",
+            locale: "id",
+            mata_uang: "IDR",
+            nomor: null,
+            tanggal: "2026-11-28",
+            proyek: { nama: "Fixture", lokasi: "Location", klien: "Client" },
+            pekerjaan: [
+                {
+                    uraian: "Item",
+                    volume: 1,
+                    satuan: "unit",
+                    harga_satuan: 5,
+                    jumlah: 5,
+                    sumber_kutipan: "manual",
+                },
+            ],
+            total_nominal: 5,
+            terbilang: "Lima rupiah",
+            butuh_konfirmasi: [],
+        };
+        const a = await store.create({
+            sessionId,
+            locale: "id",
+            turnsHash: "expiry-a",
+            document: doc,
+        });
+        const b = await store.create({
+            sessionId,
+            locale: "id",
+            turnsHash: "expiry-b",
+            document: doc,
+        });
+        const change = (document: QuotationDocument) => ({
+            ...document,
+            proyek: { ...document.proyek, nama: "Updated" },
+        });
+        const options = {
+            revision: 1,
+            actorId: "fixture",
+            key: "expiring",
+            fingerprint: "one",
+        };
+        await store.update(a.id, change, options);
+        await pool.query(
+            "update document_patch_receipts set expires_at=now()-interval '1 second' where document_id=$1",
+            [a.id]
+        );
+        await store.update(b.id, change, options);
+        expect(
+            (
+                await pool.query(
+                    "select 1 from document_patch_receipts where document_id=$1",
+                    [a.id]
+                )
+            ).rowCount
+        ).toBe(0);
+        await expect(store.update(a.id, change, options)).rejects.toMatchObject(
+            { code: "stale_revision" }
+        );
+        expect(
+            (
+                await store.update(a.id, change, {
+                    ...options,
+                    revision: 2,
+                    fingerprint: "two",
+                })
+            )?.draftRevision
+        ).toBe(3);
     });
-
 });

@@ -31,7 +31,10 @@ export function useDraftPatch(
         null
     );
     const [busy, setBusy] = useState(false);
-    const [failure, setFailure] = useState<{documentId:string; message:string} | null>(null);
+    const [failure, setFailure] = useState<{
+        documentId: string;
+        message: string;
+    } | null>(null);
     const currentId = snapshot?.document.id ?? null;
     const currentIdRef = useRef(currentId);
     currentIdRef.current = currentId;
@@ -41,12 +44,22 @@ export function useDraftPatch(
     async function mutate(operation: Record<string, unknown>) {
         if (!snapshot || inFlight.current) return false;
         if (snapshot.status !== "draf") {
-            setFailure({documentId:snapshot.document.id,message:locale === "id" ? "Dokumen sudah dikunci." : "The document is locked."});
+            setFailure({
+                documentId: snapshot.document.id,
+                message:
+                    locale === "id"
+                        ? "Dokumen sudah dikunci."
+                        : "The document is locked.",
+            });
             return false;
         }
         const documentId = snapshot.document.id;
         const publish = (next: DraftSnapshot) => {
-            if (currentIdRef.current === documentId && next.document.id === documentId) onChangeRef.current(next);
+            if (
+                currentIdRef.current === documentId &&
+                next.document.id === documentId
+            )
+                onChangeRef.current(next);
         };
         const body = JSON.stringify({
             ...operation,
@@ -74,7 +87,10 @@ export function useDraftPatch(
             const data = await res.json();
             if (!res.ok) {
                 if (res.status < 500) retry.current = null;
-                if (res.status === 409 && (data.error === "stale_revision" || data.error === "locked")) {
+                if (
+                    res.status === 409 &&
+                    (data.error === "stale_revision" || data.error === "locked")
+                ) {
                     const latest = await fetch(url, { cache: "no-store" });
                     if (latest.ok) {
                         const fresh = await latest.json();
@@ -99,12 +115,19 @@ export function useDraftPatch(
             publish(data);
             return true;
         } catch (cause) {
-            setFailure({documentId,message:cause instanceof Error ? cause.message : String(cause)});
+            setFailure({
+                documentId,
+                message: cause instanceof Error ? cause.message : String(cause),
+            });
             return false;
         } finally {
             inFlight.current = false;
             setBusy(false);
         }
     }
-    return { mutate, busy, error:failure?.documentId === currentId ? failure.message : null };
+    return {
+        mutate,
+        busy,
+        error: failure?.documentId === currentId ? failure.message : null,
+    };
 }

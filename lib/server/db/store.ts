@@ -67,11 +67,13 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 audio_sha256: string;
                 mode: string;
                 user_id: string | null;
-            }>("select locale, audio_sha256, mode, user_id from sessions where id = $1", [
-                sessionId,
-            ]);
+            }>(
+                "select locale, audio_sha256, mode, user_id from sessions where id = $1",
+                [sessionId]
+            );
             if (session.rowCount === 0) return null;
 
+            // Draft evidence and transcript consumers must never receive unfinished turns as final.
             const stored = await pool.query<{
                 turn_index: number;
                 start_ms: number;

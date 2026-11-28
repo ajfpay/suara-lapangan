@@ -232,7 +232,7 @@ export function DokumenView({
         (next) => {
             if (next.status !== "draf") {
                 setDraftSnapshot(null);
-                setAttempt(value => value + 1);
+                setAttempt((value) => value + 1);
                 return;
             }
             setDraftSnapshot(next);
@@ -933,7 +933,8 @@ export function DokumenView({
                                 </div>
                             )}
 
-                            {isDraft && draftSnapshot?.status === "draf" &&
+                            {isDraft &&
+                                draftSnapshot?.status === "draf" &&
                                 draftSnapshot?.document.id === doc.id && (
                                     <DraftEditor
                                         locale={locale}

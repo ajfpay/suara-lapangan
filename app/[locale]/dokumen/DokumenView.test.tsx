@@ -1414,28 +1414,94 @@ describe("DokumenView", () => {
         });
     });
     it("closes the editor when a stale draft is approved elsewhere and scopes errors by document", async () => {
-        const first = {status:"draf",draft_revision:1,document:{id:"draft-one",locale:"en",mata_uang:"USD",nomor:null,pekerjaan:[],total_nominal:0,butuh_konfirmasi:[]}};
-        const second = {...first,document:{...first.document,id:"draft-two"}};
-        const approved = {...first,status:"disetujui",document:{...first.document,nomor:"SL/QTN/2026/0001"}};
-        fetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
-            if (options?.method === "PATCH") return {ok:false,status:409,json:async()=>({error:"locked",message:"Locked"})};
-            if (url.endsWith("/pdf")) return {ok:true,status:200,blob:async()=>new Blob(["pdf"],{type:"application/pdf"})};
-            if (url.endsWith("draft-two")) return {ok:true,status:200,json:async()=>second};
-            return {ok:true,status:200,json:async()=>first};
-        });
-        const view=render(<DokumenView locale="en" docId="draft-one" copy={en.dokumen}/>);
-        await waitFor(()=>expect(screen.getByTestId("draft-editor")).toBeTruthy());
-        fetchMock.mockImplementation(async (url: string, options?: RequestInit) => {
-            if (options?.method === "PATCH") return {ok:false,status:409,json:async()=>({error:"locked",message:"Locked"})};
-            if (url.endsWith("/pdf")) return {ok:true,status:200,blob:async()=>new Blob(["pdf"],{type:"application/pdf"})};
-            return {ok:true,status:200,json:async()=>url.endsWith("draft-two") ? second : approved};
-        });
-        fireEvent.click(screen.getByRole("button",{name:"Save terms"}));
-        await waitFor(()=>expect(screen.queryByTestId("draft-editor")).toBeNull());
+        const first = {
+            status: "draf",
+            draft_revision: 1,
+            document: {
+                id: "draft-one",
+                locale: "en",
+                mata_uang: "USD",
+                nomor: null,
+                pekerjaan: [],
+                total_nominal: 0,
+                butuh_konfirmasi: [],
+            },
+        };
+        const second = {
+            ...first,
+            document: { ...first.document, id: "draft-two" },
+        };
+        const approved = {
+            ...first,
+            status: "disetujui",
+            document: { ...first.document, nomor: "SL/QTN/2026/0001" },
+        };
+        fetchMock.mockImplementation(
+            async (url: string, options?: RequestInit) => {
+                if (options?.method === "PATCH")
+                    return {
+                        ok: false,
+                        status: 409,
+                        json: async () => ({
+                            error: "locked",
+                            message: "Locked",
+                        }),
+                    };
+                if (url.endsWith("/pdf"))
+                    return {
+                        ok: true,
+                        status: 200,
+                        blob: async () =>
+                            new Blob(["pdf"], { type: "application/pdf" }),
+                    };
+                if (url.endsWith("draft-two"))
+                    return { ok: true, status: 200, json: async () => second };
+                return { ok: true, status: 200, json: async () => first };
+            }
+        );
+        const view = render(
+            <DokumenView locale="en" docId="draft-one" copy={en.dokumen} />
+        );
+        await waitFor(() =>
+            expect(screen.getByTestId("draft-editor")).toBeTruthy()
+        );
+        fetchMock.mockImplementation(
+            async (url: string, options?: RequestInit) => {
+                if (options?.method === "PATCH")
+                    return {
+                        ok: false,
+                        status: 409,
+                        json: async () => ({
+                            error: "locked",
+                            message: "Locked",
+                        }),
+                    };
+                if (url.endsWith("/pdf"))
+                    return {
+                        ok: true,
+                        status: 200,
+                        blob: async () =>
+                            new Blob(["pdf"], { type: "application/pdf" }),
+                    };
+                return {
+                    ok: true,
+                    status: 200,
+                    json: async () =>
+                        url.endsWith("draft-two") ? second : approved,
+                };
+            }
+        );
+        fireEvent.click(screen.getByRole("button", { name: "Save terms" }));
+        await waitFor(() =>
+            expect(screen.queryByTestId("draft-editor")).toBeNull()
+        );
         expect(screen.getByText("SL/QTN/2026/0001")).toBeTruthy();
-        view.rerender(<DokumenView locale="en" docId="draft-two" copy={en.dokumen}/>);
-        await waitFor(()=>expect(screen.getByTestId("draft-editor")).toBeTruthy());
+        view.rerender(
+            <DokumenView locale="en" docId="draft-two" copy={en.dokumen} />
+        );
+        await waitFor(() =>
+            expect(screen.getByTestId("draft-editor")).toBeTruthy()
+        );
         expect(screen.queryByText(/draft changed|locked/i)).toBeNull();
     });
-
 });

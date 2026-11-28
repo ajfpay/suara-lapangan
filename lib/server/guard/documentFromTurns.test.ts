@@ -31,6 +31,16 @@ describe("documentFromTurns() - 10+ Defective Fixtures (K4)", () => {
 
             if (/^d1[01]-/.test(file)) {
                 expect(result.status).toBe("siap");
+                if (file.startsWith("d10-")) {
+                    expect(result.document.pekerjaan[0]).toMatchObject({
+                        jumlah: 1240000,
+                        jumlah_minor: 1240000,
+                    });
+                    expect(result.document.total_nominal_minor).toBe(1240000);
+                } else {
+                    expect(result.document.total_nominal).toBe(620);
+                    expect(result.document.total_nominal_minor).toBe(62000);
+                }
                 expect(result.butuh_konfirmasi).toEqual([]);
                 expect(result.automaticFieldChanges).toEqual(
                     expect.arrayContaining([

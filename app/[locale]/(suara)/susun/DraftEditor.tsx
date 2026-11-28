@@ -20,26 +20,37 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
     const fieldKey = (field: string) => `${doc.id}:${field}`;
     const inputState = (field: string, server: string | number) => ({
         value: dirty[fieldKey(field)] ?? String(server),
-        onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+        onChange: (
+            event: React.ChangeEvent<
+                HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+            >
+        ) => {
             const value = event.target.value;
             const key = fieldKey(field);
-            setDirty(previous => {
-                const next = {...previous};
-                if (value === String(server)) delete next[key]; else next[key] = value;
+            setDirty((previous) => {
+                const next = { ...previous };
+                if (value === String(server)) delete next[key];
+                else next[key] = value;
                 return next;
             });
         },
     });
-    const save = async (operation: Record<string, unknown>, fields: string[]) => {
+    const save = async (
+        operation: Record<string, unknown>,
+        fields: string[]
+    ) => {
         if (saving || busy) return;
         setSaving(true);
         try {
-            if (await mutate(operation)) setDirty(previous => {
-                const next = {...previous};
-                for (const field of fields) delete next[fieldKey(field)];
-                return next;
-            });
-        } finally { setSaving(false); }
+            if (await mutate(operation))
+                setDirty((previous) => {
+                    const next = { ...previous };
+                    for (const field of fields) delete next[fieldKey(field)];
+                    return next;
+                });
+        } finally {
+            setSaving(false);
+        }
     };
     const disabled = busy || saving;
     const input =
@@ -65,15 +76,29 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                     }).format(doc.total_nominal)}
                 </p>
             )}
-            {snapshot.field_changes?.some(change => change.kind === "derived_confirmation") && (
-                <details open className="rounded-lg border border-border p-3 text-sm">
-                    <summary className="font-semibold">{id ? "Koreksi server" : "Server corrections"}</summary>
+            {snapshot.field_changes?.some(
+                (change) => change.kind === "derived_confirmation"
+            ) && (
+                <details
+                    open
+                    className="rounded-lg border border-border p-3 text-sm"
+                >
+                    <summary className="font-semibold">
+                        {id ? "Koreksi server" : "Server corrections"}
+                    </summary>
                     <ul className="mt-2 space-y-1">
-                        {snapshot.field_changes.filter(change => change.kind === "derived_confirmation").map((change, index) => (
-                            <li key={`${change.changed_at}-${index}`}>
-                                {fieldLabel(change.field, locale)}: {String(change.original)} → {String(change.current)}
-                            </li>
-                        ))}
+                        {snapshot.field_changes
+                            .filter(
+                                (change) =>
+                                    change.kind === "derived_confirmation"
+                            )
+                            .map((change, index) => (
+                                <li key={`${change.changed_at}-${index}`}>
+                                    {fieldLabel(change.field, locale)}:{" "}
+                                    {String(change.original)} →{" "}
+                                    {String(change.current)}
+                                </li>
+                            ))}
                     </ul>
                 </details>
             )}
@@ -84,22 +109,51 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                     onSubmit={(event) => {
                         event.preventDefault();
                         const prefix = `${line.id}.`;
-                        const fields = ["uraian", "volume", "satuan", "harga_satuan"];
-                        const changed = fields.filter(field => Object.hasOwn(dirty, fieldKey(prefix + field)));
-                        const changes = Object.fromEntries(changed.map(field => {
-                            const value = dirty[fieldKey(prefix + field)].trim();
-                            return [field, field === "harga_satuan" && value === "" ? null : value];
-                        }));
-                        if (line.id && changed.length) void save({op:"update_line", item_id:line.id, changes}, changed.map(field => prefix + field));
+                        const fields = [
+                            "uraian",
+                            "volume",
+                            "satuan",
+                            "harga_satuan",
+                        ];
+                        const changed = fields.filter((field) =>
+                            Object.hasOwn(dirty, fieldKey(prefix + field))
+                        );
+                        const changes = Object.fromEntries(
+                            changed.map((field) => {
+                                const value =
+                                    dirty[fieldKey(prefix + field)].trim();
+                                return [
+                                    field,
+                                    field === "harga_satuan" && value === ""
+                                        ? null
+                                        : value,
+                                ];
+                            })
+                        );
+                        if (line.id && changed.length)
+                            void save(
+                                {
+                                    op: "update_line",
+                                    item_id: line.id,
+                                    changes,
+                                },
+                                changed.map((field) => prefix + field)
+                            );
                     }}
                 >
-                    <fieldset disabled={disabled || !line.id} className="space-y-2">
+                    <fieldset
+                        disabled={disabled || !line.id}
+                        className="space-y-2"
+                    >
                         <label className="block text-sm">
                             {id ? "Uraian" : "Description"}
                             <input
                                 required
                                 name="description"
-                                {...inputState(`${line.id}.uraian`, line.uraian)}
+                                {...inputState(
+                                    `${line.id}.uraian`,
+                                    line.uraian
+                                )}
                                 className={input}
                             />
                         </label>
@@ -113,7 +167,10 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                                     min=".001"
                                     max="1000000"
                                     step=".001"
-                                    {...inputState(`${line.id}.volume`, line.volume)}
+                                    {...inputState(
+                                        `${line.id}.volume`,
+                                        line.volume
+                                    )}
                                     className={input}
                                 />
                             </label>
@@ -121,7 +178,10 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                                 {id ? "Satuan" : "Unit"}
                                 <select
                                     name="unit"
-                                    {...inputState(`${line.id}.satuan`, line.satuan)}
+                                    {...inputState(
+                                        `${line.id}.satuan`,
+                                        line.satuan
+                                    )}
                                     className={input}
                                 >
                                     {CANONICAL_UNITS.map((unit) => (
@@ -137,16 +197,17 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                                     type="number"
                                     min="0"
                                     step={doc.mata_uang === "USD" ? ".01" : "1"}
-                                    {...inputState(`${line.id}.harga_satuan`,
+                                    {...inputState(
+                                        `${line.id}.harga_satuan`,
                                         line.harga_satuan_minor === null ||
-                                        (line.harga_satuan_minor ===
-                                            undefined &&
-                                            line.harga_satuan === 0 &&
-                                            doc.butuh_konfirmasi?.some(
-                                                (c) =>
-                                                    c.field ===
-                                                    `pekerjaan[${index}].harga_satuan`
-                                            ))
+                                            (line.harga_satuan_minor ===
+                                                undefined &&
+                                                line.harga_satuan === 0 &&
+                                                doc.butuh_konfirmasi?.some(
+                                                    (c) =>
+                                                        c.field ===
+                                                        `pekerjaan[${index}].harga_satuan`
+                                                ))
                                             ? ""
                                             : line.harga_satuan
                                     )}
@@ -176,7 +237,8 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                                 type="button"
                                 className={button}
                                 disabled={
-                                    disabled || index === doc.pekerjaan.length - 1
+                                    disabled ||
+                                    index === doc.pekerjaan.length - 1
                                 }
                                 onClick={() =>
                                     void mutate({
@@ -228,7 +290,10 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                     const value = String(
                         new FormData(event.currentTarget).get("terms") ?? ""
                     ).trim();
-                    void save({field:"syarat_pembayaran", nilai:value || null}, ["syarat_pembayaran"]);
+                    void save(
+                        { field: "syarat_pembayaran", nilai: value || null },
+                        ["syarat_pembayaran"]
+                    );
                 }}
                 className="space-y-2"
             >
@@ -240,7 +305,10 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                         name="terms"
                         disabled={disabled}
                         maxLength={500}
-                        {...inputState("syarat_pembayaran", doc.syarat_pembayaran ?? "")}
+                        {...inputState(
+                            "syarat_pembayaran",
+                            doc.syarat_pembayaran ?? ""
+                        )}
                         className={input}
                     />
                 </label>
@@ -256,8 +324,20 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                         new FormData(event.currentTarget).get("validity") ?? ""
                     ).trim();
                     if (!event.currentTarget.checkValidity()) return;
-                    if (value !== "" && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 365)) return;
-                    void save({field:"masa_berlaku_hari", nilai:value === "" ? null : Number(value)}, ["masa_berlaku_hari"]);
+                    if (
+                        value !== "" &&
+                        (!/^\d+$/.test(value) ||
+                            Number(value) < 1 ||
+                            Number(value) > 365)
+                    )
+                        return;
+                    void save(
+                        {
+                            field: "masa_berlaku_hari",
+                            nilai: value === "" ? null : Number(value),
+                        },
+                        ["masa_berlaku_hari"]
+                    );
                 }}
                 className="space-y-2"
             >
@@ -272,7 +352,10 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                         min="1"
                         max="365"
                         step="1"
-                        {...inputState("masa_berlaku_hari", doc.masa_berlaku_hari ?? "")}
+                        {...inputState(
+                            "masa_berlaku_hari",
+                            doc.masa_berlaku_hari ?? ""
+                        )}
                         className={input}
                     />
                 </label>

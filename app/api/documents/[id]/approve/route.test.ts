@@ -101,15 +101,13 @@ describe
 
         beforeAll(async () => {
             pool = new Pool({ connectionString: TEST_DATABASE_URL });
-            for (const file of [
-                "0001_sessions_turns.sql",
-                "0002_usage_meter.sql",
-                "0003_documents.sql",
-                "0004_email_sends.sql",
-                "0007_auth_tables.sql",
-                "0008_documents_user_id.sql",
-                "0009_review_before_pdf.sql",
-            ]) {
+            for (const file of (
+                await import("node:fs/promises").then((fs) =>
+                    fs.readdir("db/migrations")
+                )
+            )
+                .filter((name) => name.endsWith(".sql"))
+                .sort()) {
                 const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
                 await pool.query(sql);
             }
