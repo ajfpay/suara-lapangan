@@ -131,6 +131,20 @@ describe.skipIf(!database)("sign-up and sign-in rate limit", () => {
         ).toBe(429);
     }, 120_000);
 
+    it("starts a fresh login window sixty seconds after the first accepted attempt", async () => {
+        const ip = clientAddress();
+        const start = Date.now();
+        vi.useFakeTimers({ toFake: ["Date"], now: start });
+        for (let i = 0; i < 10; i++) {
+            vi.setSystemTime(start + i * 5000);
+            expect((await attempt("sign-in/email", ip)).status).toBe(401);
+        }
+        vi.setSystemTime(start + 59_000);
+        expect((await attempt("sign-in/email", ip)).status).toBe(429);
+        vi.setSystemTime(start + 60_000);
+        expect((await attempt("sign-in/email", ip)).status).toBe(401);
+    }, 120_000);
+
     it("does not bypass the limiter when the trusted IP header is missing", async () => {
         vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 120_000 });
         for (let i = 0; i < 10; i++)
