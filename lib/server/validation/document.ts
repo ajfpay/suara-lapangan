@@ -79,20 +79,22 @@ export const addLineOpSchema = z.object({
 
 export const removeLineOpSchema = z.object({
     op: z.literal("remove_line"),
-    index: z.number().int().nonnegative("index must be a non-negative integer"),
-});
+    index: z.number().int().nonnegative("index must be a non-negative integer").optional(),
+    item_id: documentIdSchema.optional(),
+}).refine(v => (v.index === undefined) !== (v.item_id === undefined), "Specify exactly one item selector");
 
 export const moveLineOpSchema = z.object({
     op: z.literal("move_line"),
     fromIndex: z
         .number()
         .int()
-        .nonnegative("fromIndex must be a non-negative integer"),
+        .nonnegative("fromIndex must be a non-negative integer").optional(),
+    item_id: documentIdSchema.optional(),
     toIndex: z
         .number()
         .int()
         .nonnegative("toIndex must be a non-negative integer"),
-});
+}).refine(v => (v.fromIndex === undefined) !== (v.item_id === undefined), "Specify exactly one item selector");
 
 function isValidIsoDate(str: string): boolean {
     const match = str.match(/^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
@@ -214,12 +216,23 @@ export const patchScalarBodySchema = z
         });
     });
 
+export const updateLineOpSchema = z.object({
+    op: z.literal("update_line"),
+    item_id: documentIdSchema,
+    changes: addLineItemSchema.partial().extend({
+        sumber_kutipan: z.string().trim().regex(/^(manual|turn_[1-9][0-9]*)$/).optional(),
+    }).strict().refine(v => Object.keys(v).length > 0, "At least one change is required"),
+});
+
 export const patchDocumentBodySchema = z.union([
     addLineOpSchema,
     removeLineOpSchema,
     moveLineOpSchema,
+    updateLineOpSchema,
     patchScalarBodySchema,
 ]);
+
+export const draftRevisionSchema = z.object({ draft_revision: z.number().int().positive().max(2147483647) });
 
 export type PatchDocumentBody = z.infer<typeof patchDocumentBodySchema>;
 

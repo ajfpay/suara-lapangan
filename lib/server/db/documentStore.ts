@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { newDraftItemIds, withDraftItemIds } from "@/lib/server/guard/draftIdentity";
 import { allocateDocumentNumber } from "./documentNumber";
 
 import { Pool } from "pg";
@@ -269,7 +270,7 @@ export function createPostgresDocumentStore(
             rawStatus: row.status,
             createdAt: new Date(row.created_at),
             draftRevision: row.draft_revision ?? 1,
-            document: row.data_json,
+            document: status === "draf" ? withDraftItemIds(row.data_json, row.id) : row.data_json,
             pdfPath: row.pdf_path ?? null,
             sentTo: row.sent_to ?? null,
             sentAt: row.sent_at
@@ -350,7 +351,7 @@ export function createPostgresDocumentStore(
                         input.sessionId,
                         input.locale,
                         input.turnsHash,
-                        JSON.stringify(input.document),
+                        JSON.stringify(newDraftItemIds(input.document)),
                         input.userId ?? null,
                     ]
                 );

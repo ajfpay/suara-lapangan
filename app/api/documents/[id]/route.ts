@@ -1,7 +1,9 @@
+import { createHash, randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
     getPostgresDocumentStore,
     DocumentLockedError,
+    DraftMutationConflict,
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
@@ -11,6 +13,7 @@ import {
     documentIdSchema,
     patchDocumentBodySchema,
     formatZodError,
+    draftRevisionSchema,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
 import {
@@ -97,6 +100,17 @@ async function handlePatch(
 
     const id = parsedId.data;
     const patchBody = parsedBody.data;
+    const revision = draftRevisionSchema.safeParse(body);
+    const key = request.headers.get("Idempotency-Key");
+    if (!revision.success || !key || !/^[\x21-\x7e]{1,128}$/.test(key)) {
+        return NextResponse.json({ error: "invalid_request", message: "draft_revision and Idempotency-Key are required" }, { status: 400 });
+    }
+    const mutationOptions = {
+        revision: revision.data.draft_revision,
+        actorId: session.user.id,
+        key,
+        fingerprint: createHash("sha256").update(JSON.stringify({ revision: revision.data.draft_revision, patch: patchBody })).digest("hex"),
+    };
 
     let docStore: ReturnType<typeof getPostgresDocumentStore>;
     try {
@@ -144,28 +158,15 @@ async function handlePatch(
         );
     }
 
-    const isLocked =
-        existing.status === "terkirim" || existing.status === "disetujui";
-    if (isLocked) {
-        return NextResponse.json(
-            {
-                error: "locked",
-                message: `Document '${id}' is locked (status: ${existing.status}) and cannot be edited`,
-            },
-            { status: 409 }
-        );
-    }
-
     // A turn citation must resolve to a final turn of the document's own
     // session, mirroring the authoritative check in lib/server/guard/rules.ts;
     // the schema only regex-checks the shape. Without this, resolving a
     // confirmation strips the butuh_konfirmasi entry even when the cited
     // turn belongs to another session or does not exist.
-    if (
-        !("op" in patchBody) &&
-        patchBody.field.endsWith(".sumber_kutipan") &&
-        /^turn_[1-9][0-9]*$/.test(String(patchBody.nilai))
-    ) {
+    const citation = "op" in patchBody
+        ? patchBody.op === "update_line" ? patchBody.changes.sumber_kutipan : undefined
+        : patchBody.field.endsWith(".sumber_kutipan") ? String(patchBody.nilai) : undefined;
+    if (citation && /^turn_[1-9][0-9]*$/.test(citation)) {
         let citedTurn: Turn | undefined;
         try {
             const storedSession = await getTurnsStore().findSession(
@@ -175,7 +176,7 @@ async function handlePatch(
             for (const turn of storedSession?.turns ?? []) {
                 turnById.set(turn.turn_id, turn);
             }
-            citedTurn = turnById.get(String(patchBody.nilai));
+            citedTurn = turnById.get(citation);
         } catch {
             return NextResponse.json(
                 {
@@ -189,7 +190,7 @@ async function handlePatch(
             return NextResponse.json(
                 {
                     error: "invalid_request",
-                    message: `sumber_kutipan '${patchBody.nilai}' bukan giliran final dari sesi ini`,
+                    message: `sumber_kutipan '${citation}' bukan giliran final dari sesi ini`,
                 },
                 { status: 400 }
             );
@@ -219,6 +220,7 @@ async function handlePatch(
             if ("op" in patchBody) {
                 if (patchBody.op === "add_line") {
                     const newLine: PekerjaanItem = {
+                        id: randomUUID(),
                         uraian: patchBody.item.uraian,
                         volume: patchBody.item.volume,
                         satuan: patchBody.item.satuan,
@@ -238,7 +240,7 @@ async function handlePatch(
                 }
 
                 if (patchBody.op === "remove_line") {
-                    const idx = patchBody.index;
+                    const idx = patchBody.item_id ? document.pekerjaan.findIndex(item => item.id === patchBody.item_id) : patchBody.index!;
                     if (
                         !Array.isArray(document.pekerjaan) ||
                         idx < 0 ||
@@ -301,7 +303,8 @@ async function handlePatch(
                 }
 
                 if (patchBody.op === "move_line") {
-                    const { fromIndex, toIndex } = patchBody;
+                    const { toIndex } = patchBody;
+                    const fromIndex = patchBody.item_id ? document.pekerjaan.findIndex(item => item.id === patchBody.item_id) : patchBody.fromIndex!;
                     if (
                         !Array.isArray(document.pekerjaan) ||
                         fromIndex < 0 ||
@@ -357,6 +360,23 @@ async function handlePatch(
                         fieldChanges: updatedFieldChanges,
                         status: "draf",
                     };
+                }
+                if (patchBody.op === "update_line") {
+                    const idx = document.pekerjaan.findIndex(item => item.id === patchBody.item_id);
+                    if (idx < 0) throw new PatchIndexError(idx);
+                    const line = document.pekerjaan[idx];
+                    const nextChanges = [...(ctx?.fieldChanges ?? [])];
+                    for (const [field, value] of Object.entries(patchBody.changes)) {
+                        const path = `pekerjaan[${idx}].${field}`;
+                        const original = line[field as keyof PekerjaanItem];
+                        if (original !== value && (line.sumber_kutipan.startsWith("turn_") || field === "sumber_kutipan")) {
+                            nextChanges.push({ field: path, original, current: value, changed_by: session.user.id, changed_at: new Date().toISOString() });
+                        }
+                        document.butuh_konfirmasi = document.butuh_konfirmasi.filter(item => item.field !== path);
+                    }
+                    Object.assign(line, patchBody.changes);
+                    recomputeTotals(document);
+                    return { document, fieldChanges: nextChanges, status: "draf" };
                 }
             }
 
@@ -463,8 +483,11 @@ async function handlePatch(
                 fieldChanges: nextChanges,
                 status: "draf",
             };
-        });
+        }, mutationOptions);
     } catch (cause) {
+        if (cause instanceof DraftMutationConflict) {
+            return NextResponse.json({ error: cause.code, message: cause.code, draft_revision: cause.revision }, { status: 409 });
+        }
         if (cause instanceof PatchIndexError) {
             indexError = cause;
         } else if (cause instanceof DocumentLockedError) {
@@ -518,6 +541,7 @@ async function handlePatch(
             }),
             butuh_konfirmasi: result.document.butuh_konfirmasi,
             status: result.status,
+            draft_revision: result.draftRevision,
             field_changes: result.fieldChanges ?? [],
         },
         { status: 200 }
@@ -606,6 +630,7 @@ async function handleGet(
             }),
             butuh_konfirmasi: stored.document.butuh_konfirmasi,
             status: stored.status,
+            draft_revision: stored.draftRevision,
             field_changes: stored.fieldChanges ?? [],
             sent_to: stored.sentTo ?? null,
             sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,

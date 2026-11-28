@@ -28,6 +28,7 @@ export type Proyek = {
 };
 
 export type PekerjaanItem = {
+    id?: string;
     uraian: string;
     volume: number;
     satuan: CanonicalUnit;
