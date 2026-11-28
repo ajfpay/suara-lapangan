@@ -30,4 +30,14 @@ describe("quotation money", () => {
         expect(() => guard("en", [line(1, .001)])).toThrow();
         expect(() => guard("id", [line(1000000, 1000000000000)])).toThrow();
     });
+    it("keeps only one missing-price confirmation for an audio-cited item", () => {
+        const result = applyGuard({ locale:"id", pekerjaan:[{...line(1,null), sumber_kutipan:"turn_1", jumlah:0}] }, [{turn_id:"turn_1", startMs:0, endMs:1000, transcript:"Satu unit pekerjaan, total 50 rupiah",final:true}]);
+        expect(result.document.pekerjaan[0].harga_satuan_minor).toBeNull();
+        expect(result.butuh_konfirmasi.filter(c => c.field === "pekerjaan[0].harga_satuan")).toHaveLength(1);
+        expect(result.butuh_konfirmasi.filter(c => c.field === "pekerjaan[0].jumlah")).toHaveLength(0);
+    });
+    it("spells an accepted quadrillion-rupiah total", () => {
+        expect(guard("id",[line(1000,1000000000000)]).terbilang).toBe("Satu kuadriliun rupiah");
+    });
+
 });
