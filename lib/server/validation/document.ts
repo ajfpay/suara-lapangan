@@ -110,8 +110,8 @@ function isValidIsoDate(str: string): boolean {
 
 export const patchScalarBodySchema = z
     .object({
-        field: z.string(),
-        nilai: z.union([z.number(), z.string()]),
+        field: z.string().trim(),
+        nilai: z.union([z.number(), z.string().trim()]),
     })
     .superRefine((val, ctx) => {
         const field = val.field.trim();
