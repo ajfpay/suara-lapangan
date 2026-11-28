@@ -37,4 +37,18 @@ describe("explicit draft confirmation", () => {
         expect(result.document.butuh_konfirmasi.map(c => c.field)).toEqual(["total_nominal"]);
         expect(result.fieldChanges).toContainEqual(expect.objectContaining({field:"pekerjaan[0].volume", original:1,current:1,kind:"confirmation"}));
     });
+    it("preserves legacy fractional money and quantity in audit while marking corrections pending", () => {
+        const doc = draft();
+        doc.pekerjaan[0] = {...doc.pekerjaan[0], volume:1.2345, harga_satuan:100.5, harga_satuan_minor:undefined, jumlah_minor:undefined};
+        doc.butuh_konfirmasi = [];
+        const result = mutate(doc, {field:"proyek.nama", nilai:"New title"});
+        expect(result.document.proyek.nama).toBe("New title");
+        expect(result.document.pekerjaan[0]).toMatchObject({volume:1.235, harga_satuan_minor:null, jumlah_minor:null});
+        expect(result.document.butuh_konfirmasi.map(c => c.field)).toEqual(expect.arrayContaining(["pekerjaan[0].volume","pekerjaan[0].harga_satuan"]));
+        expect(result.fieldChanges).toEqual(expect.arrayContaining([
+            expect.objectContaining({field:"pekerjaan[0].volume", original:1.2345, current:1.235, item_id:id}),
+            expect.objectContaining({field:"pekerjaan[0].harga_satuan", original:100.5, current:null, item_id:id}),
+        ]));
+    });
+
 });
