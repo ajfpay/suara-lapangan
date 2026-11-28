@@ -7,7 +7,8 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Hurl 8.1.0 requires libxml2, available on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
@@ -99,12 +100,16 @@ jobs:
         # Each invocation owns a fresh production server. Both viewports otherwise
         # share the same process-local document rate-limit bucket on loopback.
         run: |
-          npm run test:e2e -- --project=desktop
-          npm run test:e2e -- --project=mobile
+          desktop_status=0
+          mobile_status=0
+          npm run test:e2e -- --project=desktop || desktop_status=$?
+          npm run test:e2e -- --project=mobile || mobile_status=$?
+          test "$desktop_status" -eq 0 && test "$mobile_status" -eq 0
 
       - name: Install Hurl
         run: |
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/hurl.deb" https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl_8.1.0_amd64.deb
+          echo "c56222c8923d3940533ac3d7085f66cb6fa6c05639f33aaeef8d857ab70622f9  $RUNNER_TEMP/hurl.deb" | sha256sum --check
           sudo apt-get install -y "$RUNNER_TEMP/hurl.deb"
           hurl --version
 

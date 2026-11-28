@@ -129,7 +129,7 @@ base URL (`BETTER_AUTH_URL`).
 The e2e suite runs two projects — desktop 1440x900 and mobile 375x812 — and
 needs no microphone or external model API: it drives the built app over HTTP.
 CI runs the projects sequentially in separate Playwright invocations so that
-the production server's per-IP request budget is not shared across viewports.
+the production server's process-local rate-limit buckets are not shared across viewports.
 For the same isolation locally, stop any existing test server and run
 `npm run test:e2e -- --project=desktop` followed by
 `npm run test:e2e -- --project=mobile`. Both require the approved test database.
