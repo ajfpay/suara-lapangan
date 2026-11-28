@@ -310,7 +310,8 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const first = await store.create(input("s-idem-child", doc(), hash));
         const approved = await store.approve(
             first.id,
-            "00000000-0000-0000-0000-000000000001"
+            "00000000-0000-0000-0000-000000000001",
+            { revision: 1, key: "store-approval" }
         );
         expect(approved.ok).toBe(true);
         if (!approved.ok) return;
@@ -432,7 +433,8 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         const created = await store.create(input("s-version-race", doc()));
         const approved = await store.approve(
             created.id,
-            "00000000-0000-0000-0000-000000000001"
+            "00000000-0000-0000-0000-000000000001",
+            { revision: 1, key: "store-approval" }
         );
         expect(approved.ok).toBe(true);
         if (!approved.ok) return;
@@ -469,7 +471,8 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     it("approve: rejects non-existent id with not_found", async () => {
         const res = await store.approve(
             "00000000-0000-0000-0000-000000000000",
-            "user-1"
+            "user-1",
+            { revision: 1, key: "store-approval" }
         );
         expect(res).toEqual({ ok: false, reason: "not_found" });
     });
@@ -490,7 +493,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
                 })
             )
         );
-        const res = await store.approve(created.id, "user-1");
+        const res = await store.approve(created.id, "user-1", {
+            revision: 1,
+            key: "store-approval",
+        });
         expect(res).toEqual({ ok: false, reason: "needs_confirmation" });
     });
 
@@ -513,7 +519,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             "update documents set status = 'perlu_konfirmasi' where id = $1::uuid",
             [created.id]
         );
-        const res = await store.approve(created.id, "user-1");
+        const res = await store.approve(created.id, "user-1", {
+            revision: 1,
+            key: "store-approval",
+        });
         expect(res).toEqual({ ok: false, reason: "needs_confirmation" });
     });
 
@@ -525,7 +534,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             "update documents set status = 'terkirim' where id = $1::uuid",
             [created.id]
         );
-        const res = await store.approve(created.id, "user-1");
+        const res = await store.approve(created.id, "user-1", {
+            revision: 1,
+            key: "store-approval",
+        });
         expect(res).toMatchObject({ ok: false, reason: "invalid_state" });
     });
 
@@ -537,7 +549,8 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
 
         const res = await store.approve(
             created.id,
-            "00000000-0000-0000-0000-000000000001"
+            "00000000-0000-0000-0000-000000000001",
+            { revision: 1, key: "store-approval" }
         );
         expect(res.ok).toBe(true);
         if (!res.ok) return;
@@ -584,6 +597,8 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         // Approved with approval year 2027
         const res = await store.approve(created.id, "user-1", {
             approvalYear: 2027,
+            revision: 1,
+            key: "store-approval",
         });
         expect(res.ok).toBe(true);
         if (!res.ok) return;
@@ -594,13 +609,19 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
     it("approve: idempotent re-approve returns existing document without allocating new sequence", async () => {
         await seedSession("s-approve-idem");
         const created = await store.create(input("s-approve-idem", doc()));
-        const first = await store.approve(created.id, "user-1");
+        const first = await store.approve(created.id, "user-1", {
+            revision: 1,
+            key: "store-approval",
+        });
         expect(first.ok).toBe(true);
         if (!first.ok) return;
         const allocatedNomor = first.document.nomor;
 
         // Second approve call
-        const second = await store.approve(created.id, "user-1");
+        const second = await store.approve(created.id, "user-1", {
+            revision: 1,
+            key: "store-approval",
+        });
         expect(second.ok).toBe(true);
         if (!second.ok) return;
         expect(second.document.nomor).toBe(allocatedNomor);
@@ -618,9 +639,18 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         await seedSession("s-approve-race");
         const created = await store.create(input("s-approve-race", doc()));
         const results = await Promise.all([
-            store.approve(created.id, "user-1"),
-            store.approve(created.id, "user-1"),
-            store.approve(created.id, "user-1"),
+            store.approve(created.id, "user-1", {
+                revision: 1,
+                key: "store-approval",
+            }),
+            store.approve(created.id, "user-1", {
+                revision: 1,
+                key: "store-approval",
+            }),
+            store.approve(created.id, "user-1", {
+                revision: 1,
+                key: "store-approval",
+            }),
         ]);
         for (const res of results) {
             expect(res.ok).toBe(true);
@@ -638,29 +668,39 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         expect(seqRow.rows[0].last_number).toBe(1);
     });
 
-    it("setPdfPath: updates documents.pdf_path for an approved document, ignores drafts", async () => {
+    it("publishPdfSnapshot: updates documents.pdf_path for an approved document, ignores drafts", async () => {
         await seedSession("s-pdf-path");
         const created = await store.create(input("s-pdf-path", doc()));
         // Guarded by status='disetujui': a draft is left untouched.
-        await store.setPdfPath(created.id, "draft.pdf");
+        await store.publishPdfSnapshot(
+            created.id,
+            `snapshots/${"a".repeat(64)}.pdf`,
+            "b".repeat(64)
+        );
         expect((await store.get(created.id))?.pdfPath).toBeNull();
 
         const approved = await store.approve(
             created.id,
-            "00000000-0000-0000-0000-000000000001"
+            "00000000-0000-0000-0000-000000000001",
+            { revision: 1, key: "store-approval" }
         );
         expect(approved.ok).toBe(true);
-        await store.setPdfPath(created.id, `${created.id}.pdf`);
+        await store.publishPdfSnapshot(
+            created.id,
+            `snapshots/${"a".repeat(64)}.pdf`,
+            "b".repeat(64)
+        );
         const fetched = await store.get(created.id);
-        expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);
+        expect(fetched?.pdfPath).toBe(`snapshots/${"a".repeat(64)}.pdf`);
     });
 
-    it("setPdfPath: persists the PDF pointer for a legacy raw-'siap' row", async () => {
+    it("publishPdfSnapshot: persists the PDF pointer for a legacy raw-'siap' row", async () => {
         await seedSession("s-pdf-siap");
         const created = await store.create(input("s-pdf-siap", doc()));
         const approved = await store.approve(
             created.id,
-            "00000000-0000-0000-0000-000000000001"
+            "00000000-0000-0000-0000-000000000001",
+            { revision: 1, key: "store-approval" }
         );
         expect(approved.ok).toBe(true);
         // Simulate a legacy row whose stored status is still raw 'siap':
@@ -669,10 +709,14 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             "update documents set status = 'siap' where id = $1::uuid",
             [created.id]
         );
-        await store.setPdfPath(created.id, `${created.id}.pdf`);
+        await store.publishPdfSnapshot(
+            created.id,
+            `snapshots/${"a".repeat(64)}.pdf`,
+            "b".repeat(64)
+        );
         const fetched = await store.get(created.id);
         expect(fetched?.status).toBe("disetujui");
-        expect(fetched?.pdfPath).toBe(`${created.id}.pdf`);
+        expect(fetched?.pdfPath).toBe(`snapshots/${"a".repeat(64)}.pdf`);
     });
 
     it("createVersion: rejects unapproved draft with invalid_state", async () => {
@@ -699,7 +743,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
             ],
         }));
         // Approve parent
-        const approved = await store.approve(created.id, "user-1");
+        const approved = await store.approve(created.id, "user-1", {
+            revision: 2,
+            key: "store-approval",
+        });
         expect(approved.ok).toBe(true);
         if (!approved.ok) return;
 
@@ -749,7 +796,10 @@ describe.skipIf(!TEST_DATABASE_URL)("postgres documents store", () => {
         it("orders siblings by version descending and carries id, version, nomor, status, superseded_by", async () => {
             await seedSession("s-list-chain");
             const created = await store.create(input("s-list-chain", doc()));
-            const approved = await store.approve(created.id, "user-1");
+            const approved = await store.approve(created.id, "user-1", {
+                revision: 1,
+                key: "store-approval",
+            });
             expect(approved.ok).toBe(true);
             if (!approved.ok) return;
             const v2res = await store.createVersion(created.id);

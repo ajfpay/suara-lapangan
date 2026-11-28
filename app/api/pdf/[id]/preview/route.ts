@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
-import { getPostgresDocumentStore } from "@/lib/server/db/documentStore";
-import type { QuotationDocument } from "@/lib/server/guard/types";
+import {
+    getPostgresDocumentStore,
+    contentHashOf,
+    type StoredDocument,
+} from "@/lib/server/db/documentStore";
+import { readOfficialPdf } from "@/lib/server/pdf/storage";
 import {
     documentIdSchema,
     formatZodError,
@@ -17,6 +21,13 @@ async function handleGet(
     _request: Request,
     context: RouteContext
 ): Promise<Response> {
+    const session = await getSession(_request);
+    if (!session) {
+        return NextResponse.json(
+            { error: "unauthorized", message: "Authentication required" },
+            { status: 401 }
+        );
+    }
     const parsedId = documentIdSchema.safeParse((await context?.params)?.id);
     if (!parsedId.success) {
         return NextResponse.json(
@@ -28,12 +39,9 @@ async function handleGet(
         );
     }
     const id = parsedId.data;
-    let doc: QuotationDocument | undefined;
-    let ownerUserId: string | null = null;
+    let stored: StoredDocument | null;
     try {
-        const stored = await getPostgresDocumentStore().get(id);
-        doc = stored?.document;
-        ownerUserId = stored?.userId ?? null;
+        stored = await getPostgresDocumentStore().get(id);
     } catch (cause) {
         console.error(
             redactSecrets(
@@ -48,37 +56,75 @@ async function handleGet(
             { status: 500 }
         );
     }
-    if (!doc) {
+    if (!stored) {
         return NextResponse.json(
             { error: "not_found", message: `Document '${id}' not found` },
             { status: 404 }
         );
     }
 
-    const session = await getSession(_request);
-    if (!session) {
-        return NextResponse.json(
-            { error: "unauthorized", message: "Authentication required" },
-            { status: 401 }
-        );
-    }
-    if (!canAccessDocument(session, ownerUserId)) {
+    if (!canAccessDocument(session, stored.userId ?? null)) {
         return NextResponse.json(
             {
-                error: "forbidden",
-                message: "You do not have access to this document",
+                error: "not_found",
+                message: `Document '${id}' not found`,
             },
-            { status: 403 }
+            { status: 404 }
         );
     }
 
-    // No status gate: drafts and approved documents both get a preview.
-    // The shared builder renders the draft marker for unnumbered documents.
-    const html = renderQuotationHtml(doc);
+    if (stored.status !== "draf") {
+        try {
+            if (
+                !stored.pdfPath ||
+                stored.pdfDocumentHash !== contentHashOf(stored.document)
+            )
+                throw new Error("Official PDF unavailable");
+            const pdf = await readOfficialPdf(stored.pdfPath);
+            return new Response(new Uint8Array(pdf), {
+                headers: {
+                    "Content-Type": "application/pdf",
+                    "Content-Disposition": "inline",
+                },
+            });
+        } catch (cause) {
+            console.error(
+                redactSecrets(
+                    `[pdf-preview] snapshot verification failed: ${String(cause)}`
+                )
+            );
+            return NextResponse.json(
+                {
+                    error: "pdf_failure",
+                    message: "Official PDF is unavailable",
+                },
+                { status: 500 }
+            );
+        }
+    }
+    const html = renderQuotationHtml({ ...stored.document, nomor: null });
     return new Response(html, {
         status: 200,
         headers: { "Content-Type": "text/html; charset=utf-8" },
     });
 }
 
-export const GET = handleGet;
+export async function GET(
+    request: Request,
+    context: RouteContext
+): Promise<Response> {
+    let response: Response;
+    try {
+        response = await handleGet(request, context);
+    } catch (cause) {
+        console.error(
+            redactSecrets(`[pdf-preview] request failed: ${String(cause)}`)
+        );
+        response = NextResponse.json(
+            { error: "pdf_failure", message: "PDF preview is unavailable" },
+            { status: 500 }
+        );
+    }
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+}

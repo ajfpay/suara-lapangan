@@ -19,11 +19,9 @@ export const QUOTATION_LABELS = {
         total: "TOTAL",
         amountInWords: "In words",
         termsTitle: "Payment Terms",
-        terms: [
-            "50% down payment before work commences.",
-            "Balance payable on completion of works.",
-            "Prices valid for 30 days from the date above.",
-        ],
+        validityTitle: "Offer validity",
+        days: "days",
+
         signLeft: "Approved by (Client)",
         signRight: "Proposed by (Contractor)",
         stamp: "Stamp",
@@ -46,11 +44,9 @@ export const QUOTATION_LABELS = {
         total: "TOTAL",
         amountInWords: "Terbilang",
         termsTitle: "Syarat Pembayaran",
-        terms: [
-            "Uang muka 50% sebelum pekerjaan dimulai.",
-            "Pelunasan setelah pekerjaan selesai.",
-            "Harga berlaku 30 hari sejak tanggal di atas.",
-        ],
+        validityTitle: "Masa berlaku penawaran",
+        days: "hari",
+
         signLeft: "Disetujui (Klien)",
         signRight: "Diajukan oleh (Kontraktor)",
         stamp: "Stempel",
@@ -60,7 +56,11 @@ export const QUOTATION_LABELS = {
 
 export type QuotationLocale = keyof typeof QUOTATION_LABELS;
 
-export function formatMoney(n: number, locale: QuotationLocale, currency: string): string {
+export function formatMoney(
+    n: number,
+    locale: QuotationLocale,
+    currency: string
+): string {
     const tag = locale === "id" ? "id-ID" : "en-US";
     return new Intl.NumberFormat(tag, {
         style: "currency",
@@ -103,7 +103,9 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
                     textAlign: "center",
                 }}
             >
-                <div style={{ fontSize: 22, fontWeight: 700 }}>SUARA LAPANGAN</div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>
+                    SUARA LAPANGAN
+                </div>
                 <div style={{ fontSize: 11, color: "#4b5563" }}>
                     {locale === "id"
                         ? "Jasa Konstruksi & Renovasi"
@@ -112,19 +114,31 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
             </header>
 
             <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <div style={{ fontSize: 18, fontWeight: 700, textTransform: "uppercase" }}>
+                <div
+                    style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                    }}
+                >
                     {L.title}
                 </div>
-                <div style={{ fontSize: 12, color: "#4b5563" }}>{L.subtitle}</div>
+                <div style={{ fontSize: 12, color: "#4b5563" }}>
+                    {L.subtitle}
+                </div>
             </div>
 
             {/* Meta: server-provided doc number + date + project */}
             <table style={{ width: "100%", fontSize: 12, marginBottom: 16 }}>
                 <tbody>
                     <tr>
-                        <td style={{ width: 130, color: "#4b5563" }}>{L.docNo}</td>
+                        <td style={{ width: 130, color: "#4b5563" }}>
+                            {L.docNo}
+                        </td>
                         <td>: {doc.nomor}</td>
-                        <td style={{ width: 90, color: "#4b5563" }}>{L.date}</td>
+                        <td style={{ width: 90, color: "#4b5563" }}>
+                            {L.date}
+                        </td>
                         <td>: {formatDocDate(doc.tanggal, locale)}</td>
                     </tr>
                     <tr>
@@ -151,29 +165,44 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
             >
                 <thead>
                     <tr style={{ background: "#f3f4f6" }}>
-                        {[L.colNo, L.colDesc, L.colVol, L.colUnit, L.colPrice, L.colAmount].map(
-                            (h) => (
-                                <th
-                                    key={h}
-                                    style={{
-                                        border: "1px solid #9ca3af",
-                                        padding: "6px 8px",
-                                        textAlign: "left",
-                                    }}
-                                >
-                                    {h}
-                                </th>
-                            )
-                        )}
+                        {[
+                            L.colNo,
+                            L.colDesc,
+                            L.colVol,
+                            L.colUnit,
+                            L.colPrice,
+                            L.colAmount,
+                        ].map((h) => (
+                            <th
+                                key={h}
+                                style={{
+                                    border: "1px solid #9ca3af",
+                                    padding: "6px 8px",
+                                    textAlign: "left",
+                                }}
+                            >
+                                {h}
+                            </th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody>
                     {doc.pekerjaan.map((p, i) => (
                         <tr key={i}>
-                            <td style={{ border: "1px solid #9ca3af", padding: "6px 8px" }}>
+                            <td
+                                style={{
+                                    border: "1px solid #9ca3af",
+                                    padding: "6px 8px",
+                                }}
+                            >
                                 {i + 1}
                             </td>
-                            <td style={{ border: "1px solid #9ca3af", padding: "6px 8px" }}>
+                            <td
+                                style={{
+                                    border: "1px solid #9ca3af",
+                                    padding: "6px 8px",
+                                }}
+                            >
                                 {p.uraian}
                             </td>
                             <td
@@ -185,7 +214,12 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
                             >
                                 {p.volume}
                             </td>
-                            <td style={{ border: "1px solid #9ca3af", padding: "6px 8px" }}>
+                            <td
+                                style={{
+                                    border: "1px solid #9ca3af",
+                                    padding: "6px 8px",
+                                }}
+                            >
                                 {p.satuan}
                             </td>
                             <td
@@ -195,7 +229,11 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
                                     textAlign: "right",
                                 }}
                             >
-                                {formatMoney(p.harga_satuan, locale, doc.mata_uang)}
+                                {formatMoney(
+                                    p.harga_satuan,
+                                    locale,
+                                    doc.mata_uang
+                                )}
                             </td>
                             <td
                                 style={{
@@ -228,7 +266,11 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
                                 fontWeight: 700,
                             }}
                         >
-                            {formatMoney(doc.total_nominal, locale, doc.mata_uang)}
+                            {formatMoney(
+                                doc.total_nominal,
+                                locale,
+                                doc.mata_uang
+                            )}
                         </td>
                     </tr>
                 </tbody>
@@ -239,15 +281,20 @@ export default function QuotationTemplate({ doc }: { doc: QuotationDocument }) {
                 {L.amountInWords}: {doc.terbilang}
             </p>
 
-            {/* Payment terms */}
-            <div style={{ fontSize: 12, marginBottom: 24 }}>
-                <div style={{ fontWeight: 700, marginBottom: 4 }}>{L.termsTitle}</div>
-                <ol style={{ margin: 0, paddingLeft: 18 }}>
-                    {L.terms.map((t) => (
-                        <li key={t}>{t}</li>
-                    ))}
-                </ol>
-            </div>
+            {(doc.syarat_pembayaran || doc.masa_berlaku_hari != null) && (
+                <div style={{ fontSize: 12, marginBottom: 24 }}>
+                    {doc.syarat_pembayaran && (
+                        <p>
+                            {L.termsTitle}: {doc.syarat_pembayaran}
+                        </p>
+                    )}
+                    {doc.masa_berlaku_hari != null && (
+                        <p>
+                            {L.validityTitle}: {doc.masa_berlaku_hari} {L.days}
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Signatures + stamp */}
             <div style={{ display: "flex", gap: 24, fontSize: 12 }}>

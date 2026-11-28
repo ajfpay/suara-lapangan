@@ -93,6 +93,7 @@ describe("KonfirmasiPanel", () => {
             nomor: "SL/QTN/2026/0001",
             status: "draf",
             total_nominal: 1250000,
+            pekerjaan: [{ harga_satuan: 1250000 }],
         };
 
         fetchMock.mockResolvedValueOnce({
@@ -100,6 +101,7 @@ describe("KonfirmasiPanel", () => {
             status: 200,
             json: async () => ({
                 document: mockDoc,
+                draft_revision: 1,
                 butuh_konfirmasi: [],
                 status: "draf",
             }),
@@ -271,7 +273,10 @@ describe("KonfirmasiPanel", () => {
             ok: true,
             status: 200,
             json: async () => ({
-                document: mockLockedDoc,
+                document: {
+                    ...mockLockedDoc,
+                    pekerjaan: [{ harga_satuan: 1000 }],
+                },
                 draft_revision: 1,
                 butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                 status: "draf",
@@ -348,6 +353,7 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
+                                pekerjaan: [{ harga_satuan: 1000 }],
                                 butuh_konfirmasi: [],
                                 status: "draf",
                             },
@@ -364,6 +370,7 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
+                                pekerjaan: [{ harga_satuan: 1000 }],
                                 butuh_konfirmasi: [],
                                 status: "disetujui",
                             },
@@ -376,7 +383,10 @@ describe("KonfirmasiPanel", () => {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: mockLockedDoc,
+                        document: {
+                            ...mockLockedDoc,
+                            pekerjaan: [{ harga_satuan: 1000 }],
+                        },
                         draft_revision: 1,
                         butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                         status: "draf",
@@ -455,6 +465,12 @@ describe("KonfirmasiPanel", () => {
             );
             expect(approveCall).toBeDefined();
             expect(approveCall?.[1]?.method).toBe("POST");
+            expect(JSON.parse(String(approveCall?.[1]?.body))).toEqual({
+                draft_revision: 2,
+            });
+            expect(
+                new Headers(approveCall?.[1]?.headers).get("Idempotency-Key")
+            ).toBeTruthy();
         });
 
         // After approval: status is disetujui, buttons enabled, approve button gone, note gone
@@ -469,7 +485,7 @@ describe("KonfirmasiPanel", () => {
         expect(screen.queryByRole("note")).toBeNull();
     });
 
-    it("approve: draft with no items can be approved; on 200 flips to disetujui; on 409 shows error", async () => {
+    it("approve: reviewed draft with complete items can be approved; on 200 flips to disetujui; on 409 shows error", async () => {
         const mockDraftDoc = {
             id: "doc-uuid-approve-flow",
             nomor: "SL/QTN/2026/0077",
@@ -494,7 +510,11 @@ describe("KonfirmasiPanel", () => {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: mockDraftDoc,
+                        document: {
+                            ...mockDraftDoc,
+                            pekerjaan: [{ harga_satuan: 1000 }],
+                        },
+                        draft_revision: 1,
                         butuh_konfirmasi: [],
                         status: "draf",
                     }),
@@ -554,7 +574,11 @@ describe("KonfirmasiPanel", () => {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: mockDraftDoc,
+                        document: {
+                            ...mockDraftDoc,
+                            pekerjaan: [{ harga_satuan: 1000 }],
+                        },
+                        draft_revision: 1,
                         butuh_konfirmasi: [],
                         status: "draf",
                     }),
@@ -608,7 +632,11 @@ describe("KonfirmasiPanel", () => {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: mockDraftDoc,
+                        document: {
+                            ...mockDraftDoc,
+                            pekerjaan: [{ harga_satuan: 1000 }],
+                        },
+                        draft_revision: 1,
                         butuh_konfirmasi: [],
                         status: "draf",
                     }),
@@ -915,6 +943,7 @@ describe("KonfirmasiPanel", () => {
                             draft_revision: 2,
                             document: {
                                 ...mockLockedDoc,
+                                pekerjaan: [{ harga_satuan: 1000 }],
                                 butuh_konfirmasi:
                                     mockLockedDoc.butuh_konfirmasi,
                                 status: "draf",
@@ -928,7 +957,10 @@ describe("KonfirmasiPanel", () => {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: mockLockedDoc,
+                        document: {
+                            ...mockLockedDoc,
+                            pekerjaan: [{ harga_satuan: 1000 }],
+                        },
                         draft_revision: 1,
                         butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                         status: "draf",

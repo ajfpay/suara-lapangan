@@ -153,3 +153,16 @@ export and the email sender — was removed in the first ticket.
 `app/components/templates/**` is still present but unimported and excluded from
 typechecking and linting; it belongs to the ticket that builds the Quotation /
 Surat Penawaran template.
+
+### Immutable official PDF snapshots (Ticket 23)
+
+Approval requires JSON `{"draft_revision": <reviewed revision>}` and an `Idempotency-Key` header. A retry uses the same revision and key. Official PDFs are published only by the database version's pointer to `snapshots/<SHA-256 of PDF bytes>.pdf`. The download, approved preview and email attachment verify the stored document fingerprint and PDF bytes on every read; they never regenerate an official version. A failed render can be retried via approval without consuming another number.
+
+Before deploying migration `0014`, inventory legacy PDF files against an independently trusted backup/checksum manifest. Legacy `.hash` files contain **document JSON hashes, not PDF-byte hashes**; they cannot authenticate old PDF bytes by themselves. Prepare a protected JSON array with `id` (document UUID), `legacy_path` (existing relative `pdf_path`), `sha256` (trusted PDF-byte SHA-256) and `document_sha256` (SHA-256 of the approved PostgreSQL JSON payload serialized by Node). Run the following in the approved environment, with the correct database and PDF directory configured, first without `--apply`:
+
+```sh
+node --experimental-strip-types scripts/migrate-legacy-pdf.mjs /absolute/path/to/trusted-manifest.json
+node --experimental-strip-types scripts/migrate-legacy-pdf.mjs /absolute/path/to/trusted-manifest.json --apply
+```
+
+The tool verifies source bytes and document identity under a row lock, publishes the immutable copy, and updates the pointer atomically. Re-running verifies the already migrated snapshot. Original files remain untouched. Unverified, missing or mismatched legacy PDFs fail closed; do not regenerate or invent a checksum. Maintain an independent backup before migration. Orphan file cleanup is a separate retention task; never delete a shared digest while any published row references it.

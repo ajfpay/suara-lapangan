@@ -18,6 +18,13 @@ import {
     resetPdfDbPoolForTesting,
 } from "@/lib/server/pdf/storage";
 import { PATCH } from "@/app/api/documents/[id]/route";
+import { POST as approve } from "@/app/api/documents/[id]/approve/route";
+import { contentHashOf } from "@/lib/server/db/documentStore";
+import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
+import {
+    renderPdf as renderBytes,
+    writeOfficialPdf,
+} from "@/lib/server/pdf/storage";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import {
@@ -31,7 +38,6 @@ import {
     pdfPathFor,
     writePdfAtomic,
     readPdf,
-    readPdfSnapshot,
     writePdfHash,
     readPdfHash,
     isSafeStoredPdfPath,
@@ -334,6 +340,18 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             ]
         );
         seededId = result.rows[0].id;
+        if (status !== "draf" && document.butuh_konfirmasi.length === 0) {
+            const row = await pool.query<{ data_json: QuotationDocument }>(
+                "select data_json from documents where id=$1",
+                [seededId]
+            );
+            const bytes = await renderBytes(renderQuotationHtml(document));
+            const relative = await writeOfficialPdf(bytes);
+            await pool.query(
+                "update documents set pdf_path=$2,pdf_document_hash=$3 where id=$1",
+                [seededId, relative, contentHashOf(row.rows[0].data_json)]
+            );
+        }
         return seededId;
     }
 
@@ -371,7 +389,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         expect(retryAfter).toBeGreaterThan(0);
         const body = await lastRes!.json();
         expect(body.error).toBe("rate_limited");
-    });
+        expect(lastRes!.headers.get("cache-control")).toBe("private, no-store");
+    }, 30000);
 
     it("answers 400 for a non-UUID id", async () => {
         const res = await GET(
@@ -433,91 +452,31 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         expect(body.error).toBe("needs_confirmation");
     });
 
-    it("returns application/pdf with %PDF header, second call served from cache", async () => {
+    it("returns the published PDF byte-for-byte with no-store on every read", async () => {
         const id = await seed(doc());
         const ctx = { params: Promise.resolve({ id }) };
-        const r1 = await GET(
-            new Request(`http://localhost/api/pdf/${id}`),
-            ctx
-        );
-        expect(r1.status).toBe(200);
-        expect(r1.headers.get("content-type")).toBe("application/pdf");
-        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
-        const buf = Buffer.from(await r1.arrayBuffer());
-        expect(buf.subarray(0, 4).toString()).toBe("%PDF");
-        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(r2.headers.get("x-pdf-cache")).toBe("HIT");
-    }, 60000);
-
-    it("after 200 GET, file exists under PDF_STORAGE_DIR starting with %PDF and pdf_path is set in documents table", async () => {
-        const id = await seed(doc());
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(res.status).toBe(200);
-
-        const expectedRelativePath = `${id}.pdf`;
-        const expectedDiskPath = path.join(
-            process.env.PDF_STORAGE_DIR!,
-            expectedRelativePath
-        );
-
-        const fileExists = await fs
-            .stat(expectedDiskPath)
-            .then(() => true)
-            .catch(() => false);
-        expect(fileExists).toBe(true);
-
-        const diskBytes = await fs.readFile(expectedDiskPath);
-        expect(diskBytes.subarray(0, 4).toString()).toBe("%PDF");
-
-        const dbRes = await pool.query<{ pdf_path: string | null }>(
-            "select pdf_path from documents where id = $1",
+        const row = await pool.query<{ pdf_path: string }>(
+            "select pdf_path from documents where id=$1",
             [id]
         );
-        expect(dbRes.rows[0].pdf_path).toBe(expectedRelativePath);
-    }, 60000);
-
-    it("cache key includes version and content hash: data change re-renders with MISS and different bytes", async () => {
-        const id = await seed(doc());
-        const ctx = { params: Promise.resolve({ id }) };
-        const r1 = await GET(
-            new Request(`http://localhost/api/pdf/${id}`),
-            ctx
+        expect(row.rows[0].pdf_path).toMatch(/^snapshots\/[a-f0-9]{64}\.pdf$/);
+        const bytes = await fs.readFile(
+            path.join(process.env.PDF_STORAGE_DIR!, row.rows[0].pdf_path)
         );
-        expect(r1.status).toBe(200);
-        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes1 = Buffer.from(await r1.arrayBuffer());
-
-        const updated = doc({
-            pekerjaan: [
-                {
-                    uraian: "Hebel plus bata",
-                    volume: 20,
-                    satuan: "m2",
-                    harga_satuan: 60000,
-                    jumlah: 1200000,
-                    sumber_kutipan: "turn_2",
-                },
-            ],
-            total_nominal: 1200000,
-            terbilang: "Satu juta dua ratus ribu rupiah",
-        });
-        await pool.query(
-            "update documents set data_json = $1::jsonb, version = version + 1 where id = $2",
-            [JSON.stringify(updated), id]
-        );
-        resetPdfCacheForTesting();
-
-        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(r2.status).toBe(200);
-        expect(r2.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes2 = Buffer.from(await r2.arrayBuffer());
-        expect(bytes2.equals(bytes1)).toBe(false);
+        for (let i = 0; i < 2; i++) {
+            const response = await GET(
+                new Request(`http://localhost/api/pdf/${id}`),
+                ctx
+            );
+            expect(response.status).toBe(200);
+            expect(response.headers.get("content-type")).toBe(
+                "application/pdf"
+            );
+            expect(response.headers.get("cache-control")).toBe(
+                "private, no-store"
+            );
+            expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
+        }
     }, 60000);
 
     it("generated PDF text contains total, terbilang, project metadata, and line items", async () => {
@@ -553,265 +512,123 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         expect(text).toContain("Hebel");
     }, 60000);
 
-    it("second GET with memory cache cleared returns 200 with %PDF header and IDENTICAL bytes from disk", async () => {
+    it("detects changed document content without overwriting the published PDF", async () => {
         const id = await seed(doc());
-        const ctx = { params: Promise.resolve({ id }) };
-        const r1 = await GET(
-            new Request(`http://localhost/api/pdf/${id}`),
-            ctx
-        );
-        expect(r1.status).toBe(200);
-        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes1 = Buffer.from(await r1.arrayBuffer());
-        expect(bytes1.subarray(0, 4).toString()).toBe("%PDF");
-
-        resetPdfCacheForTesting();
-
-        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(r2.status).toBe(200);
-        expect(r2.headers.get("x-pdf-cache")).toBe("HIT");
-        const bytes2 = Buffer.from(await r2.arrayBuffer());
-        expect(bytes2.subarray(0, 4).toString()).toBe("%PDF");
-        expect(bytes2.equals(bytes1)).toBe(true);
-    }, 60000);
-
-    it("PATCH-equivalent: direct data_json update + cleared memory cache re-renders and overwrites same path on disk with DIFFERENT bytes", async () => {
-        const id = await seed(doc());
-        const ctx = { params: Promise.resolve({ id }) };
-        const r1 = await GET(
-            new Request(`http://localhost/api/pdf/${id}`),
-            ctx
-        );
-        expect(r1.status).toBe(200);
-        const bytes1 = Buffer.from(await r1.arrayBuffer());
-
-        const expectedRelativePath = `${id}.pdf`;
-        const expectedDiskPath = path.join(
-            process.env.PDF_STORAGE_DIR!,
-            expectedRelativePath
-        );
-        const diskBytes1 = await fs.readFile(expectedDiskPath);
-        expect(diskBytes1.equals(bytes1)).toBe(true);
-
-        // Update data_json in the test DB directly (as PATCH does)
-        const updated = doc({
-            proyek: {
-                nama: "Villa Sunset",
-                lokasi: "Canggu",
-                klien: "Ibu Ketut",
-            },
-            pekerjaan: [
-                {
-                    uraian: "Pemasangan Keramik",
-                    volume: 50,
-                    satuan: "m2",
-                    harga_satuan: 120000,
-                    jumlah: 6000000,
-                    sumber_kutipan: "turn_2",
-                },
-            ],
-            total_nominal: 6000000,
-            terbilang: "Enam juta rupiah",
-        });
-        await pool.query("update documents set data_json = $1 where id = $2", [
-            JSON.stringify(updated),
-            id,
-        ]);
-
-        resetPdfCacheForTesting();
-
-        const r2 = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(r2.status).toBe(200);
-        expect(r2.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes2 = Buffer.from(await r2.arrayBuffer());
-        expect(bytes2.subarray(0, 4).toString()).toBe("%PDF");
-        expect(bytes2.equals(bytes1)).toBe(false);
-
-        // Overwrites the same file path on disk
-        const diskBytes2 = await fs.readFile(expectedDiskPath);
-        expect(diskBytes2.equals(bytes2)).toBe(true);
-        expect(diskBytes2.equals(diskBytes1)).toBe(false);
-    }, 60000);
-
-    it("unwritable-directory case: 500 pdf_failure, does not leak path in body, logs error", async () => {
-        const id = await seed(doc());
-        // Use a regular file as an ancestor of PDF_STORAGE_DIR to force a write failure
-        // regardless of process privileges (e.g., running as root).
-        const blockingFile = await fs.mkdtemp(
-            path.join(os.tmpdir(), "suara-pdf-block-")
-        );
-        tempStorageDirs.push(blockingFile);
-        const blockerPath = path.join(blockingFile, "blocker");
-        await fs.writeFile(blockerPath, "block");
-        const unwritableDir = path.join(blockerPath, "data", "pdf");
-        process.env.PDF_STORAGE_DIR = unwritableDir;
-
-        const errorLogs: string[] = [];
-        const originalError = console.error;
-        console.error = (...args: unknown[]) => {
-            errorLogs.push(args.map(String).join(" "));
-        };
-
-        try {
-            const res = await GET(
-                new Request(`http://localhost/api/pdf/${id}`),
-                { params: Promise.resolve({ id }) }
-            );
-            expect(res.status).toBe(500);
-            const body = await res.json();
-            expect(body.error).toBe("pdf_failure");
-            expect(body.message).toBe("Failed to render PDF");
-            expect(JSON.stringify(body)).not.toContain(unwritableDir);
-            expect(JSON.stringify(body)).not.toContain(blockingFile);
-            expect(errorLogs.length).toBeGreaterThan(0);
-            expect(
-                errorLogs.some((l) =>
-                    l.includes("[pdf] render or write failed")
-                )
-            ).toBe(true);
-        } finally {
-            console.error = originalError;
-        }
-    }, 60000);
-
-    it("old-style pdf_path resolves to a missing file and gets re-rendered", async () => {
-        const id = await seed(doc());
-        // Simulate a dev row written under the old nomor-based scheme.
-        await pool.query("update documents set pdf_path = $1 where id = $2", [
-            "2026/0001.pdf",
-            id,
-        ]);
-        resetPdfCacheForTesting();
-
-        const res = await GET(new Request(`http://localhost/api/pdf/${id}`), {
-            params: Promise.resolve({ id }),
-        });
-        expect(res.status).toBe(200);
-        expect(res.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes = Buffer.from(await res.arrayBuffer());
-        expect(bytes.subarray(0, 4).toString()).toBe("%PDF");
-
-        // Re-render landed at the id-keyed path, not the old one.
-        const newDiskPath = path.join(
-            process.env.PDF_STORAGE_DIR!,
-            `${id}.pdf`
-        );
-        const newFile = await fs
-            .stat(newDiskPath)
-            .then(() => true)
-            .catch(() => false);
-        expect(newFile).toBe(true);
-        const newBytes = await fs.readFile(newDiskPath);
-        expect(newBytes.equals(bytes)).toBe(true);
-
-        // The database now records the id-keyed path.
-        const dbRes = await pool.query<{ pdf_path: string | null }>(
-            "select pdf_path from documents where id = $1",
+        const row = await pool.query<{ pdf_path: string }>(
+            "select pdf_path from documents where id=$1",
             [id]
         );
-        expect(dbRes.rows[0].pdf_path).toBe(`${id}.pdf`);
-    }, 60000);
-
-    it("PATCH then GET re-renders and overwrites the same id-keyed path", async () => {
-        const id = await seed(doc(), "draf");
-        const ctx = { params: Promise.resolve({ id }) };
-
-        // PATCH through the real endpoint changes data_json.
-        const patchRes = await PATCH(
-            new Request(`http://localhost/api/documents/${id}`, {
-                method: "PATCH",
-                headers: {
-                    "content-type": "application/json",
-                    "Idempotency-Key": "ticket22-regression",
-                },
-                body: JSON.stringify({
-                    draft_revision: 1,
-                    field: "pekerjaan[0].volume",
-                    nilai: 20,
-                }),
-            }),
+        const file = path.join(
+            process.env.PDF_STORAGE_DIR!,
+            row.rows[0].pdf_path
+        );
+        const original = await fs.readFile(file);
+        await pool.query(
+            "update documents set data_json=jsonb_set(data_json,'{total_nominal}','700000') where id=$1",
+            [id]
+        );
+        const response = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
             { params: Promise.resolve({ id }) }
         );
-        expect(patchRes.status).toBe(200);
+        expect(response.status).toBe(500);
+        expect(await fs.readFile(file)).toEqual(original);
+    }, 60000);
 
-        // Simulate approval so the PDF gate passes.
-        await pool.query(
-            "update documents set status = 'disetujui' where id = $1",
+    it("rejects corrupted bytes on every read, including after successful download", async () => {
+        const id = await seed(doc());
+        const row = await pool.query<{ pdf_path: string }>(
+            "select pdf_path from documents where id=$1",
             [id]
         );
-
-        const r1 = await GET(
-            new Request(`http://localhost/api/pdf/${id}`),
-            ctx
-        );
-        expect(r1.status).toBe(200);
-        expect(r1.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes1 = Buffer.from(await r1.arrayBuffer());
-
-        const expectedDiskPath = path.join(
+        const file = path.join(
             process.env.PDF_STORAGE_DIR!,
-            `${id}.pdf`
+            row.rows[0].pdf_path
         );
-        const diskBytes1 = await fs.readFile(expectedDiskPath);
-        expect(diskBytes1.equals(bytes1)).toBe(true);
-
-        // A data change bumps the version, so the next GET re-renders.
-        await pool.query(
-            "update documents set data_json = jsonb_set(data_json, '{pekerjaan,0,volume}', '25'), version = version + 1 where id = $1",
-            [id]
-        );
-
-        resetPdfCacheForTesting();
-
-        const r2 = await GET(
+        const ctx = { params: Promise.resolve({ id }) };
+        expect(
+            (await GET(new Request(`http://localhost/api/pdf/${id}`), ctx))
+                .status
+        ).toBe(200);
+        await fs.writeFile(file, "corrupt");
+        const response = await GET(
             new Request(`http://localhost/api/pdf/${id}`),
             ctx
         );
-        expect(r2.status).toBe(200);
-        expect(r2.headers.get("x-pdf-cache")).toBe("MISS");
-        const bytes2 = Buffer.from(await r2.arrayBuffer());
-        expect(bytes2.subarray(0, 4).toString()).toBe("%PDF");
-        expect(bytes2.equals(bytes1)).toBe(false);
-
-        // Same id-keyed path overwritten with new content.
-        const diskBytes2 = await fs.readFile(expectedDiskPath);
-        expect(diskBytes2.equals(bytes2)).toBe(true);
-        expect(diskBytes2.equals(diskBytes1)).toBe(false);
+        expect(response.status).toBe(500);
+        expect(response.headers.get("cache-control")).toBe("private, no-store");
+        expect(await fs.readFile(file, "utf8")).toBe("corrupt");
     }, 60000);
 
-    it("concurrent writers with different hashes never serve a mixed pair", async () => {
-        // Directly exercise writePdfAtomic + readPdfSnapshot under concurrency,
-        // simulating the race finding 2 described: two writers carrying different
-        // hashes land on the same path. The reader must observe either writer's
-        // complete pair, never new bytes with a stale hash.
-        const storageDir = await fs.mkdtemp(
-            path.join(os.tmpdir(), "suara-pdf-race-")
+    it("does not render or publish an old-style missing snapshot on GET", async () => {
+        const id = await seed(doc());
+        await pool.query(
+            "update documents set pdf_path=$2,pdf_document_hash=null where id=$1",
+            [id, "2026/0001.pdf"]
         );
-        tempStorageDirs.push(storageDir);
-        const filePath = path.join(storageDir, "shared.pdf");
-        const hashA = "hash-a";
-        const hashB = "hash-b";
-        const pdfA = Buffer.from("%PDF-1.4 A CONTENT");
-        const pdfB = Buffer.from("%PDF-1.4 B CONTENT");
-
-        await Promise.all([
-            writePdfAtomic(filePath, pdfA, hashA),
-            writePdfAtomic(filePath, pdfB, hashB),
-        ]);
-
-        const snapshot = await readPdfSnapshot(filePath);
-        expect(snapshot).not.toBeNull();
-        if (snapshot) {
-            // Either writer's complete pair is valid; a mixed pair is not.
-            const isA = snapshot.hash === hashA && snapshot.pdf.equals(pdfA);
-            const isB = snapshot.hash === hashB && snapshot.pdf.equals(pdfB);
-            expect(isA || isB).toBe(true);
-        }
+        const response = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            { params: Promise.resolve({ id }) }
+        );
+        expect(response.status).toBe(500);
+        const row = await pool.query<{ pdf_path: string }>(
+            "select pdf_path from documents where id=$1",
+            [id]
+        );
+        expect(row.rows[0].pdf_path).toBe("2026/0001.pdf");
     }, 60000);
+
+    it("PATCH then approval publishes reviewed revision and locks subsequent PATCH", async () => {
+        const id = await seed(doc({ nomor: null }), "draf");
+        const context = { params: Promise.resolve({ id }) };
+        const patch = (revision: number) =>
+            PATCH(
+                new Request(`http://localhost/api/documents/${id}`, {
+                    method: "PATCH",
+                    headers: {
+                        "content-type": "application/json",
+                        "Idempotency-Key": `patch-${revision}`,
+                    },
+                    body: JSON.stringify({
+                        draft_revision: revision,
+                        field: "pekerjaan[0].volume",
+                        nilai: 20,
+                    }),
+                }),
+                context
+            );
+        const patched = await patch(1);
+        expect(patched.status).toBe(200);
+        const reviewed = await patched.json();
+        const approval = await approve(
+            new Request(`http://localhost/api/documents/${id}/approve`, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "Idempotency-Key": "reviewed",
+                },
+                body: JSON.stringify({
+                    draft_revision: reviewed.draft_revision,
+                }),
+            }),
+            context
+        );
+        expect(approval.status).toBe(200);
+        const before = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            context
+        );
+        expect(before.status).toBe(200);
+        expect((await patch(reviewed.draft_revision)).status).toBe(409);
+        const after = await GET(
+            new Request(`http://localhost/api/pdf/${id}`),
+            context
+        );
+        expect(Buffer.from(await after.arrayBuffer())).toEqual(
+            Buffer.from(await before.arrayBuffer())
+        );
+    }, 60000);
+
     describe("access control", () => {
         let pool: Pool;
         const tempStorageDirs: string[] = [];
@@ -899,11 +716,17 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         }
 
         async function renderPdf(id: string): Promise<Response> {
-            const idDiskPath = path.join(
-                process.env.PDF_STORAGE_DIR!,
-                `${id}.pdf`
+            const row = await pool.query<{ data_json: QuotationDocument }>(
+                "select data_json from documents where id=$1",
+                [id]
             );
-            await fs.writeFile(idDiskPath, Buffer.from("%PDF-1.4 test"));
+            const relative = await writeOfficialPdf(
+                Buffer.from("%PDF-1.4 test")
+            );
+            await pool.query(
+                "update documents set pdf_path=$2,pdf_document_hash=$3 where id=$1",
+                [id, relative, contentHashOf(row.rows[0].data_json)]
+            );
             return GET(new Request(`http://localhost/api/pdf/${id}`), {
                 params: Promise.resolve({ id }),
             });
@@ -933,7 +756,7 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             expect((await res.json()).error).toBe("unauthorized");
         });
 
-        it("rejects a non-owner with 403", async () => {
+        it("rejects a non-owner with 404", async () => {
             withSession("user", "00000000-0000-0000-0000-000000000001");
             const id = await seedDocument(
                 "00000000-0000-0000-0000-000000000002"
@@ -942,8 +765,8 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
                 new Request(`http://localhost/api/pdf/${id}`),
                 { params: Promise.resolve({ id }) }
             );
-            expect(res.status).toBe(403);
-            expect((await res.json()).error).toBe("forbidden");
+            expect(res.status).toBe(404);
+            expect((await res.json()).error).toBe("not_found");
         });
 
         it("serves the owner with 200", async () => {
@@ -962,12 +785,12 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
             expect(res.status).toBe(200);
         });
 
-        it("rejects a non-admin for a legacy ownerless document with 403", async () => {
+        it("rejects a non-admin for a legacy ownerless document with 404", async () => {
             withSession("user", "00000000-0000-0000-0000-000000000001");
             const id = await seedDocument(null);
             const res = await renderPdf(id);
-            expect(res.status).toBe(403);
-            expect((await res.json()).error).toBe("forbidden");
+            expect(res.status).toBe(404);
+            expect((await res.json()).error).toBe("not_found");
         });
 
         it("serves an admin for an owned document with 200", async () => {

@@ -563,7 +563,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocumentResult"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/DocumentResult"
+                    },
+                    {
+                      "type": "object",
+                      "required": ["draft_revision"]
+                    }
+                  ]
                 }
               }
             }
@@ -648,8 +656,37 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Retry the same reviewed revision with the same key; a changed revision conflicts."
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["draft_revision"],
+                "properties": {
+                  "draft_revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2147483647
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/documents/{id}/new-version": {
@@ -939,6 +976,15 @@
                   "format": "binary"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "400": {
@@ -947,6 +993,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -959,14 +1014,13 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
-            }
-          },
-          "403": {
-            "description": "Request rejected or operation failed",
-            "content": {
-              "application/json": {
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
                 "schema": {
-                  "$ref": "#/components/schemas/FlatError"
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -979,6 +1033,15 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "409": {
@@ -987,6 +1050,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -999,6 +1071,15 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "500": {
@@ -1007,6 +1088,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1038,6 +1128,15 @@
                   "format": "binary"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "400": {
@@ -1046,6 +1145,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1058,14 +1166,13 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
-            }
-          },
-          "403": {
-            "description": "Request rejected or operation failed",
-            "content": {
-              "application/json": {
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
                 "schema": {
-                  "$ref": "#/components/schemas/FlatError"
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1078,6 +1185,15 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "409": {
@@ -1086,6 +1202,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1098,6 +1223,15 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "500": {
@@ -1106,6 +1240,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1135,6 +1278,21 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
               }
             }
           },
@@ -1144,6 +1302,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1156,14 +1323,13 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
-            }
-          },
-          "403": {
-            "description": "Request rejected or operation failed",
-            "content": {
-              "application/json": {
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
                 "schema": {
-                  "$ref": "#/components/schemas/FlatError"
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -1176,6 +1342,15 @@
                   "$ref": "#/components/schemas/FlatError"
                 }
               }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
+                }
+              }
             }
           },
           "500": {
@@ -1184,6 +1359,15 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FlatError"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "description": "Private response; never store",
+                "schema": {
+                  "type": "string",
+                  "enum": ["private, no-store"]
                 }
               }
             }
@@ -2013,6 +2197,9 @@
               }
             }
           },
+          "302": {
+            "description": "Redirect to callback URL"
+          },
           "400": {
             "description": "Request rejected or operation failed",
             "content": {
@@ -2042,9 +2229,6 @@
                 }
               }
             }
-          },
-          "302": {
-            "description": "Redirect to callback URL"
           }
         },
         "parameters": [

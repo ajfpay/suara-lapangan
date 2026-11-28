@@ -1,7 +1,7 @@
-import { mkdir, open, rename, unlink, readFile } from "node:fs/promises";
+import { mkdir, open, rename, unlink, readFile, link } from "node:fs/promises";
 import puppeteer from "puppeteer-core";
 import { Pool } from "pg";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { existsSync } from "node:fs";
 
@@ -307,5 +307,56 @@ export async function renderPdf(html: string): Promise<Buffer> {
         return Buffer.from(pdf);
     } finally {
         await browser.close();
+    }
+}
+
+const OFFICIAL_PATH = /^snapshots\/([a-f0-9]{64})\.pdf$/;
+
+export async function readOfficialPdf(
+    relativePath: string,
+    root = resolvePdfStorageDir()
+): Promise<Buffer> {
+    const match = OFFICIAL_PATH.exec(relativePath);
+    if (!match) throw new Error("Invalid official PDF snapshot path");
+    const pdf = await readFile(path.join(root, relativePath));
+    if (createHash("sha256").update(pdf).digest("hex") !== match[1]) {
+        throw new Error("Official PDF snapshot digest mismatch");
+    }
+    return pdf;
+}
+
+export async function writeOfficialPdf(
+    pdf: Buffer,
+    root = resolvePdfStorageDir()
+): Promise<string> {
+    const digest = createHash("sha256").update(pdf).digest("hex");
+    const relative = `snapshots/${digest}.pdf`;
+    const destination = path.join(root, relative);
+    const dir = path.dirname(destination);
+    await mkdir(dir, { recursive: true });
+    const temporary = path.join(dir, `.pdf-${randomUUID()}.tmp`);
+    try {
+        const handle = await open(temporary, "wx", 0o600);
+        try {
+            await handle.writeFile(pdf);
+            await handle.sync();
+        } finally {
+            await handle.close();
+        }
+        try {
+            await link(temporary, destination);
+        } catch (cause) {
+            if ((cause as NodeJS.ErrnoException).code !== "EEXIST") throw cause;
+        }
+        await readOfficialPdf(relative, root);
+        const directory = await open(dir, "r");
+        try {
+            await directory.sync();
+        } finally {
+            await directory.close();
+        }
+        return relative;
+    } finally {
+        await unlink(temporary).catch(() => {});
     }
 }

@@ -10,6 +10,8 @@ import {
 } from "vitest";
 import fs from "node:fs/promises";
 import { GET } from "./route";
+import { writeOfficialPdf } from "@/lib/server/pdf/storage";
+import { contentHashOf } from "@/lib/server/db/documentStore";
 import { renderQuotationHtml } from "@/lib/server/pdf/renderQuotation";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 import idMessages from "@/i18n/locales/id.json";
@@ -116,6 +118,8 @@ describe
                 "0007_auth_tables.sql",
                 "0008_documents_user_id.sql",
                 "0009_review_before_pdf.sql",
+                "0013_draft_revisions.sql",
+                "0014_pdf_snapshots.sql",
             ]) {
                 const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
                 await pool.query(sql);
@@ -180,22 +184,28 @@ describe
             expect(body).toBe(renderQuotationHtml(doc({ nomor: null })));
         });
 
-        it("200 text/html for an approved document with its sequence number", async () => {
+        it("approved preview serves the exact published PDF rather than rendering HTML again", async () => {
             const id = await seed(
                 doc({ nomor: "SL/QTN/2026/0042" }),
                 "disetujui"
             );
+            const row = await pool.query<{ data_json: QuotationDocument }>(
+                "select data_json from documents where id=$1",
+                [id]
+            );
+            const bytes = Buffer.from("%PDF-1.4 original published bytes");
+            const relative = await writeOfficialPdf(bytes);
+            await pool.query(
+                "update documents set pdf_path=$2,pdf_document_hash=$3 where id=$1",
+                [id, relative, contentHashOf(row.rows[0].data_json)]
+            );
             const res = await GET(
                 new Request(`http://localhost/api/pdf/${id}/preview`),
-                {
-                    params: Promise.resolve({ id }),
-                }
+                { params: Promise.resolve({ id }) }
             );
             expect(res.status).toBe(200);
-            expect(res.headers.get("content-type")).toBe(
-                "text/html; charset=utf-8"
-            );
-            expect(await res.text()).toContain("SL/QTN/2026/0042");
+            expect(res.headers.get("content-type")).toBe("application/pdf");
+            expect(Buffer.from(await res.arrayBuffer())).toEqual(bytes);
         });
 
         it("401 for unauthenticated callers", async () => {
@@ -210,7 +220,7 @@ describe
             expect(res.status).toBe(401);
         });
 
-        it("403 for a non-owner non-admin", async () => {
+        it("404 for a non-owner non-admin", async () => {
             mockGetSession.mockResolvedValueOnce({
                 user: {
                     id: "00000000-0000-0000-0000-000000000002",
@@ -227,7 +237,7 @@ describe
                     params: Promise.resolve({ id }),
                 }
             );
-            expect(res.status).toBe(403);
+            expect(res.status).toBe(404);
         });
 
         it("404 for unknown id", async () => {

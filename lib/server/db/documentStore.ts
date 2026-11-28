@@ -68,12 +68,14 @@ export type StoredDocument = {
     createdAt: Date;
     document: QuotationDocument;
     pdfPath?: string | null;
+    pdfDocumentHash?: string | null;
     sentTo?: string | null;
     sentAt?: Date | null;
     userId?: string | null;
     fieldChanges: FieldChange[];
     approvedAt?: Date | null;
     approvedBy?: string | null;
+    approvalRequestKey?: string | null;
     version: number;
     rootId: string;
     parentId?: string | null;
@@ -85,7 +87,13 @@ export type ApproveResult =
     | { ok: true; document: StoredDocument }
     | {
           ok: false;
-          reason: "not_found" | "needs_confirmation" | "invalid_state";
+          reason:
+              | "not_found"
+              | "needs_confirmation"
+              | "invalid_state"
+              | "stale_revision"
+              | "idempotency_conflict";
+          draftRevision?: number;
           status?: DocumentStatus;
       };
 
@@ -107,9 +115,8 @@ export type MarkSentResult =
     | { ok: false; reason: "not_found" | "changed" };
 
 /**
- * Fingerprints the stored document payload. The PDF route writes this hash
- * beside a rendered PDF, and markSent uses it to prove the version that was
- * emailed is still the version on disk.
+ * Fingerprints the stored document payload. PDF publication stores it with the
+ * byte-addressed path; markSent binds delivery to the same document content.
  */
 export function contentHashOf(document: QuotationDocument): string {
     return createHash("sha256").update(JSON.stringify(document)).digest("hex");
@@ -199,9 +206,13 @@ export interface DocumentStore {
     approve(
         id: string,
         userId: string,
-        options?: { approvalYear?: number }
+        options: { approvalYear?: number; revision: number; key: string }
     ): Promise<ApproveResult>;
-    setPdfPath(id: string, pdfPath: string): Promise<void>;
+    publishPdfSnapshot(
+        id: string,
+        pdfPath: string,
+        documentHash: string
+    ): Promise<string | null>;
     createVersion(
         id: string,
         options?: { userId?: string }
@@ -238,7 +249,7 @@ export function turnsHashOf(
 }
 
 const DOCUMENT_COLUMNS =
-    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash, draft_revision";
+    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash, draft_revision, approval_request_key, pdf_document_hash";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -264,6 +275,8 @@ export function createPostgresDocumentStore(
         sent_at?: Date | null;
         created_at: Date | string;
         draft_revision?: number;
+        approval_request_key?: string | null;
+        pdf_document_hash?: string | null;
         user_id?: string | null;
         field_changes?: unknown;
         approved_at?: Date | string | null;
@@ -295,6 +308,7 @@ export function createPostgresDocumentStore(
                     ? withDraftItemIds(row.data_json, row.id)
                     : row.data_json,
             pdfPath: row.pdf_path ?? null,
+            pdfDocumentHash: row.pdf_document_hash ?? null,
             sentTo: row.sent_to ?? null,
             sentAt: row.sent_at
                 ? row.sent_at instanceof Date
@@ -311,6 +325,7 @@ export function createPostgresDocumentStore(
                     : new Date(row.approved_at)
                 : null,
             approvedBy: row.approved_by ?? null,
+            approvalRequestKey: row.approval_request_key ?? null,
             version: row.version ?? 1,
             rootId: row.root_id ?? row.id,
             parentId: row.parent_id ?? null,
@@ -615,8 +630,24 @@ export function createPostgresDocumentStore(
                 }
                 const stored = toStored(locked.rows[0]);
 
-                // Idempotent: already approved
-                if (stored.status === "disetujui") {
+                if (stored.draftRevision !== options.revision) {
+                    await client.query("rollback");
+                    return {
+                        ok: false,
+                        reason:
+                            stored.approvalRequestKey === options.key &&
+                            stored.approvedBy === userId
+                                ? "idempotency_conflict"
+                                : "stale_revision",
+                        draftRevision: stored.draftRevision,
+                    };
+                }
+                if (
+                    stored.status === "disetujui" ||
+                    (stored.status === "terkirim" &&
+                        stored.approvalRequestKey === options.key &&
+                        stored.approvedBy === userId)
+                ) {
                     await client.query("commit");
                     return { ok: true, document: stored };
                 }
@@ -635,6 +666,12 @@ export function createPostgresDocumentStore(
                 // raw status 'perlu_konfirmasi' with an empty
                 // butuh_konfirmasi array, so the raw status gates too.
                 if (
+                    stored.document.pekerjaan.length === 0 ||
+                    stored.document.pekerjaan.some(
+                        (item) =>
+                            item.harga_satuan_minor === null ||
+                            item.harga_satuan == null
+                    ) ||
                     stored.rawStatus === "perlu_konfirmasi" ||
                     (stored.document.butuh_konfirmasi &&
                         stored.document.butuh_konfirmasi.length > 0)
@@ -644,7 +681,7 @@ export function createPostgresDocumentStore(
                 }
 
                 const approvalYear =
-                    options?.approvalYear ?? new Date().getUTCFullYear();
+                    options.approvalYear ?? new Date().getUTCFullYear();
                 const nomor = await allocateDocumentNumber(
                     client,
                     approvalYear
@@ -662,10 +699,11 @@ export function createPostgresDocumentStore(
                          status = 'disetujui',
                          approved_at = now(),
                          approved_by = $4,
+                         approval_request_key = $5,
                          updated_at = now()
                      where id = $1::uuid
                      returning ${DOCUMENT_COLUMNS}`,
-                    [id, nomor, JSON.stringify(updatedDoc), userId]
+                    [id, nomor, JSON.stringify(updatedDoc), userId, options.key]
                 );
                 await client.query("commit");
                 return { ok: true, document: toStored(result.rows[0]) };
@@ -680,14 +718,25 @@ export function createPostgresDocumentStore(
             }
         },
 
-        async setPdfPath(id, pdfPath) {
-            if (!UUID_RE.test(id)) return;
-            // Accept raw legacy 'siap' too: it reads back as 'disetujui' and
-            // the approve retry path must persist the regenerated PDF for it.
-            await pool.query(
-                `update documents set pdf_path = $2, updated_at = now() where id = $1::uuid and status in ('disetujui', 'siap')`,
-                [id, pdfPath]
+        async publishPdfSnapshot(id, pdfPath, documentHash) {
+            if (
+                !UUID_RE.test(id) ||
+                !/^snapshots\/[a-f0-9]{64}\.pdf$/.test(pdfPath) ||
+                !/^[a-f0-9]{64}$/.test(documentHash)
+            )
+                return null;
+            const result = await pool.query<{ pdf_path: string }>(
+                `update documents set pdf_document_hash = $3, pdf_path = $2, updated_at = now()
+                 where id = $1::uuid and status in ('disetujui', 'siap') and approval_request_key is not null and pdf_path is null
+                 returning pdf_path`,
+                [id, pdfPath, documentHash]
             );
+            if (result.rows[0]) return result.rows[0].pdf_path;
+            const winner = await pool.query<{ pdf_path: string | null }>(
+                "select pdf_path from documents where id=$1::uuid and status in ('disetujui','siap','terkirim') and pdf_document_hash=$2",
+                [id, documentHash]
+            );
+            return winner.rows[0]?.pdf_path ?? null;
         },
 
         async createVersion(id, options) {
@@ -882,7 +931,7 @@ export function createPostgresDocumentStore(
         async listAll(): Promise<AdminDocument[]> {
             const result = await pool.query(
                 `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id, d.field_changes,
-                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash, d.draft_revision,
+                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash, d.draft_revision, d.approval_request_key, d.pdf_document_hash,
                         u.email as user_email, u.name as user_name
                  from documents d
                  left join auth_user u on d.user_id = u.id

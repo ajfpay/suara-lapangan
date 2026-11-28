@@ -18,7 +18,7 @@ import { GET } from "@/app/api/documents/[id]/route";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import { contentHashOf } from "@/lib/server/db/documentStore";
 import type { QuotationDocument } from "@/lib/server/guard/types";
-import { writePdfAtomic } from "@/lib/server/pdf/storage";
+import { writePdfAtomic, writeOfficialPdf } from "@/lib/server/pdf/storage";
 import { getEmailSends } from "@/lib/server/quota/email-quota";
 
 const { mockGetSession, mockIsAdmin } = vi.hoisted(() => ({
@@ -67,13 +67,13 @@ function getSendCallCount(): number {
  * the composed message: subject, attachment filename, and PDF bytes.
  */
 function getSentMime(): string {
-    const calls = (fetch as unknown as Mock).mock.calls.filter(
-        (c: unknown[]) => String(c[0]).includes("/users/me/messages/send")
+    const calls = (fetch as unknown as Mock).mock.calls.filter((c: unknown[]) =>
+        String(c[0]).includes("/users/me/messages/send")
     );
     expect(calls.length).toBe(1);
-    return Buffer.from(
-        (calls[0][1] as { body: Buffer }).body
-    ).toString("utf-8");
+    return Buffer.from((calls[0][1] as { body: Buffer }).body).toString(
+        "utf-8"
+    );
 }
 
 if (TEST_DATABASE_URL !== undefined) {
@@ -163,14 +163,20 @@ describe
                         typeof input === "string" ? input : input.toString();
                     if (url === "https://oauth2.googleapis.com/token") {
                         return new Response(
-                            JSON.stringify({ access_token: "t", expires_in: 3600 }),
-                            { status: 200, headers: { "Content-Type": "application/json" } }
+                            JSON.stringify({
+                                access_token: "t",
+                                expires_in: 3600,
+                            }),
+                            {
+                                status: 200,
+                                headers: { "Content-Type": "application/json" },
+                            }
                         );
                     }
-                    return new Response(
-                        JSON.stringify({ id: "m" }),
-                        { status: 200, headers: { "Content-Type": "application/json" } }
-                    );
+                    return new Response(JSON.stringify({ id: "m" }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
                 })
             );
 
@@ -275,16 +281,15 @@ describe
             content = "%PDF-1.4 test"
         ): Promise<Buffer> {
             const buf = Buffer.from(content);
-            // The route accepts a snapshot only when its sidecar hash equals the
-            // content hash of the stored document (the stored shape). Read the row
-            // back so the hash is computed from exactly what the route will read.
             const rowRes = await pool.query<{ data_json: QuotationDocument }>(
                 "select data_json from documents where id = $1::uuid",
                 [id]
             );
-            const hash = contentHashOf(rowRes.rows[0].data_json);
-            const filePath = path.join(tempDir, `${id}.pdf`);
-            await writePdfAtomic(filePath, buf, hash);
+            const relative = await writeOfficialPdf(buf, tempDir);
+            await pool.query(
+                "update documents set pdf_path=$2, pdf_document_hash=$3 where id=$1::uuid",
+                [id, relative, contentHashOf(rowRes.rows[0].data_json)]
+            );
             return buf;
         }
 
@@ -443,7 +448,9 @@ describe
             expect(resBody.sent_at).toBeDefined();
 
             const mime = getSentMime();
-            expect(mime).toContain("Subject: Surat Penawaran SL/QTN/2026/0001-0");
+            expect(mime).toContain(
+                "Subject: Surat Penawaran SL/QTN/2026/0001-0"
+            );
             expect(mime).toContain("filename=SL-QTN-2026-0001-0.pdf");
             expect(mime).toContain("Content-Type: application/pdf");
             // The attached PDF is the snapshot written to disk.
@@ -468,7 +475,9 @@ describe
             await seedPdfFile(id, doc);
             (fetch as unknown as Mock).mockImplementation(
                 async (input: RequestInfo | URL) => {
-                    if (String(input) === "https://oauth2.googleapis.com/token") {
+                    if (
+                        String(input) === "https://oauth2.googleapis.com/token"
+                    ) {
                         return Response.json({
                             access_token: "fixture-access-token",
                             expires_in: 3600,
@@ -502,14 +511,17 @@ describe
                 await fs.readFile("contracts/openapi/openapi.json", "utf8")
             );
             const schemas =
-                contract.paths["/api/documents/{id}/email"].post.responses["200"]
-                    .content["application/json"].schema.oneOf;
+                contract.paths["/api/documents/{id}/email"].post.responses[
+                    "200"
+                ].content["application/json"].schema.oneOf;
             const declared = schemas.find(
                 (schema: { properties: { status: { enum: string[] } } }) =>
                     schema.properties.status.enum.includes(body.status)
             );
             expect(declared).toBeDefined();
-            expect(Object.keys(body).sort()).toEqual([...declared.required].sort());
+            expect(Object.keys(body).sort()).toEqual(
+                [...declared.required].sort()
+            );
             const detail = await GET(
                 new Request("http://localhost/api/documents/" + id),
                 { params: Promise.resolve({ id }) }
@@ -563,13 +575,22 @@ describe
                     const url = input.toString();
                     if (url === "https://oauth2.googleapis.com/token") {
                         return new Response(
-                            JSON.stringify({ access_token: "t", expires_in: 3600 }),
-                            { status: 200, headers: { "Content-Type": "application/json" } }
+                            JSON.stringify({
+                                access_token: "t",
+                                expires_in: 3600,
+                            }),
+                            {
+                                status: 200,
+                                headers: { "Content-Type": "application/json" },
+                            }
                         );
                     }
                     return new Response(
                         JSON.stringify({ error: "Gmail send failed" }),
-                        { status: 500, headers: { "Content-Type": "application/json" } }
+                        {
+                            status: 500,
+                            headers: { "Content-Type": "application/json" },
+                        }
                     );
                 }
             );
@@ -624,13 +645,16 @@ describe
                     if (url === "https://oauth2.googleapis.com/token") {
                         return new Response(
                             JSON.stringify({ error: "invalid_grant" }),
-                            { status: 400, headers: { "Content-Type": "application/json" } }
+                            {
+                                status: 400,
+                                headers: { "Content-Type": "application/json" },
+                            }
                         );
                     }
-                    return new Response(
-                        JSON.stringify({ id: "m" }),
-                        { status: 200, headers: { "Content-Type": "application/json" } }
-                    );
+                    return new Response(JSON.stringify({ id: "m" }), {
+                        status: 200,
+                        headers: { "Content-Type": "application/json" },
+                    });
                 }
             );
 
@@ -764,8 +788,6 @@ describe
             expect(getData.sent_to).toBeNull();
             expect(pdfBuf).toBeTruthy();
         });
-
-
 
         it("already-sent document → 409 and no email is sent", async () => {
             const doc = createTestDocument({
