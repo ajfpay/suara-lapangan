@@ -666,6 +666,53 @@ describe("DokumenView", () => {
         ).toBeTruthy();
     });
 
+    it("shows the server reason when PDF recovery fails and allows a successful retry", async () => {
+        const id = "doc-recover-error";
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: async () => ({
+                document: {
+                    id,
+                    nomor: "SL/QTN/2026/0004",
+                    status: "disetujui",
+                    butuh_konfirmasi: [],
+                },
+                status: "disetujui",
+                draft_revision: 3,
+                pdf_recovery_available: true,
+                butuh_konfirmasi: [],
+            }),
+        });
+        fetchMock.mockResolvedValueOnce({ ok: false, status: 500 });
+        render(<DokumenView locale="en" docId={id} copy={en.dokumen} />);
+        await screen.findByText(en.dokumen.pdfUnavailable);
+        const message = "Official PDF unavailable; retry recovery later";
+        fetchMock.mockResolvedValueOnce({
+            ok: false,
+            status: 500,
+            json: async () => ({ error: "pdf_failed", message }),
+        });
+        fireEvent.click(screen.getByRole("button", { name: en.dokumen.retry }));
+        expect(await screen.findByText(message)).toBeTruthy();
+        fetchMock.mockRejectedValueOnce(new Error("network offline"));
+        fireEvent.click(screen.getByRole("button", { name: en.dokumen.retry }));
+        expect(
+            await screen.findByText(
+                "Could not recover the PDF. Check your connection and try again."
+            )
+        ).toBeTruthy();
+        fetchMock.mockResolvedValueOnce({ ok: true, status: 200 });
+        fetchMock.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            blob: async () => new Blob(["%PDF"], { type: "application/pdf" }),
+        });
+        fireEvent.click(screen.getByRole("button", { name: en.dokumen.retry }));
+        expect(await screen.findByTestId("pdf-frame")).toBeTruthy();
+        expect(screen.queryByText(message)).toBeNull();
+    });
+
     it("handles PDF load error with retry button", async () => {
         const docId = "doc-pdf-fail";
         fetchMock.mockResolvedValueOnce({
