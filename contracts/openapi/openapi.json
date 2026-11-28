@@ -1582,7 +1582,7 @@
           }
         },
         "security": [],
-        "description": "Better Auth 1.5.5 email/password registration. Email verification is required; duplicate registration can return generic success without confirming account existence. IP limit: 10 attempts per 60 seconds, shared across instances."
+        "description": "Better Auth 1.5.5 email/password registration. Email verification is required; duplicate registration can return generic success without confirming account existence. IP limit: 10 attempts per fixed 60-second window from the first accepted attempt, shared across instances."
       }
     },
     "/api/auth/sign-in/email": {
@@ -1735,7 +1735,7 @@
           }
         },
         "security": [],
-        "description": "Better Auth existing email/password endpoint; login requires verified email. IP limit: 10 attempts per 60 seconds, shared across instances."
+        "description": "Better Auth existing email/password endpoint; login requires verified email. IP limit: 10 attempts per fixed 60-second window from the first accepted attempt, shared across instances."
       }
     },
     "/api/auth/credential-capability": {
@@ -1781,6 +1781,21 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "headers": {
+              "X-Retry-After": {
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {

@@ -24,6 +24,8 @@ const authConnectionString =
 function getAuthDbPool(): Pool {
     const pool = new Pool({
         connectionString: authConnectionString,
+        connectionTimeoutMillis: 5000,
+        query_timeout: 10000,
         types: {
             // Better Auth 1.5.5 expects numeric millisecond timestamps, not pg's int8 strings.
             getTypeParser: (oid, format) =>
@@ -41,10 +43,22 @@ function getAuthDbPool(): Pool {
 const pool = getAuthDbPool();
 
 const atomicAuthLimits = new Map([
-    ["/api/auth/sign-up/email", { window: 60, max: 10 }],
-    ["/api/auth/sign-in/email", { window: 60, max: 10 }],
-    ["/api/auth/request-password-reset", { window: 900, max: 5 }],
-    ["/api/auth/reset-password", { window: 60, max: 10 }],
+    [
+        "/api/auth/sign-up/email",
+        { window: 60, max: 10, refreshOnAttempt: false },
+    ],
+    [
+        "/api/auth/sign-in/email",
+        { window: 60, max: 10, refreshOnAttempt: false },
+    ],
+    [
+        "/api/auth/request-password-reset",
+        { window: 900, max: 5, refreshOnAttempt: true },
+    ],
+    [
+        "/api/auth/reset-password",
+        { window: 60, max: 10, refreshOnAttempt: true },
+    ],
 ]);
 
 const DEV_FALLBACK_SECRET =
@@ -408,15 +422,27 @@ async function invokeAuth(request: Request): Promise<Response> {
                      end,
                      last_request = case
                          when auth_rate_limit.last_request <= $3::bigint - $4::bigint then $3::bigint
-                         when auth_rate_limit.count < $5::integer then greatest(auth_rate_limit.last_request, $3::bigint)
+                         when $6::boolean and auth_rate_limit.count < $5::integer then greatest(auth_rate_limit.last_request, $3::bigint)
                          else auth_rate_limit.last_request
                      end
                  returning count, last_request`,
-                [crypto.randomUUID(), key, now, duration, rule.max]
+                [
+                    crypto.randomUUID(),
+                    key,
+                    now,
+                    duration,
+                    rule.max,
+                    rule.refreshOnAttempt,
+                ]
             );
             const row = rows[0];
             if (!row) return authUnavailable();
             if (row.count > rule.max) {
+                if (ip === "0.0.0.0") {
+                    console.warn(
+                        "[auth] shared fallback IP limit reached; verify trusted ingress configuration"
+                    );
+                }
                 const retryAfter = Math.max(
                     1,
                     Math.ceil((row.last_request + duration - now) / 1000)
@@ -431,7 +457,17 @@ async function invokeAuth(request: Request): Promise<Response> {
             }
         }
         return await auth.handler(request);
-    } catch {
+    } catch (error) {
+        // Log only a known error category or SQLSTATE; exception text may contain secrets.
+        const code = (error as { code?: unknown } | null)?.code;
+        const category =
+            typeof code === "string" &&
+            /^(?:[0-9A-Z]{5}|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(
+                code
+            )
+                ? code
+                : "unexpected_error";
+        console.error("[auth] request failed:", category);
         return authUnavailable();
     }
 }
@@ -460,7 +496,18 @@ function withAuthClientAddress(request: Request): Request {
         }
     }
     headers.set("x-auth-client-ip", clientIp);
-    return new Request(request, { headers });
+    // Next.js wraps Request in a Proxy; the native constructor cannot read its internal slots.
+    const init: RequestInit & { duplex: "half" } = {
+        method: request.method,
+        headers,
+        signal: request.signal,
+        body:
+            request.method === "GET" || request.method === "HEAD"
+                ? null
+                : request.body,
+        duplex: "half",
+    };
+    return new Request(request.url, init);
 }
 
 export async function handleAuthRequest(request: Request): Promise<Response> {

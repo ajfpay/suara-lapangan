@@ -13,6 +13,7 @@
     "icons": "node scripts/render-icons.mjs",
     "test": "vitest run",
     "test:contracts": "node --test contracts/*.test.mjs",
+    "test:auth:http": "node tests/api/auth/run-rate-limit-hurl.mjs && node tests/api/auth/run-capability-hurl.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "check:third-party": "node scripts/check-third-party.mjs",

@@ -10,7 +10,22 @@ import {
     verifySandboxIdentity,
 } from "../../../scripts/sandbox/dbGuard.mjs";
 
-const baseUrl = "http://127.0.0.1:3010";
+const url = new URL(process.env.AUTH_HURL_BASE_URL ?? "http://localhost:3010");
+if (
+    url.protocol !== "http:" ||
+    !["localhost", "127.0.0.1"].includes(url.hostname) ||
+    !url.port ||
+    url.pathname !== "/" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+) {
+    throw new Error(
+        "AUTH_HURL_BASE_URL must be a loopback HTTP origin with an explicit port"
+    );
+}
+const baseUrl = url.origin;
 const secret = process.env.BETTER_AUTH_SECRET;
 if (!secret || secret.length < 32)
     throw new Error("Use the sandbox signing configuration");
@@ -85,6 +100,15 @@ try {
         { encoding: "utf8", timeout: 90000 }
     );
     if (result.status !== 0) {
+        // Only print assertion location and HTTP status, never signed cookies or body data.
+        for (const line of (result.stderr ?? "").split("\n")) {
+            if (
+                /^error: Assert status code$|^\s*--> tests\/api\/auth\/credential-capability\.hurl:\d+:\d+$|^\s*\|\s*\^+ actual value is <\d{3}>$/.test(
+                    line
+                )
+            )
+                console.error(line.trim());
+        }
         console.error(
             "Credential capability HTTP checks failed; request headers and cookies are not logged."
         );
