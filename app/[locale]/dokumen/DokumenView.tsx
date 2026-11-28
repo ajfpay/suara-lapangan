@@ -43,7 +43,7 @@ type PdfState =
     | { kind: "locked" }
     | { kind: "loading" }
     | { kind: "ready"; url: string }
-    | { kind: "error" };
+    | { kind: "error"; recoveryMessage?: string };
 
 type ViewState =
     | { kind: "empty"; reason: "missing" | "not_found" }
@@ -530,6 +530,23 @@ export function DokumenView({
     const retryPdf = async (doc: Summary) => {
         if (recoveryInFlight.current) return;
         if (doc.pdfRecoveryRevision !== null) {
+            const fallback =
+                copy.pdfRecoveryError ||
+                (isIndo
+                    ? "PDF gagal dipulihkan. Periksa koneksi dan coba lagi."
+                    : "Could not recover the PDF. Check your connection and try again.");
+            const showRecoveryError = (message: string) => {
+                setViewState((previous) =>
+                    previous.kind === "ready" &&
+                    previous.document.id === doc.id &&
+                    previous.pdf.kind === "error"
+                        ? {
+                              ...previous,
+                              pdf: { kind: "error", recoveryMessage: message },
+                          }
+                        : previous
+                );
+            };
             recoveryInFlight.current = true;
             setRecoveringPdf(true);
             try {
@@ -547,12 +564,23 @@ export function DokumenView({
                         }),
                     }
                 );
+                if (prevDocIdRef.current !== doc.id) return;
                 if (response.status === 401) {
                     window.location.href = getLoginUrl(locale, doc.id);
                     return;
                 }
-                if (!response.ok) return;
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => null);
+                    const message =
+                        typeof payload?.message === "string" &&
+                        payload.message.trim()
+                            ? payload.message
+                            : fallback;
+                    showRecoveryError(message);
+                    return;
+                }
             } catch {
+                showRecoveryError(fallback);
                 return;
             } finally {
                 recoveryInFlight.current = false;
@@ -1065,7 +1093,8 @@ export function DokumenView({
                                         className="flex h-[60vh] min-h-[360px] w-full flex-col items-center justify-center gap-3 rounded-xl border border-border bg-muted/20 p-6 text-center"
                                     >
                                         <p className="text-muted-foreground">
-                                            {copy.pdfUnavailable}
+                                            {pdf.recoveryMessage ??
+                                                copy.pdfUnavailable}
                                         </p>
                                         <button
                                             type="button"

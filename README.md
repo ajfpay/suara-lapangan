@@ -129,9 +129,16 @@ base URL (`BETTER_AUTH_URL`).
 The e2e suite runs two projects — desktop 1440x900 and mobile 375x812 — and
 needs no microphone or external model API: it drives the built app over HTTP.
 CI runs the projects sequentially in separate Playwright invocations and isolates the document pipeline and draft-integrity specs in fresh production-server processes. The rate-limit buckets remain enabled; independent browser scenarios do not share a synthetic loopback bucket. Hurl runs even if browser tests fail, provided the production build and Hurl installation succeeded.
-For the same isolation locally, stop any existing test server and run
-`npm run test:e2e -- --project=desktop` followed by
-`npm run test:e2e -- --project=mobile`. Both require the approved test database.
+For the same isolation locally, use the approved test database, stop any existing test server on the Playwright port, and run the following in Bash from the repository root. Each invocation starts and stops its own production server (and builds the bundle by default).
+
+```bash
+mapfile -t general < <(find e2e -maxdepth 1 -name '*.spec.ts' ! -name 'document-pipeline.spec.ts' ! -name 'draft-integrity.spec.ts' | sort)
+for project in desktop mobile; do
+    npm run test:e2e -- --project="$project" "${general[@]}" || exit 1
+    npm run test:e2e -- --project="$project" e2e/document-pipeline.spec.ts || exit 1
+    npm run test:e2e -- --project="$project" e2e/draft-integrity.spec.ts || exit 1
+done
+```
 
 ## Stack
 

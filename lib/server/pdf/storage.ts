@@ -323,9 +323,12 @@ export async function readOfficialPdf(
         pdf = await readFile(path.join(root, relativePath));
     } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT")
-            throw new Error("Official PDF snapshot file missing", {
-                cause: error,
-            });
+            throw new Error(
+                `Official PDF snapshot file missing: ${relativePath}`,
+                {
+                    cause: error,
+                }
+            );
         throw error;
     }
     if (createHash("sha256").update(pdf).digest("hex") !== match[1]) {
