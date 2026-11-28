@@ -126,6 +126,10 @@ function terbilangNumber(n: number): string {
             (rest ? " " + terbilangNumber(rest) : "")
         );
     }
+    if (n <= Number.MAX_SAFE_INTEGER) {
+        const rest = n % 1000000000000000;
+        return terbilangNumber(Math.floor(n / 1000000000000000)) + " kuadriliun" + (rest ? " " + terbilangNumber(rest) : "");
+    }
     return String(n);
 }
 

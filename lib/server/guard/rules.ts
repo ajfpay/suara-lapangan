@@ -275,7 +275,7 @@ export function applyGuard(
                         ext.wordsAfter.some((w) => PRICE_KEYWORDS.test(w)))
             );
 
-            if (matchingRateMatches.length === 0) {
+            if (amounts.harga_satuan_minor !== null && matchingRateMatches.length === 0) {
                 butuh_konfirmasi.push({
                     field: `${itemFieldPrefix}.harga_satuan`,
                     alasan: `Angka harga_satuan (${harga_satuan}) tidak cocok dengan transkrip ternormalisasi pada giliran (${sumber_kutipan})`,
@@ -310,7 +310,7 @@ export function applyGuard(
         const computedJumlah = amounts.jumlah;
 
         if (
-            rawJumlah !== undefined &&
+            amounts.jumlah_minor !== null && rawJumlah !== undefined &&
             Math.abs(rawJumlah - computedJumlah) > 1e-4
         ) {
             // Only add if not already flagged
