@@ -6,6 +6,8 @@ import {
     DraftInputError,
     draftPrice,
     lineMoney,
+    quantityMillis,
+    priceMinor,
     recalculateDraft,
 } from "./draftMoney";
 import { resolveDerivedConfirmations } from "./draftConfirmations";
@@ -157,6 +159,33 @@ export function applyDraftMutation(
         }
     }
 
+    // Existing drafts predate minor units. Keep original evidence; never guess a billable price.
+    document.pekerjaan.forEach((line, i) => {
+        if (line.harga_satuan_minor !== undefined) return;
+        const mark = (field: string, original: unknown, current: unknown) => {
+            const path = itemPath(i, field);
+            record(path, original, current, line, undefined, "edit");
+            clear(path);
+            document.butuh_konfirmasi.push({field:path, alasan:`Nilai lama (${original}) perlu dikonfirmasi ulang`, sumber_kutipan:line.sumber_kutipan || null, kind:"source"});
+        };
+        try { quantityMillis(line.volume); }
+        catch (error) {
+            if (!(error instanceof DraftInputError)) throw error;
+            const original = line.volume;
+            const rounded = Math.round(Number(original) * 1000) / 1000;
+            line.volume = Number.isFinite(rounded) && rounded >= .001 && rounded <= 1000000 ? rounded : 1;
+            mark("volume", original, line.volume);
+        }
+        const price = draftPrice(document, i);
+        if (price !== null) {
+            try { priceMinor(price, document.mata_uang); lineMoney(line.volume, price, document.mata_uang); }
+            catch (error) {
+                if (!(error instanceof DraftInputError)) throw error;
+                mark("harga_satuan", price, null);
+                Object.assign(line, lineMoney(line.volume, null, document.mata_uang));
+            }
+        }
+    });
     if ("op" in patch) {
         switch (patch.op) {
             case "add_line":
