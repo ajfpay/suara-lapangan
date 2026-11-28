@@ -1,9 +1,15 @@
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { expo } from "@better-auth/expo";
-import { APIError, createAuthMiddleware } from "better-auth/api";
-import { Pool } from "pg";
+import {
+    APIError,
+    createAuthEndpoint,
+    createAuthMiddleware,
+    sessionMiddleware,
+} from "better-auth/api";
+import { Pool, types } from "pg";
 import crypto from "node:crypto";
+import { isIP } from "node:net";
 import { getEmailConfig } from "@/lib/server/email/config";
 import { sendEmail } from "@/lib/server/email/send";
 import { createResetRequestLimiter } from "@/lib/server/reset-request-limiter";
@@ -15,7 +21,16 @@ const authConnectionString =
     "postgres://suara:suara@localhost:5432/suara_test";
 
 function getAuthDbPool(): Pool {
-    const pool = new Pool({ connectionString: authConnectionString });
+    const pool = new Pool({
+        connectionString: authConnectionString,
+        types: {
+            // Better Auth 1.5.5 expects numeric millisecond timestamps, not pg's int8 strings.
+            getTypeParser: (oid, format) =>
+                oid === types.builtins.INT8 && format !== "binary"
+                    ? (value: string) => Number(value)
+                    : types.getTypeParser(oid, format),
+        },
+    });
     pool.on("error", (err) => {
         console.error(redactSecrets(`[auth] pool error: ${String(err)}`));
     });
@@ -144,6 +159,42 @@ async function sendAuthMail(
     }
 }
 
+const credentialCapabilityPlugin = {
+    id: "credential-capability",
+    endpoints: {
+        credentialCapability: createAuthEndpoint(
+            "/credential-capability",
+            { method: "GET", use: [sessionMiddleware] },
+            async (ctx) => {
+                ctx.setHeader("Cache-Control", "private, no-store");
+                let status: "password" | "none" | "unknown" = "unknown";
+                try {
+                    const accounts =
+                        await ctx.context.internalAdapter.findAccounts(
+                            ctx.context.session.user.id
+                        );
+                    const credentials = accounts.filter(
+                        (account) => account.providerId === "credential"
+                    );
+                    if (
+                        credentials.some((account) => Boolean(account.password))
+                    ) {
+                        status = "password";
+                    } else if (
+                        accounts.length > 0 &&
+                        credentials.length === 0
+                    ) {
+                        status = "none";
+                    }
+                } catch {
+                    // The client must not infer capability from its login method.
+                }
+                return ctx.json({ status });
+            }
+        ),
+    },
+};
+
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
@@ -155,7 +206,12 @@ export const auth = betterAuth({
     },
     rateLimit: {
         enabled: true,
+        storage: "database",
+        modelName: "auth_rate_limit",
+        fields: { lastRequest: "last_request" },
         customRules: {
+            "/sign-up/email": { window: 60, max: 10 },
+            "/sign-in/email": { window: 60, max: 10 },
             "/request-password-reset": { window: 900, max: 5 },
             "/reset-password": { window: 60, max: 10 },
         },
@@ -218,6 +274,7 @@ export const auth = betterAuth({
         },
     },
     plugins: [
+        credentialCapabilityPlugin,
         { ...nativePlugin, init: () => ({ options: { trustedOrigins: [] } }) },
         admin({
             schema: {
@@ -236,6 +293,7 @@ export const auth = betterAuth({
         }),
     ],
     advanced: {
+        ipAddress: { ipAddressHeaders: ["x-auth-client-ip"] },
         disableOriginCheck: false,
         disableCSRFCheck: false,
         database: {
@@ -312,7 +370,27 @@ export const auth = betterAuth({
 
 let resetLockPool: Pool | undefined;
 
+function withAuthClientAddress(request: Request): Request {
+    const headers = new Headers(request.headers);
+    // Only a verified ingress may supply the last hop. Never trust a client-
+    // supplied internal header, or disable rate limiting when the IP is missing.
+    const trustProxy =
+        process.env.NODE_ENV !== "production" ||
+        process.env.AUTH_TRUST_PROXY === "true";
+    const forwarded = trustProxy
+        ? headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()
+        : undefined;
+    headers.set(
+        "x-auth-client-ip",
+        forwarded && isIP(forwarded) && !forwarded.includes("%")
+            ? forwarded
+            : "0.0.0.0"
+    );
+    return new Request(request, { headers });
+}
+
 export async function handleAuthRequest(request: Request): Promise<Response> {
+    request = withAuthClientAddress(request);
     if (
         request.method !== "POST" ||
         new URL(request.url).pathname.replace(/\/+$/, "") !==

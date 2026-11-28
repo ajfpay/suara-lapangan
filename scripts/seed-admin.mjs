@@ -1,112 +1,111 @@
 #!/usr/bin/env node
-/**
- * Seeds or promotes a user to role 'admin' with email_verified: true.
- *
- * Usage:
- *   npm run db:seed-admin -- --email=admin@example.com --name="Admin User" [--password=SecretPassword123!]
- */
-import pg from "pg";
-import { betterAuth } from "better-auth";
 import crypto from "node:crypto";
+import pg from "pg";
+import { hashPassword, verifyPassword } from "better-auth/crypto";
 
-function parseArgs() {
-    const args = process.argv.slice(2);
-    const parsed = {};
-    for (const arg of args) {
-        if (arg.startsWith("--email=")) {
-            parsed.email = arg.slice("--email=".length).trim();
-        } else if (arg.startsWith("--name=")) {
-            parsed.name = arg.slice("--name=".length).trim();
-        } else if (arg.startsWith("--password=")) {
-            parsed.password = arg.slice("--password=".length);
+function configuration() {
+    const args = {};
+    for (const argument of process.argv.slice(2)) {
+        const match = /^--(email|name)=(.+)$/.exec(argument);
+        if (!match || Object.hasOwn(args, match[1])) {
+            throw new Error("Only --email and --name options are accepted.");
         }
+        args[match[1]] = match[2].trim();
     }
-    return parsed;
+    const email = args.email?.toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error("A valid --email is required.");
+    }
+    const allowlist = (process.env.ADMIN_SEED_EMAIL_ALLOWLIST ?? "")
+        .split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter(Boolean);
+    if (!allowlist.includes(email)) {
+        throw new Error("Email is not in the explicit admin seed allowlist.");
+    }
+    const password = process.env.ADMIN_SEED_PASSWORD;
+    if (!password || password.length < 8 || password.length > 128) {
+        throw new Error("ADMIN_SEED_PASSWORD must contain 8–128 characters.");
+    }
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+        throw new Error("An explicit DATABASE_URL is required.");
+    }
+    return { email, name: args.name || "Admin", password, connectionString };
 }
 
-const { email, name = "Admin", password } = parseArgs();
-
-if (!email) {
-    console.error("Error: --email=... is required.");
-    console.error("Usage: npm run db:seed-admin -- --email=admin@example.com --password=... [--name=Admin]");
-    process.exit(1);
+async function seed({ email, name, password, connectionString }) {
+    const pool = new pg.Pool({ connectionString });
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query("begin");
+        await client.query(
+            "select pg_advisory_xact_lock(hashtextextended($1, 0))",
+            ["seed-admin:" + email]
+        );
+        const { rows: users } = await client.query(
+            "select id, role, email_verified from auth_user where lower(email)=$1 for update",
+            [email]
+        );
+        if (users.length > 1) throw new Error("Ambiguous account");
+        const existing = users[0];
+        const userId = existing?.id ?? crypto.randomUUID();
+        const { rows: credentials } = existing
+            ? await client.query(
+                  "select id, password from auth_account where user_id=$1 and provider_id='credential' for update",
+                  [userId]
+              )
+            : { rows: [] };
+        if (credentials.length > 1) throw new Error("Ambiguous credentials");
+        const credential = credentials[0];
+        if (
+            credential &&
+            (!credential.password ||
+                !(await verifyPassword({
+                    hash: credential.password,
+                    password,
+                })))
+        ) {
+            throw new Error("Existing credential cannot be verified");
+        }
+        if (!existing) {
+            await client.query(
+                "insert into auth_user(id,email,email_verified,name,role) values($1,$2,true,$3,'admin')",
+                [userId, email, name]
+            );
+        } else if (existing.role !== "admin" || !existing.email_verified) {
+            await client.query(
+                "update auth_user set role='admin', email_verified=true, updated_at=now() where id=$1",
+                [userId]
+            );
+        }
+        if (!credential) {
+            const hash = await hashPassword(password);
+            await client.query(
+                "insert into auth_account(id,account_id,provider_id,user_id,password) values($1,$2,'credential',$3,$4)",
+                [crypto.randomUUID(), userId, userId, hash]
+            );
+        }
+        await client.query("commit");
+        console.log("Admin seed complete.");
+    } catch {
+        if (client) await client.query("rollback").catch(() => {});
+        console.error(
+            "Admin seed failed; no account details or credentials are logged."
+        );
+        process.exitCode = 1;
+    } finally {
+        client?.release();
+        await pool.end();
+    }
 }
 
-if (!password || password.length < 8) {
-    console.error("Error: --password=... is required and must be at least 8 characters.");
-    console.error("Usage: npm run db:seed-admin -- --email=admin@example.com --password=... [--name=Admin]");
-    process.exit(1);
-}
-
-const connectionString =
-    process.env.DATABASE_URL ||
-    process.env.ASR_TEST_DATABASE_URL ||
-    "postgres://suara:suara@localhost:5432/suara_test";
-
-const pool = new pg.Pool({ connectionString });
-
+let config;
 try {
-    const auth = betterAuth({
-        database: pool,
-        emailAndPassword: { enabled: true },
-    });
-    const ctx = await auth.$context;
-    const passwordHash = await ctx.password.hash(password);
-
-    // 1. Upsert auth_user
-    const existing = await pool.query(
-        "select id from auth_user where lower(email) = lower($1)",
-        [email]
-    );
-
-    let userId;
-    if (existing.rowCount > 0) {
-        userId = existing.rows[0].id;
-        await pool.query(
-            `update auth_user
-             set role = 'admin',
-                 email_verified = true,
-                 password_hash = $2,
-                 name = coalesce(nullif($3, ''), name),
-                 updated_at = now()
-             where id = $1`,
-            [userId, passwordHash, name]
-        );
-        console.log(`Updated existing user ${email} to admin (id: ${userId})`);
-    } else {
-        userId = crypto.randomUUID();
-        await pool.query(
-            `insert into auth_user (id, email, email_verified, name, role, password_hash)
-             values ($1, lower($2), true, $3, 'admin', $4)`,
-            [userId, email, name, passwordHash]
-        );
-        console.log(`Created new admin user ${email} (id: ${userId})`);
-    }
-
-    // 2. Upsert auth_account for credential login
-    const existingAccount = await pool.query(
-        "select id from auth_account where user_id = $1 and provider_id = 'credential'",
-        [userId]
-    );
-
-    if (existingAccount.rowCount > 0) {
-        await pool.query(
-            `update auth_account
-             set password = $1,
-                 updated_at = now()
-             where id = $2`,
-            [passwordHash, existingAccount.rows[0].id]
-        );
-        console.log(`Updated credential password for admin ${email}`);
-    } else {
-        const accountId = crypto.randomUUID();
-        await pool.query(
-            `insert into auth_account (id, account_id, provider_id, user_id, password)
-             values ($1, $2, 'credential', $3, $4)`,
-            [accountId, accountId, userId, passwordHash]
-        );
-        console.log(`Created credential account for admin ${email}`);
-    }
-} finally {
-    await pool.end();
+    config = configuration();
+} catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
 }
+if (config) await seed(config);

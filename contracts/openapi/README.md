@@ -45,3 +45,11 @@ node scripts/sandbox/verify-db-identity.mjs && \
 ```
 
 The recovery limiter intentionally combines a per-email budget (five requests per 15 minutes across IPs) with the Better Auth IP limit. An attacker who knows an email can exhaust its budget temporarily; using only an email/IP pair would allow distributed abuse. The bounded map evicts its oldest entry rather than denying recovery to all new addresses when full. Eviction and process restart can reset a budget; the IP limit remains in effect. Aliases are not merged because mailbox alias semantics vary by provider. These are in-memory limits, not a distributed quota.
+
+## Backend auth hardening (ticket 21)
+
+Email registration and sign-in each allow 10 attempts per IP per 60-second window using Better Auth's PostgreSQL storage (`0012_auth_rate_limit.sql`). Existing password-reset rules remain. In production, configure `AUTH_TRUST_PROXY=true` **only after** verifying that the ingress replaces X-Forwarded-For or appends the actual connecting client as its last entry and that the application cannot be reached directly by untrusted clients. Without a verified production proxy setting or valid IP, requests use a shared fallback bucket instead of bypassing the limiter. Forwarded client IPs must never be trusted directly from the public network.
+
+`GET /api/auth/credential-capability` returns only the current session's `{"status":"password" | "none" | "unknown"}`. Better Auth's account-list response omits passwords, so the server derives this status internally from the signed-in owner's account records. A credential with a password takes precedence over social accounts. Missing or inconsistent account information is unknown; unauthenticated requests return 401.
+
+The admin seed command takes `--email` and optional `--name` only. Provide `ADMIN_SEED_EMAIL_ALLOWLIST` (comma-separated exact email addresses), `ADMIN_SEED_PASSWORD` and an explicit `DATABASE_URL` through the approved secret environment. Repeated runs retain an existing verified matching credential instead of rotating its password. A mismatched or ambiguous existing credential aborts the transaction. Do not include secrets in shell arguments or logs.
