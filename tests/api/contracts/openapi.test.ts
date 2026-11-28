@@ -104,4 +104,10 @@ describe("REST contract", () => {
                 .status.enum
         ).toEqual(["draf", "disetujui", "terkirim"]);
     });
+    it("describes revision on create and explicit source acknowledgement", () => {
+        const create = contract.components.schemas.CreateDocumentResult;
+        expect(create.properties.draft_revision).toMatchObject({type:"integer",minimum:1});
+        expect(contract.components.schemas.PatchDocument.oneOf.some((op: {properties:{op?:{const?:string;enum?:string[]}}}) => op.properties.op?.const === "confirm_source" || op.properties.op?.enum?.includes("confirm_source"))).toBe(true);
+    });
+
 });
