@@ -8,7 +8,7 @@ import {
 } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
-import { amountInWords, terbilang } from "@/lib/server/guard/words";
+import { DraftInputError, lineMoney, recalculateDraft } from "@/lib/server/guard/draftMoney";
 import {
     documentIdSchema,
     patchDocumentBodySchema,
@@ -27,11 +27,6 @@ import type {
     PekerjaanItem,
     Proyek,
 } from "@/lib/server/guard/types";
-
-function round(value: number, decimals = 2): number {
-    const factor = Math.pow(10, decimals);
-    return Math.round((value + Number.EPSILON) * factor) / factor;
-}
 
 class PatchIndexError extends Error {
     readonly index: number;
@@ -197,19 +192,7 @@ async function handlePatch(
         }
     }
 
-    function recomputeTotals(doc: StoredDocument["document"]): void {
-        let totalNominal = 0;
-        for (const item of doc.pekerjaan || []) {
-            item.jumlah = round(item.volume * item.harga_satuan, 2);
-            totalNominal += item.jumlah;
-        }
-        totalNominal = round(totalNominal, 2);
-        doc.total_nominal = totalNominal;
-        doc.terbilang =
-            doc.locale === "en"
-                ? amountInWords(totalNominal)
-                : terbilang(totalNominal);
-    }
+    const recomputeTotals = recalculateDraft;
 
     let result: StoredDocument | null = null;
     let indexError: PatchIndexError | undefined;
@@ -222,13 +205,8 @@ async function handlePatch(
                     const newLine: PekerjaanItem = {
                         id: randomUUID(),
                         uraian: patchBody.item.uraian,
-                        volume: patchBody.item.volume,
                         satuan: patchBody.item.satuan,
-                        harga_satuan: patchBody.item.harga_satuan,
-                        jumlah: round(
-                            patchBody.item.volume * patchBody.item.harga_satuan,
-                            2
-                        ),
+                        ...lineMoney(patchBody.item.volume, patchBody.item.harga_satuan, document.mata_uang),
                         sumber_kutipan: "manual",
                     };
                     document.pekerjaan = [
@@ -374,7 +352,9 @@ async function handlePatch(
                         }
                         document.butuh_konfirmasi = document.butuh_konfirmasi.filter(item => item.field !== path);
                     }
-                    Object.assign(line, patchBody.changes);
+                    const { harga_satuan, ...other } = patchBody.changes;
+                    Object.assign(line, other);
+                    if (harga_satuan !== undefined) Object.assign(line, lineMoney(line.volume, harga_satuan, document.mata_uang));
                     recomputeTotals(document);
                     return { document, fieldChanges: nextChanges, status: "draf" };
                 }
@@ -436,7 +416,8 @@ async function handlePatch(
                     typeof nilai === "number"
                         ? nilai
                         : Number(String(nilai).trim());
-                lineItem[subfield] = newValue;
+                if (subfield === "volume") lineItem.volume = newValue;
+                else Object.assign(lineItem, lineMoney(lineItem.volume, nilai, document.mata_uang));
             } else if (subfield === "satuan") {
                 newValue = String(nilai).trim() as CanonicalUnit;
                 lineItem.satuan = newValue as CanonicalUnit;
@@ -485,6 +466,9 @@ async function handlePatch(
             };
         }, mutationOptions);
     } catch (cause) {
+        if (cause instanceof DraftInputError) {
+            return NextResponse.json({ error: "invalid_request", message: cause.message }, { status: 400 });
+        }
         if (cause instanceof DraftMutationConflict) {
             return NextResponse.json({ error: cause.code, message: cause.code, draft_revision: cause.revision }, { status: 409 });
         }

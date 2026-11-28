@@ -1,3 +1,4 @@
+import { quantityMillis } from "@/lib/server/guard/draftMoney";
 import { z } from "zod";
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -53,23 +54,16 @@ export const CANONICAL_UNITS = [
 
 export const canonicalUnitSchema = z.enum(CANONICAL_UNITS);
 
+const decimalInput = z.union([z.number(), z.string().trim()]);
+const validQuantity = (value: number | string) => {
+    try { quantityMillis(value); return true; } catch { return false; }
+};
+const validPrice = (value: number | string) => /^(\d+)(?:\.\d{1,2})?$/.test(String(value)) && Number.isFinite(Number(value));
 export const addLineItemSchema = z.object({
     uraian: z.string().trim().min(1, "uraian cannot be empty"),
-    volume: z
-        .union([z.number(), z.string()])
-        .refine((v) => {
-            const num = typeof v === "number" ? v : Number(String(v).trim());
-            return !Number.isNaN(num) && Number.isFinite(num) && num > 0;
-        }, "volume must be a positive number")
-        .transform((v) => (typeof v === "number" ? v : Number(String(v).trim()))),
+    volume: decimalInput.refine(validQuantity, "Invalid volume").transform(Number),
     satuan: canonicalUnitSchema,
-    harga_satuan: z
-        .union([z.number(), z.string()])
-        .refine((v) => {
-            const num = typeof v === "number" ? v : Number(String(v).trim());
-            return !Number.isNaN(num) && Number.isFinite(num) && num >= 0;
-        }, "harga_satuan must be a non-negative number")
-        .transform((v) => (typeof v === "number" ? v : Number(String(v).trim()))),
+    harga_satuan: decimalInput.refine(validPrice, "Invalid unit price").nullable().transform(v => v === null ? null : Number(v)),
 });
 
 export const addLineOpSchema = z.object({
@@ -113,7 +107,7 @@ function isValidIsoDate(str: string): boolean {
 export const patchScalarBodySchema = z
     .object({
         field: z.string().trim(),
-        nilai: z.union([z.number(), z.string().trim()]),
+        nilai: z.union([z.number(), z.string().trim(), z.null()]),
     })
     .superRefine((val, ctx) => {
         const field = val.field.trim();
@@ -158,16 +152,9 @@ export const patchScalarBodySchema = z
         if (match) {
             const subfield = match[2];
             if (subfield === "volume" || subfield === "harga_satuan") {
-                let valid = false;
-                if (typeof val.nilai === "number") {
-                    valid = Number.isFinite(val.nilai) && val.nilai >= 0;
-                } else if (typeof val.nilai === "string") {
-                    const trimmed = val.nilai.trim();
-                    if (trimmed !== "") {
-                        const num = Number(trimmed);
-                        valid = !Number.isNaN(num) && Number.isFinite(num) && num >= 0;
-                    }
-                }
+                const valid = subfield === "volume"
+                    ? val.nilai !== null && validQuantity(val.nilai)
+                    : val.nilai === null || validPrice(val.nilai);
                 if (!valid) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -185,7 +172,7 @@ export const patchScalarBodySchema = z
                     });
                 }
             } else if (subfield === "uraian") {
-                const valid = String(val.nilai).trim().length > 0;
+                const valid = typeof val.nilai === "string" && val.nilai.length > 0;
                 if (!valid) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,

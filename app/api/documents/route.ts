@@ -1,3 +1,4 @@
+import { DraftInputError } from "@/lib/server/guard/draftMoney";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getTurnsStore, type TurnsStore } from "@/lib/server/db/store";
@@ -345,7 +346,14 @@ async function handlePost(request: Request): Promise<Response> {
     return persistAndRespond(result.document, candidate._spark_path === true);
 }
 
-export const POST = withRateLimitFlat(handlePost, {
+async function validatedPost(request: Request): Promise<Response> {
+    try { return await handlePost(request); }
+    catch (error) {
+        if (error instanceof DraftInputError) return NextResponse.json({ error: "invalid_request", message: error.message }, { status: 400 });
+        throw error;
+    }
+}
+export const POST = withRateLimitFlat(validatedPost, {
     route: "/api/documents",
 });
 

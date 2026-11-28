@@ -1,3 +1,4 @@
+import { lineMoney, recalculateDraft } from "./draftMoney";
 import type {
     ButuhKonfirmasiItem,
     CanonicalUnit,
@@ -120,13 +121,8 @@ export function applyGuard(
                 ? rawItem.uraian.trim()
                 : `Pekerjaan ${index + 1}`;
 
-        const volume =
-            typeof rawItem.volume === "number" && !isNaN(rawItem.volume)
-                ? rawItem.volume
-                : typeof rawItem.volume === "string" &&
-                    !isNaN(parseFloat(rawItem.volume))
-                  ? parseFloat(rawItem.volume)
-                  : 0;
+        const amounts = lineMoney(rawItem.volume, rawItem.harga_satuan, mata_uang);
+        const volume = amounts.volume;
 
         if (!isCanonicalUnit(rawItem.satuan)) {
             butuh_konfirmasi.push({
@@ -140,14 +136,10 @@ export function applyGuard(
             ? rawItem.satuan
             : "unit";
 
-        const harga_satuan =
-            typeof rawItem.harga_satuan === "number" &&
-            !isNaN(rawItem.harga_satuan)
-                ? rawItem.harga_satuan
-                : typeof rawItem.harga_satuan === "string" &&
-                    !isNaN(parseFloat(rawItem.harga_satuan))
-                  ? parseFloat(rawItem.harga_satuan)
-                  : 0;
+        const harga_satuan = amounts.harga_satuan;
+        if (amounts.harga_satuan_minor === null) {
+            butuh_konfirmasi.push({ field: `${itemFieldPrefix}.harga_satuan`, alasan: "Harga satuan belum diisi", sumber_kutipan: typeof rawItem.sumber_kutipan === "string" ? rawItem.sumber_kutipan.trim() : null });
+        }
 
         const rawJumlah =
             typeof rawItem.jumlah === "number"
@@ -159,7 +151,7 @@ export function applyGuard(
 
         const sumber_kutipan =
             typeof rawItem.sumber_kutipan === "string"
-                ? rawItem.sumber_kutipan
+                ? rawItem.sumber_kutipan.trim()
                 : "";
 
         // Rule 1: Citation isolation (evaluated for non-manual citations; manual lines pass)
@@ -296,8 +288,7 @@ export function applyGuard(
         }
 
         // Rule 5: Server-computed jumlah = volume × harga_satuan
-        const computedJumlah =
-            Math.round(volume * harga_satuan * 100) / 100;
+        const computedJumlah = amounts.jumlah;
 
         if (
             rawJumlah !== undefined &&
@@ -319,10 +310,8 @@ export function applyGuard(
 
         pekerjaan.push({
             uraian,
-            volume,
+            ...amounts,
             satuan,
-            harga_satuan,
-            jumlah: computedJumlah,
             sumber_kutipan,
         });
     });
@@ -369,6 +358,8 @@ export function applyGuard(
         terbilang: computedTerbilang,
         butuh_konfirmasi,
     };
+
+    recalculateDraft(doc);
 
     if (pekerjaan.length === 0) {
         butuh_konfirmasi.push({

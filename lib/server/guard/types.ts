@@ -33,7 +33,9 @@ export type PekerjaanItem = {
     volume: number;
     satuan: CanonicalUnit;
     harga_satuan: number;
+    harga_satuan_minor?: number | null;
     jumlah: number;
+    jumlah_minor?: number | null;
     sumber_kutipan: string;
 };
 
@@ -55,6 +57,7 @@ export type QuotationDocument = {
     proyek: Proyek;
     pekerjaan: PekerjaanItem[];
     total_nominal: number;
+    total_nominal_minor?: number;
     terbilang: string;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
     _spark_path?: boolean;
