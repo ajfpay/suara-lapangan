@@ -34,7 +34,8 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     const acceptSnapshot = (next: DraftSnapshot) => {
         setSnapshot(next);
         setItems(next.butuh_konfirmasi ?? next.document.butuh_konfirmasi ?? []);
-        setStatus(next.status === "disetujui" ? "disetujui" : "draf");
+        setStatus(next.status === "draf" ? "draf" : "disetujui");
+        if (next.document.nomor) setNomor(next.document.nomor);
         setTotal(next.document.total_nominal);
     };
     const {

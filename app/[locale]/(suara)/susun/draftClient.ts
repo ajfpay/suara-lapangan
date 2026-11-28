@@ -8,6 +8,7 @@ export type DraftSnapshot = {
     draft_revision: number;
     status: string;
     butuh_konfirmasi?: QuotationDocument["butuh_konfirmasi"];
+    field_changes?: import("@/lib/server/db/documentStore").FieldChange[];
 };
 
 export function isDraftSnapshot(value: unknown): value is DraftSnapshot {
@@ -30,11 +31,23 @@ export function useDraftPatch(
         null
     );
     const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [failure, setFailure] = useState<{documentId:string; message:string} | null>(null);
+    const currentId = snapshot?.document.id ?? null;
+    const currentIdRef = useRef(currentId);
+    currentIdRef.current = currentId;
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
     const id = locale === "id";
     async function mutate(operation: Record<string, unknown>) {
-        if (!snapshot || inFlight.current || snapshot.status !== "draf")
+        if (!snapshot || inFlight.current) return false;
+        if (snapshot.status !== "draf") {
+            setFailure({documentId:snapshot.document.id,message:locale === "id" ? "Dokumen sudah dikunci." : "The document is locked."});
             return false;
+        }
+        const documentId = snapshot.document.id;
+        const publish = (next: DraftSnapshot) => {
+            if (currentIdRef.current === documentId && next.document.id === documentId) onChangeRef.current(next);
+        };
         const body = JSON.stringify({
             ...operation,
             draft_revision: snapshot.draft_revision,
@@ -48,7 +61,7 @@ export function useDraftPatch(
         retry.current = { id: snapshot.document.id, body, key };
         inFlight.current = true;
         setBusy(true);
-        setError(null);
+        setFailure(null);
         try {
             const res = await fetch(url, {
                 method: "PATCH",
@@ -61,11 +74,11 @@ export function useDraftPatch(
             const data = await res.json();
             if (!res.ok) {
                 if (res.status < 500) retry.current = null;
-                if (res.status === 409 && data.error === "stale_revision") {
+                if (res.status === 409 && (data.error === "stale_revision" || data.error === "locked")) {
                     const latest = await fetch(url, { cache: "no-store" });
                     if (latest.ok) {
                         const fresh = await latest.json();
-                        if (isDraftSnapshot(fresh)) onChange(fresh);
+                        if (isDraftSnapshot(fresh)) publish(fresh);
                     }
                     throw new Error(
                         id
@@ -83,15 +96,15 @@ export function useDraftPatch(
                     id ? "Respons draf tidak valid" : "Invalid draft response"
                 );
             retry.current = null;
-            onChange(data);
+            publish(data);
             return true;
         } catch (cause) {
-            setError(cause instanceof Error ? cause.message : String(cause));
+            setFailure({documentId,message:cause instanceof Error ? cause.message : String(cause)});
             return false;
         } finally {
             inFlight.current = false;
             setBusy(false);
         }
     }
-    return { mutate, busy, error };
+    return { mutate, busy, error:failure?.documentId === currentId ? failure.message : null };
 }
