@@ -10,6 +10,7 @@ import {
 import { Pool, types } from "pg";
 import crypto from "node:crypto";
 import { isIP } from "node:net";
+import { normalizeIP } from "@better-auth/core/utils/ip";
 import { getEmailConfig } from "@/lib/server/email/config";
 import { sendEmail } from "@/lib/server/email/send";
 import { createResetRequestLimiter } from "@/lib/server/reset-request-limiter";
@@ -38,6 +39,13 @@ function getAuthDbPool(): Pool {
 }
 
 const pool = getAuthDbPool();
+
+const atomicAuthLimits = new Map([
+    ["/api/auth/sign-up/email", { window: 60, max: 10 }],
+    ["/api/auth/sign-in/email", { window: 60, max: 10 }],
+    ["/api/auth/request-password-reset", { window: 900, max: 5 }],
+    ["/api/auth/reset-password", { window: 60, max: 10 }],
+]);
 
 const DEV_FALLBACK_SECRET =
     "suara-lapangan-secret-key-development-minimum-32-chars";
@@ -210,10 +218,11 @@ export const auth = betterAuth({
         modelName: "auth_rate_limit",
         fields: { lastRequest: "last_request" },
         customRules: {
-            "/sign-up/email": { window: 60, max: 10 },
-            "/sign-in/email": { window: 60, max: 10 },
-            "/request-password-reset": { window: 900, max: 5 },
-            "/reset-password": { window: 60, max: 10 },
+            // These endpoints reserve attempts atomically before invoking Better Auth.
+            "/sign-up/email": false,
+            "/sign-in/email": false,
+            "/request-password-reset": false,
+            "/reset-password": false,
         },
     },
     hooks: {
@@ -370,6 +379,63 @@ export const auth = betterAuth({
 
 let resetLockPool: Pool | undefined;
 
+function authUnavailable(): Response {
+    return Response.json(
+        { code: "SERVICE_UNAVAILABLE", message: "Try again later" },
+        { status: 503 }
+    );
+}
+
+async function invokeAuth(request: Request): Promise<Response> {
+    try {
+        const path = new URL(request.url).pathname.replace(/\/+$/, "");
+        const rule = atomicAuthLimits.get(path);
+        if (rule && request.method === "POST") {
+            const ip = request.headers.get("x-auth-client-ip") ?? "0.0.0.0";
+            const key = ip + "|" + path.slice("/api/auth".length);
+            const now = Date.now();
+            const duration = rule.window * 1000;
+            const { rows } = await pool.query<{
+                count: number;
+                last_request: number;
+            }>(
+                `insert into auth_rate_limit (id, key, count, last_request)
+                 values ($1, $2, 1, $3)
+                 on conflict (key) do update set
+                     count = case
+                         when auth_rate_limit.last_request <= $3::bigint - $4::bigint then 1
+                         else least(auth_rate_limit.count + 1, $5::integer + 1)
+                     end,
+                     last_request = case
+                         when auth_rate_limit.last_request <= $3::bigint - $4::bigint then $3::bigint
+                         when auth_rate_limit.count < $5::integer then greatest(auth_rate_limit.last_request, $3::bigint)
+                         else auth_rate_limit.last_request
+                     end
+                 returning count, last_request`,
+                [crypto.randomUUID(), key, now, duration, rule.max]
+            );
+            const row = rows[0];
+            if (!row) return authUnavailable();
+            if (row.count > rule.max) {
+                const retryAfter = Math.max(
+                    1,
+                    Math.ceil((row.last_request + duration - now) / 1000)
+                );
+                return Response.json(
+                    { message: "Too many requests. Please try again later." },
+                    {
+                        status: 429,
+                        headers: { "X-Retry-After": String(retryAfter) },
+                    }
+                );
+            }
+        }
+        return await auth.handler(request);
+    } catch {
+        return authUnavailable();
+    }
+}
+
 function withAuthClientAddress(request: Request): Request {
     const headers = new Headers(request.headers);
     // Only a verified ingress may supply the last hop. Never trust a client-
@@ -380,12 +446,20 @@ function withAuthClientAddress(request: Request): Request {
     const forwarded = trustProxy
         ? headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()
         : undefined;
-    headers.set(
-        "x-auth-client-ip",
-        forwarded && isIP(forwarded) && !forwarded.includes("%")
-            ? forwarded
-            : "0.0.0.0"
-    );
+    let clientIp = "0.0.0.0";
+    if (forwarded && !forwarded.includes("%")) {
+        const version = isIP(forwarded);
+        if (version === 4) clientIp = forwarded;
+        if (version === 6) {
+            // URL canonicalization also converts dotted IPv4-mapped IPv6 to hex.
+            const canonical = new URL(`http://[${forwarded}]/`).hostname.slice(
+                1,
+                -1
+            );
+            clientIp = normalizeIP(canonical, { ipv6Subnet: 64 });
+        }
+    }
+    headers.set("x-auth-client-ip", clientIp);
     return new Request(request, { headers });
 }
 
@@ -396,7 +470,7 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
         new URL(request.url).pathname.replace(/\/+$/, "") !==
             "/api/auth/reset-password"
     ) {
-        return auth.handler(request);
+        return invokeAuth(request);
     }
     const invalid = () =>
         Response.json(
@@ -412,11 +486,6 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
     }
     if (typeof token !== "string" || !token || token.length > 128)
         return invalid();
-    const unavailable = () =>
-        Response.json(
-            { code: "SERVICE_UNAVAILABLE", message: "Try again later" },
-            { status: 503 }
-        );
     const key = crypto
         .createHash("sha256")
         .update("password-reset:" + token)
@@ -441,7 +510,7 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
         });
     }
     const client = await resetLockPool.connect().catch(() => null);
-    if (!client) return unavailable();
+    if (!client) return authUnavailable();
     try {
         await client.query("begin");
         const lock = await client.query<{ locked: boolean }>(
@@ -454,9 +523,9 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
                 { status: 409 }
             );
         }
-        return await auth.handler(request);
+        return await invokeAuth(request);
     } catch {
-        return unavailable();
+        return authUnavailable();
     } finally {
         try {
             await client.query("rollback");

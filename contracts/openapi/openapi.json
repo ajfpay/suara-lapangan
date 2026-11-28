@@ -1516,6 +1516,15 @@
           },
           "429": {
             "description": "Request rejected or operation failed",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1526,6 +1535,16 @@
           },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -1651,6 +1670,15 @@
           },
           "429": {
             "description": "Request rejected or operation failed",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1661,6 +1689,16 @@
           },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2289,6 +2327,15 @@
           },
           "429": {
             "description": "Request rejected",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2299,6 +2346,16 @@
           },
           "500": {
             "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2389,6 +2446,15 @@
           },
           "429": {
             "description": "Request rejected",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
