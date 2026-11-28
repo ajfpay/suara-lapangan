@@ -289,4 +289,18 @@ describe.skipIf(!url)("draft revision and replay", () => {
         expect(outcomes.map((r) => r.status).sort()).toEqual([200, 409]);
         expect((await store.get(created.id))?.draftRevision).toBe(6);
     });
+    it("purges expired receipts across documents and safely allows an expired key with the current revision", async () => {
+        const doc: QuotationDocument = {jenis:"surat_penawaran",locale:"id",mata_uang:"IDR",nomor:null,tanggal:"2026-11-28",proyek:{nama:"Fixture",lokasi:"Location",klien:"Client"},pekerjaan:[{uraian:"Item",volume:1,satuan:"unit",harga_satuan:5,jumlah:5,sumber_kutipan:"manual"}],total_nominal:5,terbilang:"Lima rupiah",butuh_konfirmasi:[]};
+        const a = await store.create({sessionId,locale:"id",turnsHash:"expiry-a",document:doc});
+        const b = await store.create({sessionId,locale:"id",turnsHash:"expiry-b",document:doc});
+        const change = (document:QuotationDocument) => ({...document,proyek:{...document.proyek,nama:"Updated"}});
+        const options = {revision:1,actorId:"fixture",key:"expiring",fingerprint:"one"};
+        await store.update(a.id,change,options);
+        await pool.query("update document_patch_receipts set expires_at=now()-interval '1 second' where document_id=$1",[a.id]);
+        await store.update(b.id,change,options);
+        expect((await pool.query("select 1 from document_patch_receipts where document_id=$1",[a.id])).rowCount).toBe(0);
+        await expect(store.update(a.id,change,options)).rejects.toMatchObject({code:"stale_revision"});
+        expect((await store.update(a.id,change,{...options,revision:2,fingerprint:"two"}))?.draftRevision).toBe(3);
+    });
+
 });
