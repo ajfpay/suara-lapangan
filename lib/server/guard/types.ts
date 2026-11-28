@@ -3,23 +3,7 @@ import type { Turn } from "@/lib/server/asr/turns";
 
 export type { Locale, Turn };
 
-export type CanonicalUnit =
-    | "m2"
-    | "m3"
-    | "meter"
-    | "sq_ft"
-    | "lin_ft"
-    | "sak"
-    | "batang"
-    | "titik"
-    | "bag"
-    | "sheet"
-    | "bar"
-    | "point"
-    | "hour"
-    | "unit"
-    | "hari"
-    | "fixture";
+export type CanonicalUnit = typeof import("@/lib/quotationUnits").CANONICAL_UNITS[number];
 
 export type Proyek = {
     nama: string;

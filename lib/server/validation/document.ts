@@ -1,3 +1,4 @@
+import { CANONICAL_UNITS } from "@/lib/quotationUnits";
 import {
     validPaymentTerms,
     validValidity,
@@ -37,24 +38,7 @@ export const postDocumentBodySchema = z.object({
     turns: z.array(turnSchema).min(1).optional(),
 });
 
-export const CANONICAL_UNITS = [
-    "m2",
-    "m3",
-    "meter",
-    "sq_ft",
-    "lin_ft",
-    "sak",
-    "batang",
-    "titik",
-    "bag",
-    "sheet",
-    "bar",
-    "point",
-    "hour",
-    "unit",
-    "hari",
-    "fixture",
-] as const;
+export { CANONICAL_UNITS } from "@/lib/quotationUnits";
 
 export const canonicalUnitSchema = z.enum(CANONICAL_UNITS);
 
