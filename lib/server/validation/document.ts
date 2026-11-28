@@ -1,3 +1,7 @@
+import {
+    validPaymentTerms,
+    validValidity,
+} from "@/lib/server/guard/draftTerms";
 import { quantityMillis } from "@/lib/server/guard/draftMoney";
 import { z } from "zod";
 
@@ -56,39 +60,71 @@ export const canonicalUnitSchema = z.enum(CANONICAL_UNITS);
 
 const decimalInput = z.union([z.number(), z.string().trim()]);
 const validQuantity = (value: number | string) => {
-    try { quantityMillis(value); return true; } catch { return false; }
+    try {
+        quantityMillis(value);
+        return true;
+    } catch {
+        return false;
+    }
 };
-const validPrice = (value: number | string) => /^(\d+)(?:\.\d{1,2})?$/.test(String(value)) && Number.isFinite(Number(value));
-export const addLineItemSchema = z.object({
-    uraian: z.string().trim().min(1, "uraian cannot be empty"),
-    volume: decimalInput.refine(validQuantity, "Invalid volume").transform(Number),
-    satuan: canonicalUnitSchema,
-    harga_satuan: decimalInput.refine(validPrice, "Invalid unit price").nullable().transform(v => v === null ? null : Number(v)),
-});
+const validPrice = (value: number | string) =>
+    /^(\d+)(?:\.\d{1,2})?$/.test(String(value)) &&
+    Number.isFinite(Number(value));
+export const addLineItemSchema = z
+    .object({
+        uraian: z.string().trim().min(1, "uraian cannot be empty"),
+        volume: decimalInput
+            .refine(validQuantity, "Invalid volume")
+            .transform(Number),
+        satuan: canonicalUnitSchema,
+        harga_satuan: decimalInput
+            .refine(validPrice, "Invalid unit price")
+            .nullable(),
+    })
+    .strict();
 
-export const addLineOpSchema = z.object({
-    op: z.literal("add_line"),
-    item: addLineItemSchema,
-});
+export const addLineOpSchema = z
+    .object({
+        op: z.literal("add_line"),
+        item: addLineItemSchema,
+    })
+    .strict();
 
-export const removeLineOpSchema = z.object({
-    op: z.literal("remove_line"),
-    index: z.number().int().nonnegative("index must be a non-negative integer").optional(),
-    item_id: documentIdSchema.optional(),
-}).refine(v => (v.index === undefined) !== (v.item_id === undefined), "Specify exactly one item selector");
+export const removeLineOpSchema = z
+    .object({
+        op: z.literal("remove_line"),
+        index: z
+            .number()
+            .int()
+            .nonnegative("index must be a non-negative integer")
+            .optional(),
+        item_id: documentIdSchema.optional(),
+    })
+    .strict()
+    .refine(
+        (v) => (v.index === undefined) !== (v.item_id === undefined),
+        "Specify exactly one item selector"
+    );
 
-export const moveLineOpSchema = z.object({
-    op: z.literal("move_line"),
-    fromIndex: z
-        .number()
-        .int()
-        .nonnegative("fromIndex must be a non-negative integer").optional(),
-    item_id: documentIdSchema.optional(),
-    toIndex: z
-        .number()
-        .int()
-        .nonnegative("toIndex must be a non-negative integer"),
-}).refine(v => (v.fromIndex === undefined) !== (v.item_id === undefined), "Specify exactly one item selector");
+export const moveLineOpSchema = z
+    .object({
+        op: z.literal("move_line"),
+        fromIndex: z
+            .number()
+            .int()
+            .nonnegative("fromIndex must be a non-negative integer")
+            .optional(),
+        item_id: documentIdSchema.optional(),
+        toIndex: z
+            .number()
+            .int()
+            .nonnegative("toIndex must be a non-negative integer"),
+    })
+    .strict()
+    .refine(
+        (v) => (v.fromIndex === undefined) !== (v.item_id === undefined),
+        "Specify exactly one item selector"
+    );
 
 function isValidIsoDate(str: string): boolean {
     const match = str.match(/^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
@@ -109,13 +145,30 @@ export const patchScalarBodySchema = z
         field: z.string().trim(),
         nilai: z.union([z.number(), z.string().trim(), z.null()]),
     })
+    .strict()
     .superRefine((val, ctx) => {
         const field = val.field.trim();
+        if (field === "syarat_pembayaran" || field === "masa_berlaku_hari") {
+            if (
+                val.nilai !== null &&
+                !(field === "syarat_pembayaran"
+                    ? validPaymentTerms(val.nilai)
+                    : validValidity(val.nilai))
+            ) {
+                ctx.addIssue({
+                    code: "custom",
+                    path: ["nilai"],
+                    message: "Invalid quotation term",
+                });
+            }
+            return;
+        }
         if (field === "mata_uang") {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["field"],
-                message: "Field 'mata_uang' is derived from locale and is not editable",
+                message:
+                    "Field 'mata_uang' is derived from locale and is not editable",
             });
             return;
         }
@@ -125,7 +178,10 @@ export const patchScalarBodySchema = z
             field === "proyek.lokasi" ||
             field === "proyek.klien"
         ) {
-            if (typeof val.nilai !== "string" || val.nilai.trim().length === 0) {
+            if (
+                typeof val.nilai !== "string" ||
+                val.nilai.trim().length === 0
+            ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ["nilai"],
@@ -136,11 +192,15 @@ export const patchScalarBodySchema = z
         }
 
         if (field === "tanggal") {
-            if (typeof val.nilai !== "string" || !isValidIsoDate(val.nilai.trim())) {
+            if (
+                typeof val.nilai !== "string" ||
+                !isValidIsoDate(val.nilai.trim())
+            ) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ["nilai"],
-                    message: "Field 'tanggal' must be a valid ISO YYYY-MM-DD calendar date",
+                    message:
+                        "Field 'tanggal' must be a valid ISO YYYY-MM-DD calendar date",
                 });
             }
             return;
@@ -152,9 +212,10 @@ export const patchScalarBodySchema = z
         if (match) {
             const subfield = match[2];
             if (subfield === "volume" || subfield === "harga_satuan") {
-                const valid = subfield === "volume"
-                    ? val.nilai !== null && validQuantity(val.nilai)
-                    : val.nilai === null || validPrice(val.nilai);
+                const valid =
+                    subfield === "volume"
+                        ? val.nilai !== null && validQuantity(val.nilai)
+                        : val.nilai === null || validPrice(val.nilai);
                 if (!valid) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -172,7 +233,8 @@ export const patchScalarBodySchema = z
                     });
                 }
             } else if (subfield === "uraian") {
-                const valid = typeof val.nilai === "string" && val.nilai.length > 0;
+                const valid =
+                    typeof val.nilai === "string" && val.nilai.length > 0;
                 if (!valid) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -181,10 +243,12 @@ export const patchScalarBodySchema = z
                     });
                 }
             } else if (subfield === "sumber_kutipan") {
-                const trimmed = typeof val.nilai === "string" ? val.nilai.trim() : "";
+                const trimmed =
+                    typeof val.nilai === "string" ? val.nilai.trim() : "";
                 const valid =
                     typeof val.nilai === "string" &&
-                    (trimmed === "manual" || /^turn_[1-9][0-9]*$/.test(trimmed));
+                    (trimmed === "manual" ||
+                        /^turn_[1-9][0-9]*$/.test(trimmed));
                 if (!valid) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -203,15 +267,38 @@ export const patchScalarBodySchema = z
         });
     });
 
-export const updateLineOpSchema = z.object({
-    op: z.literal("update_line"),
-    item_id: documentIdSchema,
-    changes: addLineItemSchema.partial().extend({
-        sumber_kutipan: z.string().trim().regex(/^(manual|turn_[1-9][0-9]*)$/).optional(),
-    }).strict().refine(v => Object.keys(v).length > 0, "At least one change is required"),
-});
+export const updateLineOpSchema = z
+    .object({
+        op: z.literal("update_line"),
+        item_id: documentIdSchema,
+        changes: addLineItemSchema
+            .partial()
+            .extend({
+                sumber_kutipan: z
+                    .string()
+                    .trim()
+                    .regex(/^(manual|turn_[1-9][0-9]*)$/)
+                    .optional(),
+            })
+            .strict()
+            .refine(
+                (v) => Object.keys(v).length > 0,
+                "At least one change is required"
+            ),
+    })
+    .strict();
 
+export const confirmDerivedOpSchema = z
+    .object({
+        op: z.literal("confirm_derived"),
+        field: z
+            .string()
+            .trim()
+            .regex(/^(total_nominal|pekerjaan\[\d+\]\.jumlah)$/),
+    })
+    .strict();
 export const patchDocumentBodySchema = z.union([
+    confirmDerivedOpSchema,
     addLineOpSchema,
     removeLineOpSchema,
     moveLineOpSchema,
@@ -219,7 +306,9 @@ export const patchDocumentBodySchema = z.union([
     patchScalarBodySchema,
 ]);
 
-export const draftRevisionSchema = z.object({ draft_revision: z.number().int().positive().max(2147483647) });
+export const draftRevisionSchema = z.object({
+    draft_revision: z.number().int().positive().max(2147483647),
+});
 
 export type PatchDocumentBody = z.infer<typeof patchDocumentBodySchema>;
 

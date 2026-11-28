@@ -3,6 +3,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, FileText } from "lucide-react";
+import { DraftEditor } from "../(suara)/susun/DraftEditor";
+import {
+    isDraftSnapshot,
+    useDraftPatch,
+    type DraftSnapshot,
+} from "../(suara)/susun/draftClient";
 
 export type DocumentStatus =
     | "draf"
@@ -213,6 +219,36 @@ export function DokumenView({
 }: DokumenViewProps) {
     const isIndo = locale === "id";
     const [activeDocId, setActiveDocId] = useState<string | null>(docId);
+    const [draftSnapshot, setDraftSnapshot] = useState<DraftSnapshot | null>(
+        null
+    );
+    const {
+        mutate: mutateDraft,
+        busy: editingDraft,
+        error: draftError,
+    } = useDraftPatch(
+        locale,
+        draftSnapshot?.document.id === activeDocId ? draftSnapshot : null,
+        (next) => {
+            setDraftSnapshot(next);
+            setViewState((current) =>
+                current.kind === "ready" &&
+                current.document.id === next.document.id
+                    ? {
+                          ...current,
+                          document: {
+                              ...current.document,
+                              pendingCount: (
+                                  next.butuh_konfirmasi ??
+                                  next.document.butuh_konfirmasi ??
+                                  []
+                              ).length,
+                          },
+                      }
+                    : current
+            );
+        }
+    );
     const [lineageVersions, setLineageVersions] = useState<
         DocumentVersionItem[]
     >(initialVersions ?? []);
@@ -363,6 +399,11 @@ export function DokumenView({
                     lineageVersionsRef.current.length > 0
                         ? lineageVersionsRef.current
                         : initialVersionsRef.current;
+                setDraftSnapshot(
+                    isDraftSnapshot(body) && body.status === "draf"
+                        ? body
+                        : null
+                );
                 const summary = toSummary(body, fallback);
                 if (!summary) {
                     setViewState({ kind: "error", code: "invalid_response" });
@@ -887,6 +928,23 @@ export function DokumenView({
                                 </div>
                             )}
 
+                            {isDraft &&
+                                draftSnapshot?.document.id === doc.id && (
+                                    <DraftEditor
+                                        locale={locale}
+                                        snapshot={draftSnapshot}
+                                        mutate={mutateDraft}
+                                        busy={editingDraft}
+                                    />
+                                )}
+                            {isDraft && draftError && (
+                                <p
+                                    role="alert"
+                                    className="text-sm text-destructive"
+                                >
+                                    {draftError}
+                                </p>
+                            )}
                             <div>
                                 {isDraft && (
                                     <div

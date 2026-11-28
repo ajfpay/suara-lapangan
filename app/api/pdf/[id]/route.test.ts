@@ -726,8 +726,9 @@ describe.skipIf(!TEST_DATABASE_URL).sequential("GET /api/pdf/[id]", () => {
         const patchRes = await PATCH(
             new Request(`http://localhost/api/documents/${id}`, {
                 method: "PATCH",
-                headers: { "content-type": "application/json" },
+                headers: { "content-type": "application/json", "Idempotency-Key": "ticket22-regression" },
                 body: JSON.stringify({
+                    draft_revision: 1,
                     field: "pekerjaan[0].volume",
                     nilai: 20,
                 }),

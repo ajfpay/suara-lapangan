@@ -293,8 +293,12 @@ describe
             const patchRes = await PATCH(
                 new Request(`http://localhost/api/documents/${id}`, {
                     method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "ticket22-regression",
+                    },
                     body: JSON.stringify({
+                        draft_revision: 1,
                         field: "pekerjaan[0].sumber_kutipan",
                         nilai: "manual",
                     }),
@@ -316,7 +320,9 @@ describe
             expect(approveRes.status).toBe(200);
             const approveData = await approveRes.json();
             expect(approveData.status).toBe("disetujui");
-            expect(approveData.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+            expect(approveData.document.nomor).toMatch(
+                /^SL\/QTN\/\d{4}\/\d{4}$/
+            );
         });
 
         it("returns 409 invalid_state when document status is not draf (e.g. terkirim)", async () => {

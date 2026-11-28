@@ -9,7 +9,9 @@ const validDir = path.join(repoRoot, "fixtures", "transcripts");
 const defectiveDir = path.join(repoRoot, "fixtures", "defective");
 
 describe("documentFromTurns() - 10+ Defective Fixtures (K4)", () => {
-    const files = fs.readdirSync(defectiveDir).filter((f) => f.endsWith(".json"));
+    const files = fs
+        .readdirSync(defectiveDir)
+        .filter((f) => f.endsWith(".json"));
 
     it("covers at least 10 defective fixtures", () => {
         expect(files.length).toBeGreaterThanOrEqual(10);
@@ -26,6 +28,20 @@ describe("documentFromTurns() - 10+ Defective Fixtures (K4)", () => {
             const locale = data.locale;
 
             const result = documentFromTurns(turns, locale, project, candidate);
+
+            if (/^d1[01]-/.test(file)) {
+                expect(result.status).toBe("siap");
+                expect(result.butuh_konfirmasi).toEqual([]);
+                expect(result.automaticFieldChanges).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            field: data.expectation.field,
+                            kind: "derived_confirmation",
+                        }),
+                    ])
+                );
+                return;
+            }
 
             expect(result.status).toBe("perlu_konfirmasi");
             expect(result.butuh_konfirmasi.length).toBeGreaterThan(0);
@@ -49,7 +65,10 @@ describe("documentFromTurns() - 10+ Defective Fixtures (K4)", () => {
             const defectCode = data.cacat?.code;
             if (defectCode === "harga_lolos_sebagai_volume") {
                 expect(matched?.alasan).toMatch(/harga|volume/i);
-            } else if (defectCode === "satuan_salah" || defectCode === "satuan_hilang") {
+            } else if (
+                defectCode === "satuan_salah" ||
+                defectCode === "satuan_hilang"
+            ) {
                 expect(matched?.alasan).toMatch(/satuan/i);
             } else if (defectCode === "desimal_koma_id") {
                 expect(matched?.alasan).toMatch(/angka|volume|harga|giliran/i);
@@ -58,15 +77,24 @@ describe("documentFromTurns() - 10+ Defective Fixtures (K4)", () => {
                 defectCode === "twelve_hundred_en" ||
                 defectCode === "setengah_juta_id"
             ) {
-                expect(matched?.alasan).toMatch(/angka|harga|volume|transkrip/i);
-            } else if (defectCode === "kutipan_sesi_lain" || defectCode === "kutipan_non_final") {
-                expect(matched?.alasan).toMatch(/sumber_kutipan|giliran|final|sesi/i);
+                expect(matched?.alasan).toMatch(
+                    /angka|harga|volume|transkrip/i
+                );
+            } else if (
+                defectCode === "kutipan_sesi_lain" ||
+                defectCode === "kutipan_non_final"
+            ) {
+                expect(matched?.alasan).toMatch(
+                    /sumber_kutipan|giliran|final|sesi/i
+                );
             } else if (defectCode === "jumlah_tidak_cocok") {
                 expect(matched?.alasan).toMatch(/jumlah/i);
             } else if (defectCode === "total_tidak_cocok") {
                 expect(matched?.alasan).toMatch(/total/i);
             } else if (defectCode === "angka_tidak_ada_di_giliran") {
-                expect(matched?.alasan).toMatch(/angka|tidak ditemukan|tidak cocok|giliran/i);
+                expect(matched?.alasan).toMatch(
+                    /angka|tidak ditemukan|tidak cocok|giliran/i
+                );
             }
         });
     }
@@ -119,15 +147,22 @@ describe("documentFromTurns() - 30 Clean Fixtures (K4)", () => {
                 expectedDoc.pekerjaan.length
             );
 
-            expectedDoc.pekerjaan.forEach((expectedItem: PekerjaanItem, idx: number) => {
-                const actualItem = resultFromTurnsOnly.document.pekerjaan[idx];
-                expect(actualItem).toBeDefined();
-                expect(actualItem.volume).toBe(expectedItem.volume);
-                expect(actualItem.satuan).toBe(expectedItem.satuan);
-                expect(actualItem.harga_satuan).toBe(expectedItem.harga_satuan);
-                expect(actualItem.jumlah).toBe(expectedItem.jumlah);
-                expect(actualItem.sumber_kutipan).toBe(expectedItem.sumber_kutipan);
-            });
+            expectedDoc.pekerjaan.forEach(
+                (expectedItem: PekerjaanItem, idx: number) => {
+                    const actualItem =
+                        resultFromTurnsOnly.document.pekerjaan[idx];
+                    expect(actualItem).toBeDefined();
+                    expect(actualItem.volume).toBe(expectedItem.volume);
+                    expect(actualItem.satuan).toBe(expectedItem.satuan);
+                    expect(actualItem.harga_satuan).toBe(
+                        expectedItem.harga_satuan
+                    );
+                    expect(actualItem.jumlah).toBe(expectedItem.jumlah);
+                    expect(actualItem.sumber_kutipan).toBe(
+                        expectedItem.sumber_kutipan
+                    );
+                }
+            );
 
             expect(resultFromTurnsOnly.document.total_nominal).toBe(
                 expectedDoc.total_nominal

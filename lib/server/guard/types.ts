@@ -43,6 +43,8 @@ export type ButuhKonfirmasiItem = {
     field: string;
     alasan: string;
     sumber_kutipan: string | null;
+    kind?: "derived" | "source";
+    proposed_value?: number;
 };
 
 export type QuotationDocument = {
@@ -60,6 +62,8 @@ export type QuotationDocument = {
     total_nominal_minor?: number;
     terbilang: string;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
+    syarat_pembayaran?: string;
+    masa_berlaku_hari?: number;
     _spark_path?: boolean;
 };
 
@@ -74,6 +78,7 @@ export type DocumentResult = {
     document: QuotationDocument;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
     status: DocumentStatus;
+    automaticFieldChanges?: import("@/lib/server/db/documentStore").FieldChange[];
 };
 
 export type CandidatePekerjaanItem = {
@@ -96,5 +101,7 @@ export type CandidateDocument = {
     total_nominal?: unknown;
     terbilang?: unknown;
     butuh_konfirmasi?: unknown;
+    syarat_pembayaran?: unknown;
+    masa_berlaku_hari?: unknown;
     _spark_path?: boolean;
 };

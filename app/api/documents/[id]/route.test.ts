@@ -47,7 +47,8 @@ function withUser(role: "user" | "admin", userId: string): void {
     });
     mockIsAdmin.mockReturnValue(role === "admin");
 }
-import { GET, PATCH } from "./route";
+import { GET, PATCH as patchRoute } from "./route";
+import { randomUUID } from "node:crypto";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import type {
     CandidateDocument,
@@ -113,6 +114,43 @@ describe
     .sequential("PATCH /api/documents/[id] route handler", () => {
         let pool: Pool;
         let seededIds: string[] = [];
+        // Legacy sequential fixture requests now carry the revision they observed.
+        async function PATCH(
+            request: Request,
+            context: { params: Promise<{ id: string }> }
+        ) {
+            const { id } = await context.params;
+            let body;
+            try {
+                body = await request.clone().json();
+            } catch {
+                return patchRoute(request, context);
+            }
+            if (!body || typeof body !== "object" || Array.isArray(body))
+                return patchRoute(request, context);
+            const validId = /^[0-9a-f-]{36}$/i.test(id);
+            const revision = validId
+                ? (
+                      await pool.query(
+                          "select draft_revision from documents where id=$1",
+                          [id]
+                      )
+                  ).rows[0]?.draft_revision
+                : 1;
+            const headers = new Headers(request.headers);
+            headers.set("Idempotency-Key", randomUUID());
+            return patchRoute(
+                new Request(request.url, {
+                    method: "PATCH",
+                    headers,
+                    body: JSON.stringify({
+                        ...body,
+                        draft_revision: revision ?? 1,
+                    }),
+                }),
+                context
+            );
+        }
 
         beforeAll(async () => {
             pool = new Pool({ connectionString: TEST_DATABASE_URL });
@@ -976,7 +1014,10 @@ describe
             expect(res.status).toBe(200);
             const data = await res.json();
             expect(data.document.pekerjaan).toHaveLength(2);
-            expect(data.document.pekerjaan[1]).toEqual({
+            expect(data.document.pekerjaan[1]).toMatchObject({
+                id: expect.any(String),
+                harga_satuan_minor: 150000,
+                jumlah_minor: 150000,
                 uraian: "Transportasi material",
                 volume: 1,
                 satuan: "unit",
@@ -1150,8 +1191,9 @@ describe
                 "pekerjaan[1].harga_satuan"
             );
             // field_changes shifted from [2]->[1]
-            expect(data.field_changes).toHaveLength(1);
+            expect(data.field_changes).toHaveLength(2);
             expect(data.field_changes[0].field).toBe("pekerjaan[1].volume");
+            expect(data.field_changes[1].kind).toBe("remove");
         });
 
         it("move_line remaps indices for butuh_konfirmasi and field_changes", async () => {
@@ -1243,7 +1285,7 @@ describe
             expect(res1.status).toBe(200);
             const data1 = await res1.json();
             expect(data1.field_changes).toHaveLength(1);
-            expect(data1.field_changes[0]).toEqual({
+            expect(data1.field_changes[0]).toMatchObject({
                 field: "pekerjaan[0].volume",
                 original: 10,
                 current: 15,
@@ -1265,10 +1307,10 @@ describe
             );
             expect(res2.status).toBe(200);
             const data2 = await res2.json();
-            expect(data2.field_changes).toHaveLength(1);
-            expect(data2.field_changes[0]).toEqual({
+            expect(data2.field_changes).toHaveLength(2);
+            expect(data2.field_changes[1]).toMatchObject({
                 field: "pekerjaan[0].volume",
-                original: 10,
+                original: 15,
                 current: 20,
                 changed_by: ownerId,
                 changed_at: expect.any(String),
@@ -1305,7 +1347,7 @@ describe
             expect(res3.status).toBe(200);
             const data3 = await res3.json();
             // field_changes still has only 1 entry (line 0)
-            expect(data3.field_changes).toHaveLength(1);
+            expect(data3.field_changes).toHaveLength(2);
             expect(data3.field_changes[0].field).toBe("pekerjaan[0].volume");
         });
 
@@ -1431,7 +1473,14 @@ describe
                 "turn_2"
             );
             expect(validTurnData.butuh_konfirmasi).toEqual([]);
-            expect(validTurnData.field_changes).toEqual([]);
+            expect(validTurnData.field_changes).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: "source",
+                        source_after: "turn_2",
+                    }),
+                ])
+            );
 
             // 3. Re-seed with confirmation item and patch with "manual": 200, item removed, status draf
             const idManual = await seedDocument(
@@ -1475,7 +1524,14 @@ describe
                 "manual"
             );
             expect(manualData.butuh_konfirmasi).toEqual([]);
-            expect(manualData.field_changes).toEqual([]);
+            expect(manualData.field_changes).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        kind: "source",
+                        source_after: "manual",
+                    }),
+                ])
+            );
         });
 
         it("rejects a turn citation that does not exist in the document's session with 400 and keeps the confirmation item", async () => {
@@ -1619,6 +1675,43 @@ describe
     .sequential("GET /api/documents/[id] route handler", () => {
         let pool: Pool;
         let seededIds: string[] = [];
+        // Legacy sequential fixture requests now carry the revision they observed.
+        async function PATCH(
+            request: Request,
+            context: { params: Promise<{ id: string }> }
+        ) {
+            const { id } = await context.params;
+            let body;
+            try {
+                body = await request.clone().json();
+            } catch {
+                return patchRoute(request, context);
+            }
+            if (!body || typeof body !== "object" || Array.isArray(body))
+                return patchRoute(request, context);
+            const validId = /^[0-9a-f-]{36}$/i.test(id);
+            const revision = validId
+                ? (
+                      await pool.query(
+                          "select draft_revision from documents where id=$1",
+                          [id]
+                      )
+                  ).rows[0]?.draft_revision
+                : 1;
+            const headers = new Headers(request.headers);
+            headers.set("Idempotency-Key", randomUUID());
+            return patchRoute(
+                new Request(request.url, {
+                    method: "PATCH",
+                    headers,
+                    body: JSON.stringify({
+                        ...body,
+                        draft_revision: revision ?? 1,
+                    }),
+                }),
+                context
+            );
+        }
 
         beforeAll(async () => {
             pool = new Pool({ connectionString: TEST_DATABASE_URL });

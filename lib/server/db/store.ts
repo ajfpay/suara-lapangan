@@ -79,7 +79,7 @@ export function createPostgresStore(connectionString: string): TurnsStore {
                 transcript: string;
                 speaker: string | null;
             }>(
-                "select turn_index, start_ms, end_ms, transcript, speaker from turns where session_id = $1 order by turn_index",
+                "select turn_index, start_ms, end_ms, transcript, speaker from turns where session_id = $1 and final = true order by turn_index",
                 [sessionId]
             );
 

@@ -69,7 +69,7 @@ export async function callMuseSpark({
             ? "Anda adalah asisten ekstraksi Surat Penawaran (Quotation) untuk Suara Lapangan. Ekstrak data proyek dan item pekerjaan dari giliran bicara (turns) berikut. Setiap baris pekerjaan WAJIB mencantumkan sumber_kutipan turn_id yang tepat. Format keluaran harus JSON murni sesuai skema."
             : "You are a Quotation extraction assistant for Suara Lapangan. Extract project information and priced work items from the following speech turns. Every work row MUST cite the exact turn_id it came from. The output format must be strict JSON matching the schema.";
 
-    const input = `${developerInstruction}\n\nSpeech Turns:\n${turnsPrompt}`;
+    const input = `${developerInstruction}\nPayment terms and validity: propose only explicitly spoken terms with exact evidence turn IDs; otherwise null. Copy payment terms verbatim. Use null for an unspoken unit price; zero only when explicitly stated.\n\nSpeech Turns:\n${turnsPrompt}`;
 
     const requestBody = {
         model: META_SPARK_MODEL,
@@ -79,7 +79,61 @@ export async function callMuseSpark({
                 type: "json_schema",
                 name: "quotation",
                 strict: true,
-                schema: quotationSchema,
+                schema: {
+                    ...quotationSchema,
+                    required: [
+                        ...quotationSchema.required,
+                        "syarat_pembayaran",
+                        "masa_berlaku_hari",
+                    ],
+                    properties: {
+                        ...quotationSchema.properties,
+                        pekerjaan: {
+                            ...quotationSchema.properties.pekerjaan,
+                            items: {
+                                ...quotationSchema.properties.pekerjaan.items,
+                                properties: {
+                                    ...quotationSchema.properties.pekerjaan
+                                        .items.properties,
+                                    harga_satuan: {
+                                        type: ["number", "null"],
+                                        minimum: 0,
+                                        description:
+                                            "Null if unit price was not stated; zero only if explicit.",
+                                    },
+                                },
+                            },
+                        },
+                        syarat_pembayaran: {
+                            anyOf: [
+                                { type: "null" },
+                                {
+                                    type: "object",
+                                    additionalProperties: false,
+                                    required: ["nilai", "sumber_kutipan"],
+                                    properties: {
+                                        nilai: { type: "string" },
+                                        sumber_kutipan: { type: "string" },
+                                    },
+                                },
+                            ],
+                        },
+                        masa_berlaku_hari: {
+                            anyOf: [
+                                { type: "null" },
+                                {
+                                    type: "object",
+                                    additionalProperties: false,
+                                    required: ["nilai", "sumber_kutipan"],
+                                    properties: {
+                                        nilai: { type: "integer" },
+                                        sumber_kutipan: { type: "string" },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
             },
         },
     };
@@ -146,7 +200,8 @@ export async function callMuseSpark({
                 if (Array.isArray(item.content)) {
                     for (const part of item.content) {
                         if (
-                            (part.type === "output_text" || part.type === "text") &&
+                            (part.type === "output_text" ||
+                                part.type === "text") &&
                             typeof part.text === "string" &&
                             part.text.trim().length > 0
                         ) {
