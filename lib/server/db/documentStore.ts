@@ -23,7 +23,22 @@ export class DocumentLockedError extends Error {
     }
 }
 
+export type DraftMutationOptions = {
+    revision: number;
+    actorId: string;
+    key: string;
+    fingerprint: string;
+};
+
+export class DraftMutationConflict extends Error {
+    constructor(readonly code: "stale_revision" | "idempotency_conflict", readonly revision: number) {
+        super(code);
+        this.name = "DraftMutationConflict";
+    }
+}
+
 export type StoredDocument = {
+    draftRevision: number;
     id: string;
     sessionId: string;
     nomor: string | null; // null while the draft has not been approved (ticket 01)
@@ -143,7 +158,8 @@ export interface DocumentStore {
                   document: QuotationDocument;
                   fieldChanges?: FieldChange[];
                   status?: DocumentStatus;
-              }
+              },
+        options?: DraftMutationOptions
     ): Promise<StoredDocument | null>;
     /**
      * Records a successful email send: sets status `terkirim` and persists
@@ -201,7 +217,7 @@ export function turnsHashOf(
 }
 
 const DOCUMENT_COLUMNS =
-    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash";
+    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash, draft_revision";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -225,7 +241,8 @@ export function createPostgresDocumentStore(
         pdf_path?: string | null;
         sent_to?: string | null;
         sent_at?: Date | null;
-        created_at: Date;
+        created_at: Date | string;
+        draft_revision?: number;
         user_id?: string | null;
         field_changes?: unknown;
         approved_at?: Date | string | null;
@@ -250,7 +267,8 @@ export function createPostgresDocumentStore(
             nomor: row.nomor,
             status,
             rawStatus: row.status,
-            createdAt: row.created_at,
+            createdAt: new Date(row.created_at),
+            draftRevision: row.draft_revision ?? 1,
             document: row.data_json,
             pdfPath: row.pdf_path ?? null,
             sentTo: row.sent_to ?? null,
@@ -364,7 +382,7 @@ export function createPostgresDocumentStore(
             return toStored(result.rows[0]);
         },
 
-        async update(id, transform) {
+        async update(id, transform, options) {
             if (!UUID_RE.test(id)) return null;
             const client = await pool.connect();
             let clientReleased = false;
@@ -383,6 +401,23 @@ export function createPostgresDocumentStore(
                     return null;
                 }
                 const stored = toStored(locked.rows[0]);
+                if (options) {
+                    await client.query("delete from document_patch_receipts where document_id=$1 and expires_at <= now()", [id]);
+                    const receipt = await client.query(
+                        "select fingerprint, result from document_patch_receipts where document_id=$1 and actor_id=$2 and request_key=$3 and expires_at > now()",
+                        [id, options.actorId, options.key]
+                    );
+                    if (receipt.rows[0]) {
+                        if (receipt.rows[0].fingerprint !== options.fingerprint) {
+                            throw new DraftMutationConflict("idempotency_conflict", stored.draftRevision);
+                        }
+                        await client.query("commit");
+                        return toStored(receipt.rows[0].result);
+                    }
+                    if (options.revision !== stored.draftRevision) {
+                        throw new DraftMutationConflict("stale_revision", stored.draftRevision);
+                    }
+                }
                 const isLocked = stored.status === "terkirim" || stored.status === "disetujui";
                 if (isLocked) {
                     await client.query("rollback");
@@ -417,6 +452,7 @@ export function createPostgresDocumentStore(
                     `update documents
                      set data_json = $2,
                          field_changes = $3,
+                         draft_revision = draft_revision + 1,
                          status = $4,
                          sent_to = null,
                          sent_at = null,
@@ -430,6 +466,12 @@ export function createPostgresDocumentStore(
                         nextStatus,
                     ]
                 );
+                if (options) {
+                    await client.query(
+                        "insert into document_patch_receipts(document_id,actor_id,request_key,fingerprint,result) values($1,$2,$3,$4,$5)",
+                        [id, options.actorId, options.key, options.fingerprint, JSON.stringify(result.rows[0])]
+                    );
+                }
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
@@ -771,7 +813,7 @@ export function createPostgresDocumentStore(
         async listAll(): Promise<AdminDocument[]> {
             const result = await pool.query(
                 `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id, d.field_changes,
-                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash,
+                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash, d.draft_revision,
                         u.email as user_email, u.name as user_name
                  from documents d
                  left join auth_user u on d.user_id = u.id
