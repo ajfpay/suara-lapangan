@@ -79,7 +79,7 @@ export function applyDraftMutation(
             throw new DraftInputError("Item not found");
         return i;
     }
-    function editLine(i: number, edits: Record<string, unknown>) {
+    function editLine(i: number, edits: Record<string, unknown>, explicitConfirmation = false) {
         const line = document.pekerjaan[i];
         const citation =
             typeof edits.sumber_kutipan === "string"
@@ -125,7 +125,11 @@ export function applyDraftMutation(
                     field === "sumber_kutipan" ? "source" : "edit"
                 );
             }
-            clear(itemPath(i, field));
+            const path = itemPath(i, field);
+            if (explicitConfirmation && original === current && document.butuh_konfirmasi.some(c => c.field === path)) {
+                record(path, original, current, line, citation, "confirmation");
+            }
+            if (original !== current || explicitConfirmation) clear(path);
         }
         Object.assign(line, edits, nextMoney, { sumber_kutipan: citation });
     }
@@ -206,11 +210,12 @@ export function applyDraftMutation(
             case "update_line":
                 editLine(index(patch.item_id), patch.changes);
                 break;
-            case "confirm_derived": {
+            case "confirm_derived":
+            case "confirm_source": {
                 const pending = document.butuh_konfirmasi.find(
                     (c) => c.field === patch.field
                 );
-                if (!pending)
+                if (!pending || (patch.op === "confirm_derived" ? pending.kind !== "derived" : pending.kind === "derived"))
                     throw new DraftInputError(
                         "No pending calculation confirmation"
                     );
@@ -218,7 +223,7 @@ export function applyDraftMutation(
                 const line = match
                     ? document.pekerjaan[index(undefined, Number(match[1]))]
                     : undefined;
-                const value = line ? line.jumlah : document.total_nominal;
+
                 if (
                     (line &&
                         draftPrice(document, Number(match![1])) === null) ||
@@ -230,6 +235,8 @@ export function applyDraftMutation(
                     throw new DraftInputError(
                         "Complete missing prices before confirming the calculation"
                     );
+                recalculateDraft(document);
+                const value = match ? document.pekerjaan[Number(match[1])].jumlah : document.total_nominal;
                 record(
                     patch.field,
                     pending.proposed_value ?? pending.alasan,
@@ -238,6 +245,11 @@ export function applyDraftMutation(
                     undefined,
                     "confirmation"
                 );
+                if (patch.op === "confirm_source") {
+                    const event = changes[changes.length - 1];
+                    event.source_before = pending.sumber_kutipan;
+                    event.source_after = pending.sumber_kutipan;
+                }
                 clear(patch.field);
                 break;
             }
@@ -246,7 +258,7 @@ export function applyDraftMutation(
         const { field, nilai } = patch;
         const match = indexPath.exec(field);
         if (match) {
-            editLine(index(undefined, Number(match[1])), { [match[2]]: nilai });
+            editLine(index(undefined, Number(match[1])), { [match[2]]: nilai }, true);
         } else if (field.startsWith("proyek.")) {
             const key = field.slice(7) as keyof Proyek;
             document.proyek[key] = String(nilai);
@@ -268,13 +280,13 @@ export function applyDraftMutation(
                     : field === "syarat_pembayaran"
                       ? String(nilai)
                       : Number(nilai);
-            changes.push({
+            if (old !== next || pending) changes.push({
                 field,
                 original: old,
                 current: next,
                 changed_by: actorId,
                 changed_at: timestamp,
-                kind: "edit",
+                kind: old === next ? "confirmation" : "edit",
                 source_before: pending?.sumber_kutipan ?? null,
                 source_after: "manual",
             });

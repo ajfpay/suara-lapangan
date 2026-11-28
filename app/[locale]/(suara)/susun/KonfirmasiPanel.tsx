@@ -393,15 +393,6 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                             onPlayEvidence={onPlayEvidence}
                             mutate={mutate}
                             busy={editing || !snapshot}
-                            itemId={
-                                snapshot?.document.pekerjaan?.[
-                                    Number(
-                                        item.field.match(
-                                            /^pekerjaan\[(\d+)\]/
-                                        )?.[1]
-                                    )
-                                ]?.id
-                            }
                         />
                     ))}
                     <div className="flex flex-wrap gap-2">

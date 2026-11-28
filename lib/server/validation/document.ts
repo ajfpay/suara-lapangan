@@ -290,7 +290,7 @@ export const updateLineOpSchema = z
 
 export const confirmDerivedOpSchema = z
     .object({
-        op: z.literal("confirm_derived"),
+        op: z.enum(["confirm_derived", "confirm_source"]),
         field: z
             .string()
             .trim()

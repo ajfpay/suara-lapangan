@@ -15,6 +15,7 @@ export interface KonfirmasiItem {
     field: string;
     alasan: string;
     sumber_kutipan: string | null;
+    kind?: "derived" | "source";
 }
 
 interface Props {
@@ -23,7 +24,6 @@ interface Props {
     onPlayEvidence: (turnId: string) => void;
     mutate: (operation: Record<string, unknown>) => Promise<boolean>;
     busy?: boolean;
-    itemId?: string;
 }
 
 export function KonfirmasiCard({
@@ -32,7 +32,6 @@ export function KonfirmasiCard({
     onPlayEvidence,
     mutate,
     busy,
-    itemId,
 }: Props) {
     const isIndo = locale === "id";
     const isCitation = isCitationField(item.field);
@@ -50,16 +49,9 @@ export function KonfirmasiCard({
         setSaving(true);
         setError(null);
         try {
-            const field = item.field.split(".").at(-1);
             const operation = derived
-                ? { op: "confirm_derived", field: item.field }
-                : itemId && field
-                  ? {
-                        op: "update_line",
-                        item_id: itemId,
-                        changes: { [field]: nilai },
-                    }
-                  : { field: item.field, nilai };
+                ? { op: item.kind === "derived" ? "confirm_derived" : "confirm_source", field: item.field }
+                : { field: item.field, nilai };
             await mutate(operation);
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
@@ -92,7 +84,8 @@ export function KonfirmasiCard({
                     {isIndo ? "Dengar bukti" : "Play evidence"}
                 </button>
             )}
-            {!derived && options.length > 0 && (
+            {item.field === "pekerjaan" && <p>{isIndo ? "Tambah item melalui editor draf." : "Add an item in the draft editor."}</p>}
+            {item.field !== "pekerjaan" && !derived && options.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                     {options.map((opt) => (
                         <button
@@ -107,7 +100,7 @@ export function KonfirmasiCard({
                     ))}
                 </div>
             )}
-            {derived ? (
+            {item.field === "pekerjaan" ? null : derived ? (
                 <button
                     type="button"
                     disabled={saving || busy}
@@ -115,8 +108,8 @@ export function KonfirmasiCard({
                     className="mt-3 min-h-[44px] rounded-xl border border-input px-4 font-bold"
                 >
                     {isIndo
-                        ? "Konfirmasi hitungan server"
-                        : "Confirm calculated amount"}
+                        ? item.kind === "derived" ? "Konfirmasi hitungan server" : "Setujui hitungan server setelah meninjau bukti suara"
+                        : item.kind === "derived" ? "Confirm calculated amount" : "Accept calculated amount after reviewing audio evidence"}
                 </button>
             ) : (
                 <form
