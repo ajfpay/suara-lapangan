@@ -4,6 +4,8 @@ import { seedSession, uniqueSessionId, deleteSession } from "./helpers";
 test("draft edits use revisions in Susun and Dokumen, and stale edits reload", async ({
     page,
 }) => {
+    // The expanded scenario performs several serial HTTP round trips against remote PostgreSQL.
+    test.setTimeout(90000);
     const sessionId = uniqueSessionId("e2e-draft");
     try {
         await seedSession(sessionId);
