@@ -1,6 +1,6 @@
 import { resolveDerivedConfirmations } from "./draftConfirmations";
 import { applyTermProposals } from "./draftTerms";
-import { lineMoney, recalculateDraft } from "./draftMoney";
+import { DraftInputError, lineMoney, recalculateDraft } from "./draftMoney";
 import type {
     ButuhKonfirmasiItem,
     CanonicalUnit,
@@ -124,11 +124,13 @@ export function applyGuard(
                 ? rawItem.uraian.trim()
                 : `Pekerjaan ${index + 1}`;
 
-        const amounts = lineMoney(
-            rawItem.volume,
-            rawItem.harga_satuan,
-            mata_uang
-        );
+        const amounts = (() => {
+            try { return lineMoney(rawItem.volume, rawItem.harga_satuan, mata_uang); }
+            catch (cause) {
+                if (cause instanceof DraftInputError) throw new DraftInputError(`${itemFieldPrefix}: ${cause.message}`);
+                throw cause;
+            }
+        })();
         const volume = amounts.volume;
 
         if (!isCanonicalUnit(rawItem.satuan)) {

@@ -95,9 +95,16 @@ export async function callMuseSpark({
                                 properties: {
                                     ...quotationSchema.properties.pekerjaan
                                         .items.properties,
+                                    volume: {
+                                        ...quotationSchema.properties.pekerjaan.items.properties.volume,
+                                        maximum: 1000000,
+                                        multipleOf: .001,
+                                    },
                                     harga_satuan: {
                                         type: ["number", "null"],
                                         minimum: 0,
+                                        maximum: locale === "id" ? 1000000000000 : Number.MAX_SAFE_INTEGER / 100,
+                                        multipleOf: locale === "id" ? 1 : .01,
                                         description:
                                             "Null if unit price was not stated; zero only if explicit.",
                                     },
@@ -105,32 +112,22 @@ export async function callMuseSpark({
                             },
                         },
                         syarat_pembayaran: {
-                            anyOf: [
-                                { type: "null" },
-                                {
-                                    type: "object",
-                                    additionalProperties: false,
-                                    required: ["nilai", "sumber_kutipan"],
-                                    properties: {
-                                        nilai: { type: "string" },
-                                        sumber_kutipan: { type: "string" },
-                                    },
-                                },
-                            ],
+                            type: ["object", "null"],
+                            additionalProperties: false,
+                            required: ["nilai", "sumber_kutipan"],
+                            properties: {
+                                nilai: { type: "string", minLength: 1, maxLength: 500 },
+                                sumber_kutipan: { type: "string", pattern: "^turn_[1-9][0-9]*$" },
+                            },
                         },
                         masa_berlaku_hari: {
-                            anyOf: [
-                                { type: "null" },
-                                {
-                                    type: "object",
-                                    additionalProperties: false,
-                                    required: ["nilai", "sumber_kutipan"],
-                                    properties: {
-                                        nilai: { type: "integer" },
-                                        sumber_kutipan: { type: "string" },
-                                    },
-                                },
-                            ],
+                            type: ["object", "null"],
+                            additionalProperties: false,
+                            required: ["nilai", "sumber_kutipan"],
+                            properties: {
+                                nilai: { type: "integer", minimum: 1, maximum: 365 },
+                                sumber_kutipan: { type: "string", pattern: "^turn_[1-9][0-9]*$" },
+                            },
                         },
                     },
                 },

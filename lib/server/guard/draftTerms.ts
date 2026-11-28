@@ -26,6 +26,17 @@ export function applyTermProposals(
 ): void {
     const normalize = (s: string) =>
         s.trim().replace(/\s+/g, " ").toLowerCase();
+    const containsPhrase = (text: string, phrase: string) => {
+        const source = normalize(text);
+        const needle = normalize(phrase);
+        let start = source.indexOf(needle);
+        while (start !== -1) {
+            const end = start + needle.length;
+            if (!/[\p{L}\p{N}_]/u.test(source[start - 1] ?? "") && !/[\p{L}\p{N}_]/u.test(source[end] ?? "")) return true;
+            start = source.indexOf(needle, start + 1);
+        }
+        return false;
+    };
     for (const field of ["syarat_pembayaran", "masa_berlaku_hari"] as const) {
         const raw = candidate[field];
         if (!raw || typeof raw !== "object") continue;
@@ -42,8 +53,8 @@ export function applyTermProposals(
         if (field === "syarat_pembayaran") {
             if (
                 !validPaymentTerms(value) ||
-                !normalize(turn.transcript).includes(normalize(value)) ||
-                !/\b(dp|uang muka|bayar|pembayaran|pelunasan|payment|deposit|installment)\b/i.test(
+                !containsPhrase(turn.transcript, value) ||
+                !/\b(dp|uang muka|bayar|pembayaran|pelunasan|payment|deposit|installment|jatuh tempo|termin|net\s+\d+|due|tunai|cash)\b/i.test(
                     value
                 )
             )
