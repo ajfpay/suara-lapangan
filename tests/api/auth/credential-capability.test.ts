@@ -13,6 +13,7 @@ const fixtures = [
         status: "password",
     },
     { id: randomUUID(), providers: ["invalid-credential"], status: "unknown" },
+    { id: randomUUID(), providers: [], status: "unknown" },
 ] as const;
 
 describe.skipIf(!database)("owner-scoped credential capability", () => {

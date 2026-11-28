@@ -29,7 +29,8 @@ describe.skipIf(!database)("sign-up and sign-in rate limit", () => {
     function attempt(
         path: "sign-in/email" | "sign-up/email",
         forwardedFor?: string,
-        instance = server
+        instance = server,
+        extraHeaders: Record<string, string> = {}
     ): Promise<Response> {
         const body =
             path === "sign-in/email"
@@ -53,6 +54,7 @@ describe.skipIf(!database)("sign-up and sign-in rate limit", () => {
                     ...(forwardedFor
                         ? { "x-forwarded-for": forwardedFor }
                         : {}),
+                    ...extraHeaders,
                 },
                 body: JSON.stringify(body),
             })
@@ -147,5 +149,64 @@ describe.skipIf(!database)("sign-up and sign-in rate limit", () => {
             );
         }
         expect((await attempt("sign-in/email", ip, other)).status).toBe(429);
+    }, 120_000);
+
+    it("admits only ten simultaneous requests across two auth instances", async () => {
+        const ip = clientAddress();
+        vi.resetModules();
+        const other = await import("@/lib/server/auth");
+        const responses = await Promise.all(
+            Array.from({ length: 12 }, (_, i) =>
+                attempt("sign-in/email", ip, i % 2 ? other : server)
+            )
+        );
+        expect(
+            responses.filter((response) => response.status === 401)
+        ).toHaveLength(10);
+        expect(
+            responses.filter((response) => response.status === 429)
+        ).toHaveLength(2);
+        expect((await attempt("sign-in/email", ip)).status).toBe(429);
+    }, 120_000);
+
+    it("shares the same limit between IPv4 and its IPv4-mapped IPv6 representation", async () => {
+        const ip = clientAddress();
+        for (let i = 0; i < 10; i++) {
+            expect((await attempt("sign-in/email", ip)).status).toBe(401);
+        }
+        expect((await attempt("sign-in/email", "::ffff:" + ip)).status).toBe(
+            429
+        );
+    }, 120_000);
+
+    it("ignores both client IP headers when production proxy trust is disabled", async () => {
+        vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + 240_000 });
+        vi.stubEnv("NODE_ENV", "production");
+        vi.stubEnv("AUTH_TRUST_PROXY", "false");
+        used.add("0.0.0.0|/sign-in/email");
+        try {
+            for (let i = 0; i < 10; i++) {
+                expect(
+                    (
+                        await attempt(
+                            "sign-in/email",
+                            clientAddress(),
+                            server,
+                            { "x-auth-client-ip": clientAddress() }
+                        )
+                    ).status
+                ).toBe(401);
+            }
+            expect(
+                (
+                    await attempt("sign-in/email", clientAddress(), server, {
+                        "x-auth-client-ip": clientAddress(),
+                    })
+                ).status
+            ).toBe(429);
+        } finally {
+            vi.stubEnv("NODE_ENV", "test");
+            vi.stubEnv("AUTH_TRUST_PROXY", "true");
+        }
     }, 120_000);
 });
