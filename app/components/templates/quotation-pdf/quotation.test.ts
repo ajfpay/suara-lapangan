@@ -44,3 +44,73 @@ describe("QuotationTemplate", () => {
         expect(formatMoney(6000000, "id", "IDR")).toContain("Rp");
     });
 });
+
+for (const locale of ["id", "en"] as const) {
+    it(`${locale}: never invents payment or validity terms`, () => {
+        const html = renderQuotationHtml(doc(locale));
+        expect(html).not.toContain("50%");
+        expect(html).not.toContain("30 days");
+        expect(html).not.toContain("30 hari");
+        const explicit = renderQuotationHtml({
+            ...doc(locale),
+            syarat_pembayaran: "Payment <on delivery>",
+            masa_berlaku_hari: 17,
+        });
+        expect(explicit).toContain("Payment &lt;on delivery&gt;");
+        expect(explicit).toContain(locale === "id" ? "17 hari" : "17 days");
+    });
+}
+
+it("draft watermark is repeated across real printed pages, official PDF is unmarked", async () => {
+    const { renderPdf, resolveChromiumPath } = await import(
+        "@/lib/server/pdf/storage"
+    );
+    const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { execFileSync } = await import("node:child_process");
+    try {
+        resolveChromiumPath();
+        execFileSync("pdftotext", ["-v"], { stdio: "ignore" });
+    } catch (error) {
+        if (process.env.CI) throw error;
+        return;
+    }
+    const root = await mkdtemp(join(tmpdir(), "quotation-print-"));
+    try {
+        for (const locale of ["id", "en"] as const) {
+            const sample = doc(locale);
+            const lengthy = {
+                ...sample,
+                pekerjaan: Array.from({ length: 90 }, (_, index) => ({
+                    ...sample.pekerjaan[0],
+                    uraian: `Item ${index}`,
+                })),
+            };
+            for (const draft of [true, false]) {
+                const bytes = await renderPdf(
+                    renderQuotationHtml({
+                        ...lengthy,
+                        nomor: draft ? null : sample.nomor,
+                    })
+                );
+                const file = join(root, "test.pdf");
+                await writeFile(file, bytes);
+                const pages = execFileSync("pdftotext", ["-raw", file, "-"], {
+                    encoding: "utf8",
+                })
+                    .split("\f")
+                    .filter((p) => p.trim());
+                expect(pages.length).toBeGreaterThan(1);
+                for (const page of pages) {
+                    const marker = locale === "id" ? "DRAF" : "DRAFT";
+                    const normalized = page.replace(/\s+/g, "");
+                    if (draft) expect(normalized).toContain(marker);
+                    else expect(normalized).not.toContain(marker);
+                }
+            }
+        }
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+}, 60000);

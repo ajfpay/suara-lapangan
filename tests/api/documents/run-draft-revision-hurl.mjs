@@ -31,6 +31,7 @@ const pool = new pg.Pool({
     query_timeout: 10000,
 });
 const user = randomUUID();
+const otherUser = randomUUID();
 const session = "hurl-draft-" + randomUUID();
 const documentId = randomUUID();
 const baseUrl = "http://127.0.0.1:3010";
@@ -72,6 +73,20 @@ try {
         "insert into auth_session(id,expires_at,token,user_id) values($1,now()+interval '10 minutes',$2,$3)",
         [randomUUID(), token, user]
     );
+    const otherToken = randomBytes(32).toString("hex");
+    const otherCookie = encodeURIComponent(
+        otherToken +
+            "." +
+            createHmac("sha256", secret).update(otherToken).digest("base64")
+    );
+    await pool.query(
+        "insert into auth_user(id,email,name,role,email_verified) values($1,$2,'Other fixture','user',true)",
+        [otherUser, otherUser + "@example.test"]
+    );
+    await pool.query(
+        "insert into auth_session(id,expires_at,token,user_id) values($1,now()+interval '10 minutes',$2,$3)",
+        [randomUUID(), otherToken, otherUser]
+    );
     await pool.query(
         "insert into sessions(id,locale,audio_sha256,audio_bytes,transcript) values($1,'id','fixture',1,'fixture')",
         [session]
@@ -108,6 +123,7 @@ try {
         Object.entries({
             base_url: baseUrl,
             cookie,
+            other_cookie: otherCookie,
             document_id: documentId,
             key: randomUUID(),
         })
@@ -139,16 +155,19 @@ try {
         );
         throw new Error("Draft HTTP checks failed");
     }
-    console.log("Hurl draft revision: 8 HTTP requests passed");
+    console.log("Hurl draft and approval integrity: 17 HTTP requests passed");
 } catch {
-    console.error(`Ticket 22 HTTP proof failed during ${stage}`);
+    console.error(`Draft and approval HTTP proof failed during ${stage}`);
     process.exitCode = 1;
 } finally {
     if (directory) await rm(directory, { recursive: true, force: true });
     try {
         if (verified) {
             await pool.query("delete from sessions where id=$1", [session]);
-            await pool.query("delete from auth_user where id=$1", [user]);
+            await pool.query("delete from auth_user where id=$1 or id=$2", [
+                user,
+                otherUser,
+            ]);
             if (
                 (
                     await pool.query("select 1 from documents where id=$1", [

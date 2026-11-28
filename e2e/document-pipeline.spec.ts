@@ -1,4 +1,7 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect as baseExpect, type Page } from "@playwright/test";
+
+const expect = baseExpect.configure({ timeout: 20000 });
+test.setTimeout(90000);
 
 import {
     assertStoredDocument,
@@ -20,7 +23,7 @@ import {
  * the PDF, and the Dokumen screen loads it and saves it with the document
  * number as filename.
  *
- * Approval has no UI control yet, so it is driven over the page's own request
+ * The first path drives approval over the page's own request
  * context: the real POST /api/documents/{id}/approve route, with the browser's
  * own cookies. That route is the product's gate — a draft must not be
  * downloadable — so the test exercises it rather than bypassing it.
@@ -206,7 +209,25 @@ async function createDocumentNumber(
         page.getByTestId("konfirmasi-pekerjaan[1].volume")
     ).toHaveCount(0);
 
-    return approveDocument(page, docId);
+    const approveResponse = page.waitForResponse(
+        (response) =>
+            response.url().endsWith(`/api/documents/${docId}/approve`) &&
+            response.request().method() === "POST"
+    );
+    await expect(page.getByTestId("btn-setujui")).toBeEnabled();
+    await page.getByTestId("btn-setujui").click();
+    const response = await approveResponse;
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(response.request().postDataJSON()).toEqual({
+        draft_revision: body.draft_revision,
+    });
+    expect(response.request().headers()["idempotency-key"]).toBeTruthy();
+    await expect(page.getByTestId("document-status")).toHaveText("disetujui");
+    await expect(page.getByTestId("document-nomor")).toHaveText(
+        body.document.nomor
+    );
+    return body.document.nomor;
 }
 
 /** The document id the Susun screen links to on its "Lihat dokumen" control. */
@@ -214,7 +235,10 @@ async function documentIdFromLink(page: Page): Promise<string> {
     const href = await page
         .getByTestId("link-lihat-dokumen")
         .getAttribute("href");
-    expect(href, "Lihat dokumen must link to the created document").toBeTruthy();
+    expect(
+        href,
+        "Lihat dokumen must link to the created document"
+    ).toBeTruthy();
 
     const docId = new URL(href!, "http://localhost").searchParams.get("doc");
     expect(docId, "the link must carry the document id").toBeTruthy();
@@ -227,15 +251,22 @@ async function documentIdFromLink(page: Page): Promise<string> {
  * the browser, real route, real gate. Returns the server-issued number.
  */
 async function approveDocument(page: Page, docId: string): Promise<string> {
+    const current = await page.request.get(
+        `/api/documents/${encodeURIComponent(docId)}`
+    );
+    expect(current.ok()).toBe(true);
+    const { draft_revision } = await current.json();
     const response = await page.request.post(
-        `/api/documents/${encodeURIComponent(docId)}/approve`
+        `/api/documents/${encodeURIComponent(docId)}/approve`,
+        {
+            data: { draft_revision },
+            headers: { "Idempotency-Key": crypto.randomUUID() },
+        }
     );
     const text = await response.text();
 
     if (response.status() !== 200) {
-        throw new Error(
-            `approve failed: HTTP ${response.status()} ${text}`
-        );
+        throw new Error(`approve failed: HTTP ${response.status()} ${text}`);
     }
 
     const body = JSON.parse(text) as {

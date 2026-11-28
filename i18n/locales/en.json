@@ -107,6 +107,7 @@
         "resolveLink": "Resolve in Susun",
         "pdfFrameTitle": "PDF preview of {nomor}",
         "pdfUnavailable": "The PDF could not be shown here. Use Download PDF to open it in a viewer.",
+        "pdfRecoveryError": "Could not recover the PDF. Check your connection and try again.",
         "downloadError": "The PDF could not be downloaded. Use Download PDF to try again."
     },
     "footer": {

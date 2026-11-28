@@ -107,6 +107,7 @@
         "resolveLink": "Selesaikan di Susun",
         "pdfFrameTitle": "Pratinjau PDF {nomor}",
         "pdfUnavailable": "PDF tidak bisa ditampilkan di sini. Gunakan Unduh PDF untuk membukanya di penampil PDF.",
+        "pdfRecoveryError": "PDF gagal dipulihkan. Periksa koneksi dan coba lagi.",
         "downloadError": "PDF gagal diunduh. Tekan Unduh PDF untuk mencoba lagi."
     },
     "footer": {

@@ -58,7 +58,9 @@ jobs:
       # Only Chromium: both Playwright projects use it, so pulling Firefox and
       # WebKit would add minutes per run for browsers nothing here targets.
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y poppler-utils
 
       # The PDF route renders through puppeteer-core, which needs an explicit
       # executable path. Point it at the Chromium just installed — the app's
@@ -89,7 +91,15 @@ jobs:
       - name: Unit and route tests
         run: npm test
 
-      # Builds and serves the production bundle (see playwright.config.ts).
+      - name: Build production bundle for HTTP and browser tests
+        id: e2e-build
+        env:
+          DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+          BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
+          BETTER_AUTH_URL: http://127.0.0.1:3000
+          TRUSTED_ORIGINS: http://127.0.0.1:3000,http://localhost:3000
+        run: npm run build
+
       - name: Smoke tests
         env:
           DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
@@ -97,16 +107,22 @@ jobs:
           # so the seeded session in e2e/auth-setup.ts must sign with the same
           # value the server uses. Keep this equal to the config's default.
           BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
+          SLM_E2E_PREBUILT: "1"
         # Each invocation owns a fresh production server. Both viewports otherwise
         # share the same process-local document rate-limit bucket on loopback.
         run: |
-          desktop_status=0
-          mobile_status=0
-          npm run test:e2e -- --project=desktop || desktop_status=$?
-          npm run test:e2e -- --project=mobile || mobile_status=$?
-          test "$desktop_status" -eq 0 && test "$mobile_status" -eq 0
+          result=0
+          mapfile -t general < <(find e2e -maxdepth 1 -name '*.spec.ts' ! -name 'document-pipeline.spec.ts' ! -name 'draft-integrity.spec.ts' | sort)
+          for project in desktop mobile; do
+            npm run test:e2e -- --project="$project" "${general[@]}" || result=1
+            npm run test:e2e -- --project="$project" e2e/document-pipeline.spec.ts || result=1
+            npm run test:e2e -- --project="$project" e2e/draft-integrity.spec.ts || result=1
+          done
+          exit "$result"
 
       - name: Install Hurl
+        id: hurl-install
+        if: ${{ !cancelled() && steps.e2e-build.outcome == 'success' }}
         run: |
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/hurl.deb" https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl_8.1.0_amd64.deb
           echo "c56222c8923d3940533ac3d7085f66cb6fa6c05639f33aaeef8d857ab70622f9  $RUNNER_TEMP/hurl.deb" | sha256sum --check
@@ -114,6 +130,7 @@ jobs:
           hurl --version
 
       - name: Draft HTTP contract (Hurl)
+        if: ${{ !cancelled() && steps.hurl-install.outcome == 'success' }}
         env:
           DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
           BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
@@ -243,8 +260,10 @@ jobs:
           echo "draft ${DOC_ID} created with no number and no open confirmations"
 
           # Approval is the gate: it issues the number and renders the PDF.
+          REVISION=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/created.json','utf8')).draft_revision")
           curl -fsS -X POST http://localhost:${SMOKE_PORT}/api/documents/${DOC_ID}/approve \
-            -H "${AUTH_HEADER}" \
+            -H "${AUTH_HEADER}" -H 'Content-Type: application/json' -H 'Idempotency-Key: docker-smoke-approval' \
+            -d "{\"draft_revision\":${REVISION}}" \
             -o /tmp/approved.json -w "approve HTTP %{http_code}\n"
           node -e "
             const body = JSON.parse(require('fs').readFileSync('/tmp/approved.json','utf8'));
@@ -260,6 +279,8 @@ jobs:
           head -c 4 /tmp/out.pdf | grep -q '%PDF' || { echo "::error::response is not a PDF"; exit 1; }
           SIZE=$(stat -c%s /tmp/out.pdf)
           [ "$SIZE" -gt 1000 ] || { echo "::error::PDF too small: $SIZE bytes"; exit 1; }
+          EXPECTED=$(node -p "JSON.parse(require('fs').readFileSync('/tmp/approved.json','utf8')).pdf_path.split('/').pop().replace('.pdf','')")
+          echo "$EXPECTED  /tmp/out.pdf" | sha256sum --check
           echo "OK: $(stat -c%s /tmp/out.pdf)-byte PDF"
 
       - name: Dump container logs on failure

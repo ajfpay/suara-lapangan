@@ -1,4 +1,3 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import {
     getPostgresDocumentStore,
@@ -21,12 +20,7 @@ import {
     sendEmailBodySchema,
     GmailApiError,
 } from "@/lib/server/email";
-import {
-    resolvePdfStorageDir,
-    relativePdfPathFor,
-    isSafeStoredPdfPath,
-    readPdfSnapshot,
-} from "@/lib/server/pdf/storage";
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
 import {
     reserveEmailSend,
     releaseEmailSend,
@@ -161,6 +155,7 @@ async function handlePost(
 
     if (
         stored.status === "perlu_konfirmasi" ||
+        !Array.isArray(stored.document.butuh_konfirmasi) ||
         stored.document.butuh_konfirmasi.length > 0
     ) {
         return NextResponse.json(
@@ -228,55 +223,16 @@ async function handlePost(
         throw cause;
     }
 
-    const storageDir = resolvePdfStorageDir();
     const contentHash = contentHashOf(stored.document);
     let pdfBuffer: Buffer | null = null;
-
-    /**
-     * Reads a hash-verified PDF snapshot and accepts it only when the sidecar
-     * hash matches the current document content. A snapshot whose hash differs
-     * is stale (the document was PATCHed after the PDF was rendered) and must
-     * not be emailed, mirroring the PDF route's stale-snapshot rejection.
-     */
-    const acceptSnapshot = (snapshot: { pdf: Buffer; hash: string }): void => {
-        if (snapshot.hash !== contentHash) {
-            console.warn(
-                redactSecrets(
-                    `[email] stale pdf snapshot for ${id}: hash mismatch`
-                )
-            );
-            return;
-        }
-        pdfBuffer = snapshot.pdf;
-    };
-
-    if (stored.pdfPath && isSafeStoredPdfPath(stored.pdfPath)) {
-        const diskPath = path.resolve(storageDir, stored.pdfPath);
-        try {
-            const snapshot = await readPdfSnapshot(diskPath);
-            if (snapshot) {
-                acceptSnapshot(snapshot);
-            }
-        } catch (cause) {
-            console.error(
-                redactSecrets(`[email] disk read failed: ${String(cause)}`)
-            );
-        }
-    }
-
-    if (!pdfBuffer) {
-        const idPath = relativePdfPathFor(id);
-        const idDiskPath = path.resolve(storageDir, idPath);
-        try {
-            const snapshot = await readPdfSnapshot(idDiskPath);
-            if (snapshot) {
-                acceptSnapshot(snapshot);
-            }
-        } catch (cause) {
-            console.error(
-                redactSecrets(`[email] disk read failed: ${String(cause)}`)
-            );
-        }
+    try {
+        pdfBuffer = await verifiedOfficialPdf(stored);
+    } catch (cause) {
+        console.error(
+            redactSecrets(
+                `[email] snapshot verification failed for ${id}: ${String(cause)}`
+            )
+        );
     }
 
     if (!pdfBuffer) {

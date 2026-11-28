@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 import {
     afterAll,
+    afterEach,
     beforeAll,
     beforeEach,
     describe,
@@ -9,6 +10,9 @@ import {
     vi,
 } from "vitest";
 import path from "node:path";
+import { createHash } from "node:crypto";
+import { tmpdir } from "node:os";
+import { migrateLegacyPdf } from "@/scripts/migrate-legacy-pdf.mjs";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 
@@ -53,6 +57,7 @@ function withUser(role: "user" | "admin", userId: string): void {
 
 import { POST } from "./route";
 import { PATCH } from "../route";
+import { GET as downloadPdf } from "@/app/api/pdf/[id]/route";
 import { resetRateLimits } from "@/lib/server/quota/rate-limit";
 import type { QuotationDocument } from "@/lib/server/guard/types";
 
@@ -132,6 +137,10 @@ describe
             );
         });
 
+        afterEach(async () => {
+            await pool.query("truncate document_sequences");
+        });
+
         afterAll(async () => {
             await pool.end();
         });
@@ -162,6 +171,235 @@ describe
             return id;
         }
 
+        function approval(id: string, key: string, recover = false) {
+            return POST(
+                new Request(`http://localhost/api/documents/${id}/approve`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": key,
+                    },
+                    body: JSON.stringify({
+                        draft_revision: 1,
+                        ...(recover ? { recover_pdf: true } : {}),
+                    }),
+                }),
+                { params: Promise.resolve({ id }) }
+            );
+        }
+
+        it("reports legacy migration instead of recommending an impossible retry", async () => {
+            withUser("user", ownerId);
+            for (const oldPath of [null, "2026/legacy.pdf"]) {
+                const id = await seedDocument(
+                    createTestDocument({
+                        nomor: `LEGACY-${oldPath ?? "missing"}`,
+                    }),
+                    { status: "disetujui", userId: ownerId }
+                );
+                await pool.query(
+                    "update documents set pdf_path=$2 where id=$1",
+                    [id, oldPath]
+                );
+                const result = await approval(id, "new-key");
+                expect(result.status).toBe(409);
+                expect(await result.json()).toMatchObject({
+                    error: "legacy_migration_required",
+                });
+            }
+        });
+
+        it("rejects different-key approvals but supports explicit recovery without changing approval attribution", async () => {
+            withUser("user", ownerId);
+            const id = await seedDocument(createTestDocument(), {
+                userId: ownerId,
+            });
+            const mod = await import("@/lib/server/pdf/renderQuotation");
+            const spy = vi
+                .spyOn(mod, "renderQuotationHtml")
+                .mockImplementationOnce(() => {
+                    throw new Error("render failed");
+                });
+            try {
+                expect((await approval(id, "original-key")).status).toBe(500);
+            } finally {
+                spy.mockRestore();
+            }
+            expect((await approval(id, "different-key")).status).toBe(409);
+            const recovered = await approval(id, "recovery-key", true);
+            expect(recovered.status).toBe(200);
+            const body = await recovered.json();
+            expect(body.approved_by).toBe(ownerId);
+            expect(body.pdf_path).toMatch(/^snapshots\//);
+            const again = await approval(id, "original-key");
+            expect(again.status).toBe(200);
+            expect(await again.json()).toMatchObject({
+                pdf_path: body.pdf_path,
+                document: { nomor: body.document.nomor },
+            });
+            expect((await approval(id, "different-key")).status).toBe(409);
+            expect((await approval(id, "recovery-key", true)).status).toBe(200);
+            const sequence = await pool.query(
+                "select last_number from document_sequences where year=$1",
+                [new Date().getUTCFullYear()]
+            );
+            expect(sequence.rows[0].last_number).toBe(1);
+        }, 30000);
+
+        it("refuses to freeze inconsistent amounts or invalid legacy line quantities", async () => {
+            withUser("user", ownerId);
+            for (const invalid of [
+                { jumlah: 1 },
+                { volume: 0 },
+                { uraian: "  " },
+            ]) {
+                const doc = createTestDocument();
+                Object.assign(doc.pekerjaan[0], invalid);
+                const id = await seedDocument(doc, { userId: ownerId });
+                const result = await approval(id, "invalid-line");
+                expect(result.status).toBe(409);
+                expect(await result.json()).toMatchObject({
+                    error: "needs_confirmation",
+                });
+            }
+            const count = await pool.query(
+                "select count(*)::int as count from document_sequences"
+            );
+            expect(count.rows[0].count).toBe(0);
+        }, 30000);
+
+        it("migrates only independently verified legacy bytes and preserves the original", async () => {
+            const id = await seedDocument(
+                createTestDocument({ nomor: "LEGACY-23" }),
+                { status: "disetujui", userId: ownerId }
+            );
+            const root = await fs.mkdtemp(path.join(tmpdir(), "legacy-pdf-"));
+            try {
+                const legacy_path = `${id}.pdf`;
+                const bytes = Buffer.from("%PDF-1.4\nlegacy fixture\n%%EOF\n");
+                await fs.writeFile(path.join(root, legacy_path), bytes);
+                await pool.query(
+                    "update documents set pdf_path=$2 where id=$1",
+                    [id, legacy_path]
+                );
+                const {
+                    rows: [row],
+                } = await pool.query(
+                    "select data_json from documents where id=$1",
+                    [id]
+                );
+                const digest = (value: string | Buffer) =>
+                    createHash("sha256").update(value).digest("hex");
+                const manifest = {
+                    id,
+                    legacy_path,
+                    sha256: digest(bytes),
+                    document_sha256: digest(JSON.stringify(row.data_json)),
+                };
+                await expect(
+                    migrateLegacyPdf(
+                        pool,
+                        root,
+                        { ...manifest, sha256: "0".repeat(64) },
+                        true
+                    )
+                ).rejects.toThrow("digest mismatch");
+                expect(await migrateLegacyPdf(pool, root, manifest)).toBe(
+                    "verified"
+                );
+                expect(
+                    (
+                        await pool.query(
+                            "select pdf_path from documents where id=$1",
+                            [id]
+                        )
+                    ).rows[0].pdf_path
+                ).toBe(legacy_path);
+                expect(await migrateLegacyPdf(pool, root, manifest, true)).toBe(
+                    "migrated"
+                );
+                expect(await migrateLegacyPdf(pool, root, manifest, true)).toBe(
+                    "already_migrated"
+                );
+                expect(
+                    (
+                        await pool.query(
+                            "select pdf_path from documents where id=$1",
+                            [id]
+                        )
+                    ).rows[0].pdf_path
+                ).toBe(`snapshots/${manifest.sha256}.pdf`);
+                expect(await fs.readFile(path.join(root, legacy_path))).toEqual(
+                    bytes
+                );
+            } finally {
+                await fs.rm(root, { recursive: true, force: true });
+            }
+        });
+
+        it("requires the exact reviewed revision and idempotency key before approval", async () => {
+            withUser("user", ownerId);
+            const id = await seedDocument(createTestDocument(), {
+                userId: ownerId,
+            });
+            const ctx = { params: Promise.resolve({ id }) };
+            const url = `http://localhost/api/documents/${id}/approve`;
+            const missing = await POST(
+                new Request(url, { method: "POST" }),
+                ctx
+            );
+            expect(missing.status).toBe(400);
+            const stale = await POST(
+                new Request(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "stale",
+                    },
+                    body: JSON.stringify({ draft_revision: 2 }),
+                }),
+                ctx
+            );
+            expect(stale.status).toBe(409);
+            expect(await stale.json()).toMatchObject({
+                error: "stale_revision",
+                draft_revision: 1,
+            });
+        });
+
+        it("rejects empty items and missing prices even without confirmation flags", async () => {
+            withUser("user", ownerId);
+            const empty = await seedDocument(
+                createTestDocument({ pekerjaan: [] }),
+                { userId: ownerId }
+            );
+            const missingPrice = createTestDocument();
+            missingPrice.pekerjaan[0].harga_satuan_minor = null;
+            const missing = await seedDocument(missingPrice, {
+                userId: ownerId,
+            });
+            for (const id of [empty, missing]) {
+                const res = await POST(
+                    new Request(
+                        `http://localhost/api/documents/${id}/approve`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Idempotency-Key": "reject-incomplete",
+                            },
+                            body: JSON.stringify({ draft_revision: 1 }),
+                        }
+                    ),
+                    { params: Promise.resolve({ id }) }
+                );
+                expect(res.status).toBe(409);
+                expect(await res.json()).toMatchObject({
+                    error: "needs_confirmation",
+                });
+            }
+        });
+
         it("rejects unauthenticated caller with 401", async () => {
             mockGetSession.mockResolvedValue(null);
             mockIsAdmin.mockReturnValue(false);
@@ -172,6 +410,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -191,6 +434,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -207,6 +455,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -232,6 +485,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -251,6 +509,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -279,6 +542,11 @@ describe
             const preApprove = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -312,6 +580,11 @@ describe
             const approveRes = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 2 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -321,7 +594,7 @@ describe
             expect(approveData.document.nomor).toMatch(
                 /^SL\/QTN\/\d{4}\/\d{4}$/
             );
-        });
+        }, 30000);
 
         it("returns 409 invalid_state when document status is not draf (e.g. terkirim)", async () => {
             withUser("user", ownerId);
@@ -333,6 +606,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -349,6 +627,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -405,6 +688,11 @@ describe
                         `http://localhost/api/documents/${id}/approve`,
                         {
                             method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Idempotency-Key": "approval-test",
+                            },
+                            body: JSON.stringify({ draft_revision: 1 }),
                         }
                     ),
                     { params: Promise.resolve({ id }) }
@@ -426,6 +714,11 @@ describe
             const res1 = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -437,6 +730,11 @@ describe
             const res2 = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -469,6 +767,11 @@ describe
             const res1 = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -478,10 +781,24 @@ describe
             expect(data1.status).toBe("disetujui");
             expect(data1.document.nomor).toBeTruthy();
             const nomor = data1.document.nomor as string;
+            expect(data1.pdf_path).toBeNull();
+            const unreadable = await downloadPdf(
+                new Request(`http://localhost/api/pdf/${id}`),
+                { params: Promise.resolve({ id }) }
+            );
+            expect(unreadable.status).toBe(500);
+            expect(unreadable.headers.get("cache-control")).toBe(
+                "private, no-store"
+            );
 
             const res2 = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );
@@ -508,7 +825,14 @@ describe
                 POST(
                     new Request(
                         `http://localhost/api/documents/${id}/approve`,
-                        { method: "POST" }
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Idempotency-Key": "approval-test",
+                            },
+                            body: JSON.stringify({ draft_revision: 1 }),
+                        }
                     ),
                     {
                         params: Promise.resolve({ id }),
@@ -517,7 +841,14 @@ describe
                 POST(
                     new Request(
                         `http://localhost/api/documents/${id}/approve`,
-                        { method: "POST" }
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Idempotency-Key": "approval-test",
+                            },
+                            body: JSON.stringify({ draft_revision: 1 }),
+                        }
                     ),
                     {
                         params: Promise.resolve({ id }),
@@ -526,7 +857,14 @@ describe
                 POST(
                     new Request(
                         `http://localhost/api/documents/${id}/approve`,
-                        { method: "POST" }
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Idempotency-Key": "approval-test",
+                            },
+                            body: JSON.stringify({ draft_revision: 1 }),
+                        }
                     ),
                     {
                         params: Promise.resolve({ id }),
@@ -544,6 +882,8 @@ describe
 
             expect(d1.document.nomor).toBe(d2.document.nomor);
             expect(d2.document.nomor).toBe(d3.document.nomor);
+            expect(d1.pdf_path).toBe(d2.pdf_path);
+            expect(d2.pdf_path).toBe(d3.pdf_path);
 
             const year = new Date().getUTCFullYear();
             const seqRow = await pool.query<{ last_number: number }>(
@@ -569,6 +909,11 @@ describe
             const res = await POST(
                 new Request(`http://localhost/api/documents/${id}/approve`, {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "approval-test",
+                    },
+                    body: JSON.stringify({ draft_revision: 1 }),
                 }),
                 { params: Promise.resolve({ id }) }
             );

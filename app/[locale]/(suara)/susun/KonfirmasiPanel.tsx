@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { DraftEditor } from "./DraftEditor";
@@ -45,6 +45,11 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     } = useDraftPatch(locale, snapshot, acceptSnapshot);
     const [creating, setCreating] = useState(false);
     const [approving, setApproving] = useState(false);
+    const approvalRetry = useRef<{
+        id: string;
+        revision: number;
+        key: string;
+    } | null>(null);
     const [error, setError] = useState<string | null>(null);
     if (!sessionId) return null;
 
@@ -98,7 +103,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 return;
             }
             setDocId(doc.id);
-            if (isDraftSnapshot(data)) setSnapshot(data);
+            setSnapshot(isDraftSnapshot(data) ? data : null);
             if (doc.nomor) {
                 setNomor(doc.nomor);
             }
@@ -126,7 +131,16 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
 
     const hasPending = items.length > 0;
     const blocked = status === "draf" || hasPending;
-    const canApprove = status === "draf" && !hasPending && !editing;
+    const canApprove =
+        status === "draf" &&
+        !hasPending &&
+        !editing &&
+        !!snapshot &&
+        snapshot.document.pekerjaan?.length > 0 &&
+        !snapshot.document.pekerjaan.some(
+            (item) =>
+                item.harga_satuan_minor === null || item.harga_satuan == null
+        );
     const shareBlocked = isShareBlocked(status, items.length);
     const shareUrl = buildWhatsAppShareUrl(
         buildShareSummary({
@@ -138,7 +152,14 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     );
 
     const handleApprove = async () => {
-        if (!docId || approving || !canApprove) return;
+        if (!docId || approving || !canApprove || !snapshot) return;
+        const revision = snapshot.draft_revision;
+        const previous = approvalRetry.current;
+        const key =
+            previous?.id === docId && previous.revision === revision
+                ? previous.key
+                : crypto.randomUUID();
+        approvalRetry.current = { id: docId, revision, key };
         setApproving(true);
         setError(null);
         try {
@@ -146,6 +167,11 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 `/api/documents/${encodeURIComponent(docId)}/approve`,
                 {
                     method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": key,
+                    },
+                    body: JSON.stringify({ draft_revision: revision }),
                 }
             );
 
@@ -157,6 +183,17 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => null);
+                if (res.status < 500) approvalRetry.current = null;
+                if (res.status === 409 && data?.error === "stale_revision") {
+                    const latest = await fetch(
+                        `/api/documents/${encodeURIComponent(docId)}`,
+                        { cache: "no-store" }
+                    );
+                    if (latest.ok) {
+                        const fresh = await latest.json();
+                        if (isDraftSnapshot(fresh)) acceptSnapshot(fresh);
+                    }
+                }
                 const fallback = isIndo
                     ? "Gagal menyetujui dokumen"
                     : "Failed to approve document";
@@ -173,6 +210,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
             }
 
             const data = await res.json();
+            approvalRetry.current = null;
             const nextStatus =
                 data.status ?? data.document?.status ?? "disetujui";
             setStatus(nextStatus);

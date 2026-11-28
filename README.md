@@ -128,11 +128,17 @@ base URL (`BETTER_AUTH_URL`).
 
 The e2e suite runs two projects — desktop 1440x900 and mobile 375x812 — and
 needs no microphone or external model API: it drives the built app over HTTP.
-CI runs the projects sequentially in separate Playwright invocations so that
-the production server's process-local rate-limit buckets are not shared across viewports.
-For the same isolation locally, stop any existing test server and run
-`npm run test:e2e -- --project=desktop` followed by
-`npm run test:e2e -- --project=mobile`. Both require the approved test database.
+CI runs the projects sequentially in separate Playwright invocations and isolates the document pipeline and draft-integrity specs in fresh production-server processes. The rate-limit buckets remain enabled; independent browser scenarios do not share a synthetic loopback bucket. Hurl runs even if browser tests fail, provided the production build and Hurl installation succeeded.
+For the same isolation locally, use the approved test database, stop any existing test server on the Playwright port, and run the following in Bash from the repository root. Each invocation starts and stops its own production server (and builds the bundle by default).
+
+```bash
+mapfile -t general < <(find e2e -maxdepth 1 -name '*.spec.ts' ! -name 'document-pipeline.spec.ts' ! -name 'draft-integrity.spec.ts' | sort)
+for project in desktop mobile; do
+    npm run test:e2e -- --project="$project" "${general[@]}" || exit 1
+    npm run test:e2e -- --project="$project" e2e/document-pipeline.spec.ts || exit 1
+    npm run test:e2e -- --project="$project" e2e/draft-integrity.spec.ts || exit 1
+done
+```
 
 ## Stack
 
@@ -153,3 +159,16 @@ export and the email sender — was removed in the first ticket.
 `app/components/templates/**` is still present but unimported and excluded from
 typechecking and linting; it belongs to the ticket that builds the Quotation /
 Surat Penawaran template.
+
+### Immutable official PDF snapshots (Ticket 23)
+
+Approval requires JSON `{"draft_revision": <reviewed revision>}` and an `Idempotency-Key` header. A normal retry uses the same revision and key; different approval keys conflict. If the original approval succeeded but PDF publication failed, an authorized caller can explicitly POST `{"draft_revision": <reviewed revision>, "recover_pdf": true}` with a fresh key. Recovery cannot approve a draft, allocate another number, alter approval attribution, or regenerate published bytes. GET document detail exposes `pdf_recovery_available` for this case. Official PDFs are published only by the database version's pointer to `snapshots/<SHA-256 of PDF bytes>.pdf`. The download, approved preview and email attachment verify the stored document fingerprint and PDF bytes on every read; they never regenerate an official version. A failed render can be retried via approval without consuming another number.
+
+Before deploying migration `0014`, inventory legacy PDF files against an independently trusted backup/checksum manifest. Legacy `.hash` files contain **document JSON hashes, not PDF-byte hashes**; they cannot authenticate old PDF bytes by themselves. Prepare a protected JSON array with `id` (document UUID), `legacy_path` (existing relative `pdf_path`), `sha256` (trusted PDF-byte SHA-256) and `document_sha256` (SHA-256 of the approved PostgreSQL JSON payload serialized by Node). Apply database migration `0014` first. The migration tool requires Node 22.6 or newer (the project CI uses Node 22). Run the following in the approved environment, with the correct database and PDF directory configured, first without `--apply`:
+
+```sh
+node --experimental-strip-types scripts/migrate-legacy-pdf.mjs /absolute/path/to/trusted-manifest.json
+node --experimental-strip-types scripts/migrate-legacy-pdf.mjs /absolute/path/to/trusted-manifest.json --apply
+```
+
+The tool verifies source bytes and document identity under a row lock, publishes the immutable copy, and updates the pointer atomically. Re-running verifies the already migrated snapshot. Original files remain untouched. Unverified, missing or mismatched legacy PDFs fail closed; do not regenerate or invent a checksum. Maintain an independent backup before migration. Orphan file cleanup, including abandoned `.pdf-*.tmp` files after a process crash, is part of Ticket 16; sweep only after checking file age, active writers, and published references. Never delete a shared digest while any published row references it.

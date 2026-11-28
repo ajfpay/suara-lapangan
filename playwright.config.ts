@@ -70,7 +70,10 @@ export default defineConfig({
     ],
 
     webServer: {
-        command: `npm run build && npm run start -- -p ${PORT}`,
+        command:
+            process.env.SLM_E2E_PREBUILT === "1"
+                ? `npm run start -- -p ${PORT}`
+                : `npm run build && npm run start -- -p ${PORT}`,
         url: `${BASE_URL}/en`,
         reuseExistingServer: !process.env.CI,
         // Same secret the global setup signs the seeded session with.

@@ -1,0 +1,110 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import * as storage from "@/lib/server/pdf/storage";
+import { verifiedOfficialPdf } from "@/lib/server/pdf/official";
+import type { StoredDocument } from "@/lib/server/db/documentStore";
+
+let root: string;
+afterEach(async () => {
+    if (root) await rm(root, { recursive: true, force: true });
+});
+
+describe("official PDF snapshots", () => {
+    it("identifies a missing snapshot in the error message without exposing its storage root", async () => {
+        root = await mkdtemp(path.join(tmpdir(), "pdf-snapshot-missing-"));
+        const relative = `snapshots/${"a".repeat(64)}.pdf`;
+        await expect(storage.readOfficialPdf(relative, root)).rejects.toThrow(
+            `Official PDF snapshot file missing: ${relative}`
+        );
+    });
+
+    it("distinguishes an unverified legacy fingerprint from a mismatched fingerprint", async () => {
+        const stored: StoredDocument = {
+            draftRevision: 1,
+            id: "legacy-doc",
+            sessionId: "legacy-session",
+            nomor: "SL/QTN/2026/0001",
+            status: "disetujui",
+            createdAt: new Date("2026-01-01"),
+            document: {
+                jenis: "surat_penawaran",
+                locale: "id",
+                mata_uang: "IDR",
+                nomor: "SL/QTN/2026/0001",
+                tanggal: "2026-01-01",
+                proyek: { nama: "Fixture", lokasi: "", klien: "" },
+                pekerjaan: [],
+                total_nominal: 0,
+                terbilang: "nol",
+                butuh_konfirmasi: [],
+            },
+            pdfPath: "legacy.pdf",
+            pdfDocumentHash: null,
+            fieldChanges: [],
+            version: 1,
+            rootId: "legacy-doc",
+        };
+        await expect(verifiedOfficialPdf(stored)).rejects.toThrow(
+            "Official PDF document fingerprint missing"
+        );
+        await expect(
+            verifiedOfficialPdf({ ...stored, pdfDocumentHash: "0".repeat(64) })
+        ).rejects.toThrow("Official PDF document fingerprint mismatch");
+    });
+
+    it("concurrent writers publish the same byte-addressed immutable file; corruption fails closed", async () => {
+        root = await mkdtemp(path.join(tmpdir(), "pdf-snapshot-"));
+        const bytes = Buffer.from("%PDF-1.4\nexample\n%%EOF\n");
+        const results = await Promise.all(
+            Array.from({ length: 8 }, () =>
+                storage.writeOfficialPdf(bytes, root)
+            )
+        );
+        expect(new Set(results).size).toBe(1);
+        const relative = results[0];
+        expect(relative).toMatch(/^snapshots\/[a-f0-9]{64}\.pdf$/);
+        expect(await readFile(path.join(root, relative))).toEqual(bytes);
+        expect(await storage.readOfficialPdf(relative, root)).toEqual(bytes);
+        await writeFile(path.join(root, relative), Buffer.from("corrupt"));
+        await expect(storage.readOfficialPdf(relative, root)).rejects.toThrow();
+        await expect(storage.writeOfficialPdf(bytes, root)).rejects.toThrow();
+    });
+});
+
+it("recovers from failed writes and a leftover crash file, then publishes safely across processes", async () => {
+    const { mkdir } = await import("node:fs/promises");
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    root = await mkdtemp(path.join(tmpdir(), "pdf-snapshot-cross-"));
+    const blocking = path.join(root, "blocked");
+    await writeFile(blocking, "not a directory");
+    const bytes = Buffer.from("%PDF-1.4\nimmutable bytes\n%%EOF\n");
+    await expect(storage.writeOfficialPdf(bytes, blocking)).rejects.toThrow();
+    const dir = path.join(root, "snapshots");
+    await mkdir(dir);
+    await writeFile(path.join(dir, ".pdf-crashed.tmp"), "partial");
+    const moduleUrl = new URL(
+        "../../../lib/server/pdf/storage.ts",
+        import.meta.url
+    ).href;
+    const script = `import { writeOfficialPdf } from ${JSON.stringify(moduleUrl)}; process.stdout.write(await writeOfficialPdf(Buffer.from(process.argv[1], 'base64'), process.argv[2]));`;
+    const exec = promisify(execFile);
+    const results = await Promise.all(
+        Array.from({ length: 3 }, () =>
+            exec(process.execPath, [
+                "--experimental-strip-types",
+                "--input-type=module",
+                "-e",
+                script,
+                bytes.toString("base64"),
+                root,
+            ])
+        )
+    );
+    expect(new Set(results.map((r) => r.stdout)).size).toBe(1);
+    expect(await storage.readOfficialPdf(results[0].stdout, root)).toEqual(
+        bytes
+    );
+}, 30000);
