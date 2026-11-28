@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { CANONICAL_UNITS } from "@/lib/quotationUnits";
+import { fieldLabel } from "./konfirmasi";
 import type { DraftSnapshot } from "./draftClient";
 
 type Props = {
@@ -63,6 +64,18 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                         currency: doc.mata_uang ?? (id ? "IDR" : "USD"),
                     }).format(doc.total_nominal)}
                 </p>
+            )}
+            {snapshot.field_changes?.some(change => change.kind === "derived_confirmation") && (
+                <details open className="rounded-lg border border-border p-3 text-sm">
+                    <summary className="font-semibold">{id ? "Koreksi server" : "Server corrections"}</summary>
+                    <ul className="mt-2 space-y-1">
+                        {snapshot.field_changes.filter(change => change.kind === "derived_confirmation").map((change, index) => (
+                            <li key={`${change.changed_at}-${index}`}>
+                                {fieldLabel(change.field, locale)}: {String(change.original)} → {String(change.current)}
+                            </li>
+                        ))}
+                    </ul>
+                </details>
             )}
             {(doc.pekerjaan ?? []).map((line, index) => (
                 <form
@@ -242,6 +255,7 @@ export function DraftEditor({ locale, snapshot, mutate, busy }: Props) {
                     const value = String(
                         new FormData(event.currentTarget).get("validity") ?? ""
                     ).trim();
+                    if (!event.currentTarget.checkValidity()) return;
                     if (value !== "" && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 365)) return;
                     void save({field:"masa_berlaku_hari", nilai:value === "" ? null : Number(value)}, ["masa_berlaku_hari"]);
                 }}
