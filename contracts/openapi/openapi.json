@@ -111,7 +111,11 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["draf", "disetujui", "terkirim"]
+              "enum": [
+                "draf",
+                "disetujui",
+                "terkirim"
+              ]
             }
           },
           {
@@ -223,7 +227,10 @@
                   },
                   "locale": {
                     "type": "string",
-                    "enum": ["id", "en"]
+                    "enum": [
+                      "id",
+                      "en"
+                    ]
                   },
                   "project": {
                     "$ref": "#/components/schemas/Project"
@@ -235,7 +242,9 @@
                     }
                   }
                 },
-                "required": ["sessionId"]
+                "required": [
+                  "sessionId"
+                ]
               }
             }
           }
@@ -432,7 +441,9 @@
                       "$ref": "#/components/schemas/DocumentResult"
                     },
                     {
-                      "required": ["draft_revision"]
+                      "required": [
+                        "draft_revision"
+                      ]
                     }
                   ]
                 }
@@ -765,7 +776,9 @@
                       "properties": {
                         "status": {
                           "type": "string",
-                          "enum": ["terkirim"]
+                          "enum": [
+                            "terkirim"
+                          ]
                         },
                         "sent_to": {
                           "type": "string",
@@ -776,14 +789,20 @@
                           "format": "date-time"
                         }
                       },
-                      "required": ["status", "sent_to", "sent_at"]
+                      "required": [
+                        "status",
+                        "sent_to",
+                        "sent_at"
+                      ]
                     },
                     {
                       "type": "object",
                       "properties": {
                         "status": {
                           "type": "string",
-                          "enum": ["not_marked"]
+                          "enum": [
+                            "not_marked"
+                          ]
                         },
                         "sent_to": {
                           "type": "string",
@@ -797,7 +816,12 @@
                           "type": "string"
                         }
                       },
-                      "required": ["status", "sent_to", "sent_at", "message"]
+                      "required": [
+                        "status",
+                        "sent_to",
+                        "sent_at",
+                        "message"
+                      ]
                     }
                   ]
                 }
@@ -907,7 +931,9 @@
                     "format": "email"
                   }
                 },
-                "required": ["to"]
+                "required": [
+                  "to"
+                ]
               }
             }
           }
@@ -1224,7 +1250,10 @@
                       }
                     }
                   },
-                  "required": ["sessionId", "turns"]
+                  "required": [
+                    "sessionId",
+                    "turns"
+                  ]
                 }
               }
             }
@@ -1338,15 +1367,25 @@
                   },
                   "locale": {
                     "type": "string",
-                    "enum": ["id", "en"]
+                    "enum": [
+                      "id",
+                      "en"
+                    ]
                   },
                   "mode": {
                     "type": "string",
-                    "enum": ["ENDPOINTING", "DIARIZATION"],
+                    "enum": [
+                      "ENDPOINTING",
+                      "DIARIZATION"
+                    ],
                     "default": "ENDPOINTING"
                   }
                 },
-                "required": ["audio", "sessionId", "locale"]
+                "required": [
+                  "audio",
+                  "sessionId",
+                  "locale"
+                ]
               }
             }
           }
@@ -1371,7 +1410,10 @@
                     },
                     "locale": {
                       "type": "string",
-                      "enum": ["id", "en"]
+                      "enum": [
+                        "id",
+                        "en"
+                      ]
                     },
                     "turns": {
                       "type": "array",
@@ -1380,7 +1422,11 @@
                       }
                     }
                   },
-                  "required": ["sessionId", "locale", "turns"]
+                  "required": [
+                    "sessionId",
+                    "locale",
+                    "turns"
+                  ]
                 }
               }
             }
@@ -1487,7 +1533,9 @@
                       ]
                     }
                   },
-                  "required": ["user"]
+                  "required": [
+                    "user"
+                  ]
                 }
               }
             }
@@ -1594,7 +1642,11 @@
                     "type": "string"
                   }
                 },
-                "required": ["name", "email", "password"]
+                "required": [
+                  "name",
+                  "email",
+                  "password"
+                ]
               }
             }
           }
@@ -1641,7 +1693,9 @@
                       ]
                     }
                   },
-                  "required": ["user"]
+                  "required": [
+                    "user"
+                  ]
                 }
               }
             }
@@ -1747,7 +1801,10 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["email", "password"]
+                "required": [
+                  "email",
+                  "password"
+                ]
               }
             }
           }
@@ -1778,10 +1835,16 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["password", "none", "unknown"]
+                      "enum": [
+                        "password",
+                        "none",
+                        "unknown"
+                      ]
                     }
                   },
-                  "required": ["status"],
+                  "required": [
+                    "status"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1871,7 +1934,9 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["success"]
+                  "required": [
+                    "success"
+                  ]
                 }
               }
             }
@@ -1924,7 +1989,9 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["status"]
+                  "required": [
+                    "status"
+                  ]
                 }
               }
             }
@@ -1975,7 +2042,9 @@
                     "type": "string"
                   }
                 },
-                "required": ["email"]
+                "required": [
+                  "email"
+                ]
               }
             }
           }
@@ -2008,7 +2077,9 @@
                       ]
                     }
                   },
-                  "required": ["status"]
+                  "required": [
+                    "status"
+                  ]
                 }
               }
             }
@@ -2112,7 +2183,9 @@
                     "type": "string"
                   }
                 },
-                "required": ["name"]
+                "required": [
+                  "name"
+                ]
               }
             }
           }
@@ -2129,7 +2202,9 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["status"]
+                  "required": [
+                    "status"
+                  ]
                 }
               }
             }
@@ -2212,7 +2287,10 @@
                     "type": "boolean"
                   }
                 },
-                "required": ["currentPassword", "newPassword"]
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ]
               }
             }
           }
@@ -2239,7 +2317,10 @@
                       "$ref": "#/components/schemas/AuthUser"
                     }
                   },
-                  "required": ["token", "user"]
+                  "required": [
+                    "token",
+                    "user"
+                  ]
                 }
               }
             }
@@ -2316,7 +2397,9 @@
                     "type": "string"
                   }
                 },
-                "required": ["email"]
+                "required": [
+                  "email"
+                ]
               }
             }
           }
@@ -2336,7 +2419,10 @@
                       "type": "string"
                     }
                   },
-                  "required": ["status", "message"]
+                  "required": [
+                    "status",
+                    "message"
+                  ]
                 }
               }
             }
@@ -2428,7 +2514,10 @@
                     "maxLength": 128
                   }
                 },
-                "required": ["token", "newPassword"]
+                "required": [
+                  "token",
+                  "newPassword"
+                ]
               }
             }
           }
@@ -2445,7 +2534,9 @@
                       "type": "boolean"
                     }
                   },
-                  "required": ["status"]
+                  "required": [
+                    "status"
+                  ]
                 }
               }
             }
@@ -2615,7 +2706,10 @@
             "description": "Current revision on stale_revision."
           }
         },
-        "required": ["error", "message"]
+        "required": [
+          "error",
+          "message"
+        ]
       },
       "AsrError": {
         "type": "object",
@@ -2630,10 +2724,15 @@
                 "type": "string"
               }
             },
-            "required": ["code", "message"]
+            "required": [
+              "code",
+              "message"
+            ]
           }
         },
-        "required": ["error"]
+        "required": [
+          "error"
+        ]
       },
       "AuthError": {
         "type": "object",
@@ -2645,7 +2744,9 @@
             "type": "string"
           }
         },
-        "required": ["message"]
+        "required": [
+          "message"
+        ]
       },
       "DocumentListItem": {
         "type": "object",
@@ -2670,7 +2771,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["draf", "disetujui", "terkirim"]
+            "enum": [
+              "draf",
+              "disetujui",
+              "terkirim"
+            ]
           },
           "proyek": {
             "anyOf": [
@@ -2696,13 +2801,19 @@
           },
           "locale": {
             "type": "string",
-            "enum": ["id", "en"]
+            "enum": [
+              "id",
+              "en"
+            ]
           },
           "mata_uang": {
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["IDR", "USD"]
+                "enum": [
+                  "IDR",
+                  "USD"
+                ]
               },
               {
                 "type": "null"
@@ -2764,7 +2875,10 @@
             ]
           }
         },
-        "required": ["items", "nextCursor"],
+        "required": [
+          "items",
+          "nextCursor"
+        ],
         "additionalProperties": false
       },
       "DocumentHistory": {
@@ -2777,7 +2891,9 @@
             }
           }
         },
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "additionalProperties": false
       },
       "Turn": {
@@ -2809,7 +2925,13 @@
             ]
           }
         },
-        "required": ["turn_id", "startMs", "endMs", "transcript", "final"]
+        "required": [
+          "turn_id",
+          "startMs",
+          "endMs",
+          "transcript",
+          "final"
+        ]
       },
       "Project": {
         "type": "object",
@@ -2824,7 +2946,11 @@
             "type": "string"
           }
         },
-        "required": ["nama", "lokasi", "klien"]
+        "required": [
+          "nama",
+          "lokasi",
+          "klien"
+        ]
       },
       "AuthUser": {
         "type": "object",
@@ -2845,7 +2971,12 @@
             "type": "string"
           }
         },
-        "required": ["id", "email", "name", "emailVerified"]
+        "required": [
+          "id",
+          "email",
+          "name",
+          "emailVerified"
+        ]
       },
       "AuthSession": {
         "anyOf": [
@@ -2869,10 +3000,17 @@
                     "format": "date-time"
                   }
                 },
-                "required": ["id", "userId", "expiresAt"]
+                "required": [
+                  "id",
+                  "userId",
+                  "expiresAt"
+                ]
               }
             },
-            "required": ["user", "session"]
+            "required": [
+              "user",
+              "session"
+            ]
           },
           {
             "type": "null"
@@ -2899,21 +3037,32 @@
         "properties": {
           "jenis": {
             "type": "string",
-            "enum": ["surat_penawaran"],
+            "enum": [
+              "surat_penawaran"
+            ],
             "description": "Document type. Field names stay Indonesian for both locales; locale and mata_uang decide what is printed."
           },
           "locale": {
             "type": "string",
-            "enum": ["en", "id"],
+            "enum": [
+              "en",
+              "id"
+            ],
             "description": "en -> Quotation / Estimate, USD, amountInWords(). id -> Surat Penawaran, IDR, terbilang()."
           },
           "mata_uang": {
             "type": "string",
-            "enum": ["USD", "IDR"],
+            "enum": [
+              "USD",
+              "IDR"
+            ],
             "description": "Follows locale: en -> USD, id -> IDR."
           },
           "nomor": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^SL/QTN/[1-9][0-9]{3}/(?:0{3}[1-9]|0{2}[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})$",
             "description": "Server-made document number: calendar year and a four-digit sequence (0001..9999) that resets each year. Null while the draft has not been approved (ticket 01). Never spoken by the user and never invented by the model."
           },
@@ -2925,7 +3074,11 @@
           "proyek": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["nama", "lokasi", "klien"],
+            "required": [
+              "nama",
+              "lokasi",
+              "klien"
+            ],
             "properties": {
               "nama": {
                 "type": "string",
@@ -3009,13 +3162,19 @@
                   "description": "Stable server-issued draft item ID."
                 },
                 "harga_satuan_minor": {
-                  "type": ["integer", "null"],
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
                   "minimum": 0,
                   "maximum": 9007199254740991,
                   "description": "Authoritative minor units: IDR rupiah or USD cents; null means unpriced."
                 },
                 "jumlah_minor": {
-                  "type": ["integer", "null"],
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
                   "minimum": 0,
                   "maximum": 9007199254740991,
                   "description": "Authoritative minor units: IDR rupiah or USD cents; null means unpriced."
@@ -3039,7 +3198,11 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["field", "alasan", "sumber_kutipan"],
+              "required": [
+                "field",
+                "alasan",
+                "sumber_kutipan"
+              ],
               "properties": {
                 "field": {
                   "type": "string",
@@ -3050,13 +3213,19 @@
                   "minLength": 1
                 },
                 "sumber_kutipan": {
-                  "type": ["string", "null"],
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "pattern": "^turn_[1-9][0-9]*$",
                   "description": "The turn being questioned, or null when the field is simply missing and no turn can be quoted."
                 },
                 "kind": {
                   "type": "string",
-                  "enum": ["source", "derived"]
+                  "enum": [
+                    "source",
+                    "derived"
+                  ]
                 },
                 "proposed_value": {
                   "type": "number"
@@ -3095,7 +3264,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["draf", "disetujui", "terkirim"]
+            "enum": [
+              "draf",
+              "disetujui",
+              "terkirim"
+            ]
           },
           "butuh_konfirmasi": {
             "type": "array",
@@ -3162,7 +3335,11 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["draf", "disetujui", "terkirim"]
+                  "enum": [
+                    "draf",
+                    "disetujui",
+                    "terkirim"
+                  ]
                 },
                 "superseded_by": {
                   "anyOf": [
@@ -3176,7 +3353,13 @@
                   ]
                 }
               },
-              "required": ["id", "version", "nomor", "status", "superseded_by"]
+              "required": [
+                "id",
+                "version",
+                "nomor",
+                "status",
+                "superseded_by"
+              ]
             }
           },
           "sent_to": {
@@ -3236,7 +3419,11 @@
             "minimum": 1
           }
         },
-        "required": ["document", "status", "butuh_konfirmasi"]
+        "required": [
+          "document",
+          "status",
+          "butuh_konfirmasi"
+        ]
       },
       "PatchDocument": {
         "oneOf": [
@@ -3265,7 +3452,11 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["field", "nilai", "draft_revision"],
+            "required": [
+              "field",
+              "nilai",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3273,7 +3464,9 @@
             "properties": {
               "op": {
                 "type": "string",
-                "enum": ["add_line"]
+                "enum": [
+                  "add_line"
+                ]
               },
               "item": {
                 "type": "object",
@@ -3308,7 +3501,12 @@
                     ]
                   }
                 },
-                "required": ["uraian", "volume", "satuan", "harga_satuan"],
+                "required": [
+                  "uraian",
+                  "volume",
+                  "satuan",
+                  "harga_satuan"
+                ],
                 "additionalProperties": false
               },
               "draft_revision": {
@@ -3317,7 +3515,11 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "item", "draft_revision"],
+            "required": [
+              "op",
+              "item",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3325,7 +3527,9 @@
             "properties": {
               "op": {
                 "type": "string",
-                "enum": ["remove_line"]
+                "enum": [
+                  "remove_line"
+                ]
               },
               "index": {
                 "type": "integer"
@@ -3336,7 +3540,11 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "index", "draft_revision"],
+            "required": [
+              "op",
+              "index",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3344,7 +3552,9 @@
             "properties": {
               "op": {
                 "type": "string",
-                "enum": ["move_line"]
+                "enum": [
+                  "move_line"
+                ]
               },
               "fromIndex": {
                 "type": "integer"
@@ -3358,7 +3568,12 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "fromIndex", "toIndex", "draft_revision"],
+            "required": [
+              "op",
+              "fromIndex",
+              "toIndex",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3377,7 +3592,11 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "item_id", "draft_revision"],
+            "required": [
+              "op",
+              "item_id",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3400,7 +3619,12 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "item_id", "toIndex", "draft_revision"],
+            "required": [
+              "op",
+              "item_id",
+              "toIndex",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
@@ -3459,14 +3683,23 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "item_id", "changes", "draft_revision"],
+            "required": [
+              "op",
+              "item_id",
+              "changes",
+              "draft_revision"
+            ],
             "additionalProperties": false
           },
           {
             "type": "object",
             "properties": {
               "op": {
-                "const": "confirm_derived"
+                "enum": [
+                  "confirm_derived",
+                  "confirm_source"
+                ],
+                "description": "Explicit acknowledgement of a pending calculated amount; source conflicts require confirm_source."
               },
               "field": {
                 "type": "string",
@@ -3478,18 +3711,30 @@
                 "maximum": 2147483647
               }
             },
-            "required": ["op", "field", "draft_revision"],
+            "required": [
+              "op",
+              "field",
+              "draft_revision"
+            ],
             "additionalProperties": false
           }
         ]
       },
       "Health": {
         "type": "object",
-        "required": ["status", "service", "database", "timestamp"],
+        "required": [
+          "status",
+          "service",
+          "database",
+          "timestamp"
+        ],
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["ok", "degraded"]
+            "enum": [
+              "ok",
+              "degraded"
+            ]
           },
           "service": {
             "type": "string",
@@ -3497,11 +3742,17 @@
           },
           "database": {
             "type": "object",
-            "required": ["status", "latencyMs"],
+            "required": [
+              "status",
+              "latencyMs"
+            ],
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["ok", "error"]
+                "enum": [
+                  "ok",
+                  "error"
+                ]
               },
               "latencyMs": {
                 "type": "number",
@@ -3534,7 +3785,12 @@
             "type": "boolean"
           }
         },
-        "required": ["turn_id", "startMs", "endMs", "transcript"]
+        "required": [
+          "turn_id",
+          "startMs",
+          "endMs",
+          "transcript"
+        ]
       },
       "CreateDocumentResult": {
         "type": "object",
@@ -3544,7 +3800,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["draf", "perlu_konfirmasi", "siap"]
+            "enum": [
+              "draf",
+              "perlu_konfirmasi",
+              "siap"
+            ]
           },
           "butuh_konfirmasi": {
             "type": "array",
@@ -3611,7 +3871,11 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["draf", "disetujui", "terkirim"]
+                  "enum": [
+                    "draf",
+                    "disetujui",
+                    "terkirim"
+                  ]
                 },
                 "superseded_by": {
                   "anyOf": [
@@ -3625,7 +3889,13 @@
                   ]
                 }
               },
-              "required": ["id", "version", "nomor", "status", "superseded_by"]
+              "required": [
+                "id",
+                "version",
+                "nomor",
+                "status",
+                "superseded_by"
+              ]
             }
           },
           "sent_to": {
@@ -3679,9 +3949,18 @@
                 "type": "null"
               }
             ]
+          },
+          "draft_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Revision of the persisted draft, absent if no document was persisted."
           }
         },
-        "required": ["document", "status", "butuh_konfirmasi"]
+        "required": [
+          "document",
+          "status",
+          "butuh_konfirmasi"
+        ]
       }
     }
   }

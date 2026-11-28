@@ -194,6 +194,7 @@ async function handlePost(request: Request): Promise<Response> {
                 {
                     document: toResponseDocument({ ...doc, id: existing.id }),
                     draft_revision: existing.draftRevision,
+                    field_changes: existing.fieldChanges ?? [],
                     butuh_konfirmasi: doc.butuh_konfirmasi ?? [],
                     // Ticket 01: every create is a draft; the number is
                     // allocated at approval (ticket 03).
@@ -267,6 +268,7 @@ async function handlePost(request: Request): Promise<Response> {
             {
                 document: toResponseDocument(documentWithId),
                 draft_revision: stored.draftRevision,
+                field_changes: stored.fieldChanges ?? [],
                 butuh_konfirmasi: butuhKonfirmasi,
                 status,
                 ...sparkPathMarker(
