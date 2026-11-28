@@ -1,7 +1,7 @@
 # A — Audit Teknis (ADR-0001/0003, browser & PDF)
 
 Penilai: a-teknis (Software Architect + Frontend/Mobile, pragmatis). Tanggal: 28 Okt 2026.
-Pendekatan: skeptis pada over-engineering, fokus "bisa jalan dalam sisa hari kerja sampai 4 Nov".
+Pendekatan: skeptis pada over-engineering, fokus "bisa jalan dalam sisa hari kerja sampai 27 Jan".
 Tanda: **[OK]** aman, **[RISIKO]** bisa gagal tapi bisa dijaga, **[SALAH]** harus diperbaiki sekarang,
 **[TERVERIFIKASI]**/**[BELUM]** = status pengecekan fakta (web/token tak bisa dipakai → jujur ditandai).
 
