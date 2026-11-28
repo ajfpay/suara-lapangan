@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+    cleanup,
+    fireEvent,
+    render,
+    screen,
+    waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { KonfirmasiPanel } from "./KonfirmasiPanel";
@@ -38,7 +44,9 @@ describe("KonfirmasiPanel", () => {
         );
         expect(container.firstChild).toBeNull();
         expect(
-            screen.queryByRole("button", { name: /buat dokumen|create document/i })
+            screen.queryByRole("button", {
+                name: /buat dokumen|create document/i,
+            })
         ).toBeNull();
     });
 
@@ -52,7 +60,9 @@ describe("KonfirmasiPanel", () => {
         );
         expect(container.firstChild).toBeNull();
         expect(
-            screen.queryByRole("button", { name: /buat dokumen|create document/i })
+            screen.queryByRole("button", {
+                name: /buat dokumen|create document/i,
+            })
         ).toBeNull();
     });
 
@@ -107,7 +117,9 @@ describe("KonfirmasiPanel", () => {
             />
         );
 
-        const createButton = screen.getByRole("button", { name: "Buat dokumen" }) as HTMLButtonElement;
+        const createButton = screen.getByRole("button", {
+            name: "Buat dokumen",
+        }) as HTMLButtonElement;
         expect(createButton.disabled).toBe(false);
 
         fireEvent.click(createButton);
@@ -127,14 +139,20 @@ describe("KonfirmasiPanel", () => {
             expect(el.textContent).toContain("SL/QTN/2026/0001");
         });
 
-        expect(screen.getByTestId("document-status").textContent).toContain("draf");
+        expect(screen.getByTestId("document-status").textContent).toContain(
+            "draf"
+        );
         expect(screen.getByText("Dokumen dibuat")).toBeTruthy();
 
         const link = screen.getByRole("link", { name: "Lihat dokumen" });
-        expect(link.getAttribute("href")).toBe("/id/dokumen?doc=doc-uuid-created-1");
+        expect(link.getAttribute("href")).toBe(
+            "/id/dokumen?doc=doc-uuid-created-1"
+        );
 
         // Approve button present and enabled (draf + no pending items)
-        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujui = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         expect(btnSetujui).toBeTruthy();
         expect(btnSetujui.disabled).toBe(false);
 
@@ -167,13 +185,17 @@ describe("KonfirmasiPanel", () => {
             />
         );
 
-        const createButton = screen.getByRole("button", { name: "Buat dokumen" });
+        const createButton = screen.getByRole("button", {
+            name: "Buat dokumen",
+        });
         fireEvent.click(createButton);
 
         const alert = await screen.findByRole("alert");
         expect(alert).toBeTruthy();
         expect(alert.textContent).toContain("store_failure");
-        expect(alert.textContent).toContain("Failed to access document database");
+        expect(alert.textContent).toContain(
+            "Failed to access document database"
+        );
         expect(alert.textContent).toContain("Gagal membuat dokumen");
 
         // Now setup mock for retry success
@@ -196,7 +218,9 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-nomor").textContent).toContain("SL/QTN/2026/0002");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0002"
+            );
         });
 
         expect(screen.queryByRole("alert")).toBeNull();
@@ -222,7 +246,9 @@ describe("KonfirmasiPanel", () => {
         expect(alert.textContent).toContain("Gagal membuat dokumen");
 
         // Button is re-enabled for retry
-        const btn = screen.getByRole("button", { name: "Buat dokumen" }) as HTMLButtonElement;
+        const btn = screen.getByRole("button", {
+            name: "Buat dokumen",
+        }) as HTMLButtonElement;
         expect(btn.disabled).toBe(false);
     });
 
@@ -246,6 +272,7 @@ describe("KonfirmasiPanel", () => {
             status: 200,
             json: async () => ({
                 document: mockLockedDoc,
+                draft_revision: 1,
                 butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                 status: "draf",
             }),
@@ -262,13 +289,17 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-nomor").textContent).toContain("SL/QTN/2026/0003");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0003"
+            );
         });
 
         // "Lihat dokumen" link present and pointing to the document id
         const link = screen.getByRole("link", { name: "Lihat dokumen" });
         expect(link).toBeTruthy();
-        expect(link.getAttribute("href")).toBe("/id/dokumen?doc=doc-uuid-locked-1");
+        expect(link.getAttribute("href")).toBe(
+            "/id/dokumen?doc=doc-uuid-locked-1"
+        );
 
         // Unduh / Kirim controls disabled
         const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
@@ -278,14 +309,18 @@ describe("KonfirmasiPanel", () => {
         expect(btnKirim.disabled).toBe(true);
 
         // btn-setujui present but disabled (draft + items)
-        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujui = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         expect(btnSetujui).toBeTruthy();
         expect(btnSetujui.disabled).toBe(true);
 
         // Reason text visible
         const note = screen.getByRole("note");
         expect(note).toBeTruthy();
-        expect(note.textContent).toContain("1 field yang perlu dikonfirmasi sebelum dokumen disetujui");
+        expect(note.textContent).toContain(
+            "1 field yang perlu dikonfirmasi sebelum dokumen disetujui"
+        );
     });
 
     it("unlock: resolving confirmation PATCH keeps buttons disabled until approve; approve unlocks them", async () => {
@@ -303,47 +338,52 @@ describe("KonfirmasiPanel", () => {
             ],
         };
 
-        fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-            if (init?.method === "PATCH") {
+        fetchMock.mockImplementation(
+            async (url: string, init?: RequestInit) => {
+                if (init?.method === "PATCH") {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            draft_revision: 2,
+                            document: {
+                                ...mockLockedDoc,
+                                butuh_konfirmasi: [],
+                                status: "draf",
+                            },
+                            butuh_konfirmasi: [],
+                            status: "draf",
+                        }),
+                    };
+                }
+                if (init?.method === "POST" && url.endsWith("/approve")) {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            draft_revision: 2,
+                            document: {
+                                ...mockLockedDoc,
+                                butuh_konfirmasi: [],
+                                status: "disetujui",
+                            },
+                            butuh_konfirmasi: [],
+                            status: "disetujui",
+                        }),
+                    };
+                }
                 return {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: {
-                            ...mockLockedDoc,
-                            butuh_konfirmasi: [],
-                            status: "draf",
-                        },
-                        butuh_konfirmasi: [],
+                        document: mockLockedDoc,
+                        draft_revision: 1,
+                        butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                         status: "draf",
                     }),
                 };
             }
-            if (init?.method === "POST" && url.endsWith("/approve")) {
-                return {
-                    ok: true,
-                    status: 200,
-                    json: async () => ({
-                        document: {
-                            ...mockLockedDoc,
-                            butuh_konfirmasi: [],
-                            status: "disetujui",
-                        },
-                        butuh_konfirmasi: [],
-                        status: "disetujui",
-                    }),
-                };
-            }
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    document: mockLockedDoc,
-                    butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
-                    status: "draf",
-                }),
-            };
-        });
+        );
 
         render(
             <KonfirmasiPanel
@@ -356,12 +396,16 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
+            const btnUnduh = screen.getByTestId(
+                "btn-unduh"
+            ) as HTMLButtonElement;
             expect(btnUnduh.disabled).toBe(true);
         });
 
         // Setujui button present but disabled (draft + 1 item)
-        const btnSetujuiBefore = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujuiBefore = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         expect(btnSetujuiBefore).toBeTruthy();
         expect(btnSetujuiBefore.disabled).toBe(true);
 
@@ -376,11 +420,19 @@ describe("KonfirmasiPanel", () => {
             );
             expect(patchCall).toBeDefined();
             expect(patchCall?.[0]).toBe("/api/documents/doc-uuid-resolve-flow");
+            expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
+                draft_revision: 1,
+            });
+            expect(
+                new Headers(patchCall?.[1]?.headers).get("Idempotency-Key")
+            ).toBeTruthy();
         });
 
         // When resolved, status is still draf and buttons remain disabled
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("draf");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "draf"
+            );
         });
         const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
         expect(btnUnduh.disabled).toBe(true);
@@ -388,7 +440,9 @@ describe("KonfirmasiPanel", () => {
         expect(btnKirim.disabled).toBe(true);
 
         // Setujui button is now enabled (draf + 0 items)
-        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujui = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         expect(btnSetujui.disabled).toBe(false);
 
         // Click Setujui button
@@ -396,7 +450,8 @@ describe("KonfirmasiPanel", () => {
 
         await waitFor(() => {
             const approveCall = fetchMock.mock.calls.find(
-                (call) => call[0] === "/api/documents/doc-uuid-resolve-flow/approve"
+                (call) =>
+                    call[0] === "/api/documents/doc-uuid-resolve-flow/approve"
             );
             expect(approveCall).toBeDefined();
             expect(approveCall?.[1]?.method).toBe("POST");
@@ -404,7 +459,9 @@ describe("KonfirmasiPanel", () => {
 
         // After approval: status is disetujui, buttons enabled, approve button gone, note gone
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "disetujui"
+            );
         });
         expect(btnUnduh.disabled).toBe(false);
         expect(btnKirim.disabled).toBe(false);
@@ -420,27 +477,30 @@ describe("KonfirmasiPanel", () => {
             total_nominal: 1200000,
         };
 
-        fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-            if (init?.method === "POST" && url.endsWith("/approve")) {
+        fetchMock.mockImplementation(
+            async (url: string, init?: RequestInit) => {
+                if (init?.method === "POST" && url.endsWith("/approve")) {
+                    return {
+                        ok: false,
+                        status: 409,
+                        json: async () => ({
+                            error: "conflict",
+                            message:
+                                "Document already approved or in invalid state",
+                        }),
+                    };
+                }
                 return {
-                    ok: false,
-                    status: 409,
+                    ok: true,
+                    status: 200,
                     json: async () => ({
-                        error: "conflict",
-                        message: "Document already approved or in invalid state",
+                        document: mockDraftDoc,
+                        butuh_konfirmasi: [],
+                        status: "draf",
                     }),
                 };
             }
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    document: mockDraftDoc,
-                    butuh_konfirmasi: [],
-                    status: "draf",
-                }),
-            };
-        });
+        );
 
         render(
             <KonfirmasiPanel
@@ -453,10 +513,14 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-nomor").textContent).toContain("SL/QTN/2026/0077");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0077"
+            );
         });
 
-        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujui = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         expect(btnSetujui).toBeTruthy();
         expect(btnSetujui.disabled).toBe(false);
 
@@ -465,40 +529,46 @@ describe("KonfirmasiPanel", () => {
 
         const alert = await screen.findByRole("alert");
         expect(alert.textContent).toContain("conflict");
-        expect(alert.textContent).toContain("Document already approved or in invalid state");
+        expect(alert.textContent).toContain(
+            "Document already approved or in invalid state"
+        );
 
         // Now mock 200 for retry
-        fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-            if (init?.method === "POST" && url.endsWith("/approve")) {
+        fetchMock.mockImplementation(
+            async (url: string, init?: RequestInit) => {
+                if (init?.method === "POST" && url.endsWith("/approve")) {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            document: {
+                                ...mockDraftDoc,
+                                status: "disetujui",
+                            },
+                            status: "disetujui",
+                            butuh_konfirmasi: [],
+                        }),
+                    };
+                }
                 return {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: {
-                            ...mockDraftDoc,
-                            status: "disetujui",
-                        },
-                        status: "disetujui",
+                        document: mockDraftDoc,
                         butuh_konfirmasi: [],
+                        status: "draf",
                     }),
                 };
             }
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    document: mockDraftDoc,
-                    butuh_konfirmasi: [],
-                    status: "draf",
-                }),
-            };
-        });
+        );
 
         // Click approve again
         fireEvent.click(btnSetujui);
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "disetujui"
+            );
         });
 
         const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
@@ -517,32 +587,34 @@ describe("KonfirmasiPanel", () => {
         };
         const allocatedNomor = "SL/QTN/2026/0123";
 
-        fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-            if (init?.method === "POST" && url.endsWith("/approve")) {
+        fetchMock.mockImplementation(
+            async (url: string, init?: RequestInit) => {
+                if (init?.method === "POST" && url.endsWith("/approve")) {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            document: {
+                                ...mockDraftDoc,
+                                nomor: allocatedNomor,
+                                status: "disetujui",
+                            },
+                            status: "disetujui",
+                            butuh_konfirmasi: [],
+                        }),
+                    };
+                }
                 return {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: {
-                            ...mockDraftDoc,
-                            nomor: allocatedNomor,
-                            status: "disetujui",
-                        },
-                        status: "disetujui",
+                        document: mockDraftDoc,
                         butuh_konfirmasi: [],
+                        status: "draf",
                     }),
                 };
             }
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    document: mockDraftDoc,
-                    butuh_konfirmasi: [],
-                    status: "draf",
-                }),
-            };
-        });
+        );
 
         const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
@@ -558,23 +630,35 @@ describe("KonfirmasiPanel", () => {
 
         // Draft: no number allocated yet, share falls back to the id
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("draf");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "draf"
+            );
         });
-        expect(screen.getByTestId("document-nomor").textContent).not.toContain(allocatedNomor);
+        expect(screen.getByTestId("document-nomor").textContent).not.toContain(
+            allocatedNomor
+        );
 
-        const btnSetujui = screen.getByTestId("btn-setujui") as HTMLButtonElement;
+        const btnSetujui = screen.getByTestId(
+            "btn-setujui"
+        ) as HTMLButtonElement;
         fireEvent.click(btnSetujui);
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "disetujui"
+            );
         });
-        expect(screen.getByTestId("document-nomor").textContent).toContain(allocatedNomor);
+        expect(screen.getByTestId("document-nomor").textContent).toContain(
+            allocatedNomor
+        );
 
         const btnKirim = screen.getByTestId("btn-kirim") as HTMLButtonElement;
         expect(btnKirim.disabled).toBe(false);
         fireEvent.click(btnKirim);
 
-        const shareUrl = decodeURIComponent(openSpy.mock.calls[0]?.[0] as string);
+        const shareUrl = decodeURIComponent(
+            openSpy.mock.calls[0]?.[0] as string
+        );
         expect(shareUrl).toContain(allocatedNomor);
         expect(shareUrl).not.toContain("doc-uuid-nomor-alloc");
     });
@@ -593,7 +677,8 @@ describe("KonfirmasiPanel", () => {
                     status: 200,
                     headers: {
                         "Content-Type": "application/pdf",
-                        "Content-Disposition": 'attachment; filename="SL-QTN-2026-0088.pdf"',
+                        "Content-Disposition":
+                            'attachment; filename="SL-QTN-2026-0088.pdf"',
                     },
                 });
             }
@@ -609,12 +694,16 @@ describe("KonfirmasiPanel", () => {
         });
 
         let capturedBlobAnchor: HTMLAnchorElement | null = null;
-        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {
-            const inDom = document.body.querySelector("a[href^='blob:']") as HTMLAnchorElement | null;
-            if (inDom) {
-                capturedBlobAnchor = inDom;
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+            () => {
+                const inDom = document.body.querySelector(
+                    "a[href^='blob:']"
+                ) as HTMLAnchorElement | null;
+                if (inDom) {
+                    capturedBlobAnchor = inDom;
+                }
             }
-        });
+        );
 
         render(
             <KonfirmasiPanel
@@ -627,7 +716,9 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "disetujui"
+            );
         });
 
         const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
@@ -636,7 +727,9 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(btnUnduh);
 
         await waitFor(() => {
-            expect(fetchMock).toHaveBeenCalledWith("/api/pdf/doc-uuid-download-flow");
+            expect(fetchMock).toHaveBeenCalledWith(
+                "/api/pdf/doc-uuid-download-flow"
+            );
             expect(capturedBlobAnchor).toBeTruthy();
         });
 
@@ -677,7 +770,9 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-status").textContent).toContain("disetujui");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "disetujui"
+            );
         });
 
         const btnKirim = screen.getByTestId("btn-kirim") as HTMLButtonElement;
@@ -708,7 +803,9 @@ describe("KonfirmasiPanel", () => {
             />
         );
 
-        const createButton = screen.getByRole("button", { name: "Create document" }) as HTMLButtonElement;
+        const createButton = screen.getByRole("button", {
+            name: "Create document",
+        }) as HTMLButtonElement;
         expect(createButton.disabled).toBe(false);
 
         fireEvent.click(createButton);
@@ -734,14 +831,20 @@ describe("KonfirmasiPanel", () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-nomor").textContent).toContain("SL/QTN/2026/0005");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0005"
+            );
         });
 
         expect(screen.getByText("Document created")).toBeTruthy();
         const link = screen.getByRole("link", { name: "View document" });
         expect(link.getAttribute("href")).toBe("/en/dokumen?doc=doc-uuid-en-1");
-        expect(screen.getByTestId("document-status").textContent).toContain("draf");
-        expect(screen.getByTestId("btn-setujui").textContent).toContain("Approve document");
+        expect(screen.getByTestId("document-status").textContent).toContain(
+            "draf"
+        );
+        expect(screen.getByTestId("btn-setujui").textContent).toContain(
+            "Approve document"
+        );
     });
 
     it("idempotent create returns 200 with existing document and renders created state seamlessly", async () => {
@@ -773,12 +876,18 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(screen.getByTestId("document-nomor").textContent).toContain("SL/QTN/2026/0099");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0099"
+            );
         });
 
-        expect(screen.getByTestId("document-status").textContent).toContain("draf");
+        expect(screen.getByTestId("document-status").textContent).toContain(
+            "draf"
+        );
         const link = screen.getByRole("link", { name: "Lihat dokumen" });
-        expect(link.getAttribute("href")).toBe("/id/dokumen?doc=doc-uuid-idempotent");
+        expect(link.getAttribute("href")).toBe(
+            "/id/dokumen?doc=doc-uuid-idempotent"
+        );
     });
 
     it("server-driven lock: PATCH 200 with status 'draf' and remaining items must NOT unlock the panel", async () => {
@@ -796,32 +905,37 @@ describe("KonfirmasiPanel", () => {
             ],
         };
 
-        fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
-            if (init?.method === "PATCH") {
+        fetchMock.mockImplementation(
+            async (_url: string, init?: RequestInit) => {
+                if (init?.method === "PATCH") {
+                    return {
+                        ok: true,
+                        status: 200,
+                        json: async () => ({
+                            draft_revision: 2,
+                            document: {
+                                ...mockLockedDoc,
+                                butuh_konfirmasi:
+                                    mockLockedDoc.butuh_konfirmasi,
+                                status: "draf",
+                            },
+                            butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
+                            status: "draf",
+                        }),
+                    };
+                }
                 return {
                     ok: true,
                     status: 200,
                     json: async () => ({
-                        document: {
-                            ...mockLockedDoc,
-                            butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
-                            status: "draf",
-                        },
+                        document: mockLockedDoc,
+                        draft_revision: 1,
                         butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
                         status: "draf",
                     }),
                 };
             }
-            return {
-                ok: true,
-                status: 200,
-                json: async () => ({
-                    document: mockLockedDoc,
-                    butuh_konfirmasi: mockLockedDoc.butuh_konfirmasi,
-                    status: "draf",
-                }),
-            };
-        });
+        );
 
         render(
             <KonfirmasiPanel
@@ -834,9 +948,9 @@ describe("KonfirmasiPanel", () => {
         fireEvent.click(screen.getByRole("button", { name: "Buat dokumen" }));
 
         await waitFor(() => {
-            expect(
-                screen.getByTestId("document-nomor").textContent
-            ).toContain("SL/QTN/2026/0101");
+            expect(screen.getByTestId("document-nomor").textContent).toContain(
+                "SL/QTN/2026/0101"
+            );
         });
 
         const optionBtn = screen.getByRole("button", { name: "20" });
@@ -851,9 +965,9 @@ describe("KonfirmasiPanel", () => {
 
         // Server still reports perlu_konfirmasi → panel must stay locked.
         await waitFor(() => {
-            expect(
-                screen.getByTestId("document-status").textContent
-            ).toContain("draf");
+            expect(screen.getByTestId("document-status").textContent).toContain(
+                "draf"
+            );
         });
         const btnUnduh = screen.getByTestId("btn-unduh") as HTMLButtonElement;
         expect(btnUnduh.disabled).toBe(true);
@@ -886,7 +1000,9 @@ describe("KonfirmasiPanel", () => {
         const alert = await screen.findByRole("alert");
         expect(alert.textContent).toContain("Gagal membuat dokumen");
         expect(alert.textContent).toContain("no_document_id");
-        expect(alert.textContent).toContain("server mengembalikan 200 tanpa id dokumen");
+        expect(alert.textContent).toContain(
+            "server mengembalikan 200 tanpa id dokumen"
+        );
         expect(screen.queryByTestId("document-nomor")).toBeNull();
         expect(
             screen.queryByRole("link", { name: "Lihat dokumen" })
@@ -912,12 +1028,16 @@ describe("KonfirmasiPanel", () => {
             />
         );
 
-        fireEvent.click(screen.getByRole("button", { name: "Create document" }));
+        fireEvent.click(
+            screen.getByRole("button", { name: "Create document" })
+        );
 
         const alert = await screen.findByRole("alert");
         expect(alert.textContent).toContain("Failed to create document");
         expect(alert.textContent).toContain("no_document_id");
-        expect(alert.textContent).toContain("server returned 200 without a document id");
+        expect(alert.textContent).toContain(
+            "server returned 200 without a document id"
+        );
         expect(screen.queryByTestId("document-nomor")).toBeNull();
     });
 });

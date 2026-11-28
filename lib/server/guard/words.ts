@@ -126,6 +126,14 @@ function terbilangNumber(n: number): string {
             (rest ? " " + terbilangNumber(rest) : "")
         );
     }
+    if (n <= Number.MAX_SAFE_INTEGER) {
+        const rest = n % 1000000000000000;
+        return (
+            terbilangNumber(Math.floor(n / 1000000000000000)) +
+            " kuadriliun" +
+            (rest ? " " + terbilangNumber(rest) : "")
+        );
+    }
     return String(n);
 }
 
@@ -221,7 +229,10 @@ function englishNumber(n: number): string {
 
 /** Formats amount as English words ending in "US dollars", including cents if non-integer. */
 export function amountInWords(n: number): string {
-    const totalCents = Math.round(n * 100);
+    return amountInWordsFromCents(Math.round(n * 100));
+}
+
+export function amountInWordsFromCents(totalCents: number): string {
     const dollars = Math.floor(totalCents / 100);
     const cents = totalCents % 100;
     const dollarText = englishNumber(dollars);

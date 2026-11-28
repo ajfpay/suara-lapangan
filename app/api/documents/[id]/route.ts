@@ -1,53 +1,25 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import {
     getPostgresDocumentStore,
     DocumentLockedError,
+    DraftMutationConflict,
     type StoredDocument,
 } from "@/lib/server/db/documentStore";
 import { redactSecrets } from "@/lib/server/asr/log";
 import { toResponseDocument } from "@/lib/server/guard/sparkPath";
-import { amountInWords, terbilang } from "@/lib/server/guard/words";
+import { DraftInputError } from "@/lib/server/guard/draftMoney";
+import { applyDraftMutation } from "@/lib/server/guard/draftMutation";
 import {
     documentIdSchema,
     patchDocumentBodySchema,
     formatZodError,
+    draftRevisionSchema,
 } from "@/lib/server/validation/document";
 import { withRateLimitFlat } from "@/lib/server/quota/rate-limit";
-import {
-    getSession,
-    canAccessDocument,
-} from "@/lib/server/auth";
+import { getSession, canAccessDocument } from "@/lib/server/auth";
 import type { Turn } from "@/lib/server/asr/turns";
 import { getTurnsStore } from "@/lib/server/db/store";
-import type {
-    CanonicalUnit,
-    PekerjaanItem,
-    Proyek,
-} from "@/lib/server/guard/types";
-
-function round(value: number, decimals = 2): number {
-    const factor = Math.pow(10, decimals);
-    return Math.round((value + Number.EPSILON) * factor) / factor;
-}
-
-class PatchIndexError extends Error {
-    readonly index: number;
-    constructor(index: number) {
-        super(`Pekerjaan at index ${index} not found in document`);
-        this.index = index;
-    }
-}
-
-function remapIndex(i: number, fromIndex: number, toIndex: number): number {
-    if (i === fromIndex) return toIndex;
-    if (fromIndex < toIndex) {
-        if (i > fromIndex && i <= toIndex) return i - 1;
-    } else {
-        if (i >= toIndex && i < fromIndex) return i + 1;
-    }
-    return i;
-}
-
 type RouteContext = {
     params: Promise<{ id: string }>;
 };
@@ -66,7 +38,15 @@ async function handlePatch(
         );
     }
 
-    const parsedBody = patchDocumentBodySchema.safeParse(body);
+    const operation =
+        body && typeof body === "object" && !Array.isArray(body)
+            ? Object.fromEntries(
+                  Object.entries(body).filter(
+                      ([key]) => key !== "draft_revision"
+                  )
+              )
+            : body;
+    const parsedBody = patchDocumentBodySchema.safeParse(operation);
     if (!parsedBody.success) {
         return NextResponse.json(
             {
@@ -97,6 +77,30 @@ async function handlePatch(
 
     const id = parsedId.data;
     const patchBody = parsedBody.data;
+    const revision = draftRevisionSchema.safeParse(body);
+    const key = request.headers.get("Idempotency-Key");
+    if (!revision.success || !key || !/^[\x21-\x7e]{1,128}$/.test(key)) {
+        return NextResponse.json(
+            {
+                error: "invalid_request",
+                message: "draft_revision and Idempotency-Key are required",
+            },
+            { status: 400 }
+        );
+    }
+    const mutationOptions = {
+        revision: revision.data.draft_revision,
+        actorId: session.user.id,
+        key,
+        fingerprint: createHash("sha256")
+            .update(
+                JSON.stringify({
+                    revision: revision.data.draft_revision,
+                    patch: patchBody,
+                })
+            )
+            .digest("hex"),
+    };
 
     let docStore: ReturnType<typeof getPostgresDocumentStore>;
     try {
@@ -144,38 +148,20 @@ async function handlePatch(
         );
     }
 
-    const isLocked =
-        existing.status === "terkirim" || existing.status === "disetujui";
-    if (isLocked) {
-        return NextResponse.json(
-            {
-                error: "locked",
-                message: `Document '${id}' is locked (status: ${existing.status}) and cannot be edited`,
-            },
-            { status: 409 }
-        );
-    }
-
-    // A turn citation must resolve to a final turn of the document's own
-    // session, mirroring the authoritative check in lib/server/guard/rules.ts;
-    // the schema only regex-checks the shape. Without this, resolving a
-    // confirmation strips the butuh_konfirmasi entry even when the cited
-    // turn belongs to another session or does not exist.
-    if (
-        !("op" in patchBody) &&
-        patchBody.field.endsWith(".sumber_kutipan") &&
-        /^turn_[1-9][0-9]*$/.test(String(patchBody.nilai))
-    ) {
-        let citedTurn: Turn | undefined;
+    const citation =
+        "op" in patchBody
+            ? patchBody.op === "update_line"
+                ? patchBody.changes.sumber_kutipan
+                : undefined
+            : patchBody.field.endsWith(".sumber_kutipan")
+              ? String(patchBody.nilai)
+              : undefined;
+    let citedTurn: Turn | undefined;
+    if (citation && citation !== "manual") {
         try {
-            const storedSession = await getTurnsStore().findSession(
-                existing.sessionId
-            );
-            const turnById = new Map<string, Turn>();
-            for (const turn of storedSession?.turns ?? []) {
-                turnById.set(turn.turn_id, turn);
-            }
-            citedTurn = turnById.get(String(patchBody.nilai));
+            citedTurn = (
+                await getTurnsStore().findSession(existing.sessionId)
+            )?.turns.find((turn) => turn.turn_id === citation);
         } catch {
             return NextResponse.json(
                 {
@@ -185,319 +171,55 @@ async function handlePatch(
                 { status: 500 }
             );
         }
-        if (!citedTurn || citedTurn.final !== true) {
+    }
+    let result: StoredDocument | null = null;
+    try {
+        result = await docStore.update(
+            id,
+            (document, ctx) =>
+                applyDraftMutation(
+                    document,
+                    ctx?.fieldChanges ?? [],
+                    patchBody,
+                    session.user.id,
+                    (source) =>
+                        citedTurn?.turn_id === source &&
+                        citedTurn.final === true
+                ),
+            mutationOptions
+        );
+    } catch (cause) {
+        if (cause instanceof DraftInputError) {
             return NextResponse.json(
-                {
-                    error: "invalid_request",
-                    message: `sumber_kutipan '${patchBody.nilai}' bukan giliran final dari sesi ini`,
-                },
+                { error: "invalid_request", message: cause.message },
                 { status: 400 }
             );
         }
-    }
-
-    function recomputeTotals(doc: StoredDocument["document"]): void {
-        let totalNominal = 0;
-        for (const item of doc.pekerjaan || []) {
-            item.jumlah = round(item.volume * item.harga_satuan, 2);
-            totalNominal += item.jumlah;
-        }
-        totalNominal = round(totalNominal, 2);
-        doc.total_nominal = totalNominal;
-        doc.terbilang =
-            doc.locale === "en"
-                ? amountInWords(totalNominal)
-                : terbilang(totalNominal);
-    }
-
-    let result: StoredDocument | null = null;
-    let indexError: PatchIndexError | undefined;
-    let lockedError: DocumentLockedError | undefined;
-
-    try {
-        result = await docStore.update(id, (document, ctx) => {
-            if ("op" in patchBody) {
-                if (patchBody.op === "add_line") {
-                    const newLine: PekerjaanItem = {
-                        uraian: patchBody.item.uraian,
-                        volume: patchBody.item.volume,
-                        satuan: patchBody.item.satuan,
-                        harga_satuan: patchBody.item.harga_satuan,
-                        jumlah: round(
-                            patchBody.item.volume * patchBody.item.harga_satuan,
-                            2
-                        ),
-                        sumber_kutipan: "manual",
-                    };
-                    document.pekerjaan = [
-                        ...(document.pekerjaan || []),
-                        newLine,
-                    ];
-                    recomputeTotals(document);
-                    return { document, status: "draf" };
-                }
-
-                if (patchBody.op === "remove_line") {
-                    const idx = patchBody.index;
-                    if (
-                        !Array.isArray(document.pekerjaan) ||
-                        idx < 0 ||
-                        idx >= document.pekerjaan.length
-                    ) {
-                        throw new PatchIndexError(idx);
-                    }
-                    document.pekerjaan.splice(idx, 1);
-
-                    // Drop butuh_konfirmasi for removed line and shift indices > idx down by 1
-                    document.butuh_konfirmasi = (
-                        document.butuh_konfirmasi || []
-                    )
-                        .filter(
-                            (b) => !b.field.startsWith(`pekerjaan[${idx}].`)
-                        )
-                        .map((b) => {
-                            const match = b.field.match(
-                                /^pekerjaan\[(\d+)\]\.(.*)$/
-                            );
-                            if (match) {
-                                const i = parseInt(match[1], 10);
-                                if (i > idx) {
-                                    return {
-                                        ...b,
-                                        field: `pekerjaan[${i - 1}].${match[2]}`,
-                                    };
-                                }
-                            }
-                            return b;
-                        });
-
-                    // Drop field_changes for removed line and shift indices > idx down by 1
-                    const updatedFieldChanges = (ctx?.fieldChanges || [])
-                        .filter(
-                            (c) => !c.field.startsWith(`pekerjaan[${idx}].`)
-                        )
-                        .map((c) => {
-                            const match = c.field.match(
-                                /^pekerjaan\[(\d+)\]\.(.*)$/
-                            );
-                            if (match) {
-                                const i = parseInt(match[1], 10);
-                                if (i > idx) {
-                                    return {
-                                        ...c,
-                                        field: `pekerjaan[${i - 1}].${match[2]}`,
-                                    };
-                                }
-                            }
-                            return c;
-                        });
-
-                    recomputeTotals(document);
-                    return {
-                        document,
-                        fieldChanges: updatedFieldChanges,
-                        status: "draf",
-                    };
-                }
-
-                if (patchBody.op === "move_line") {
-                    const { fromIndex, toIndex } = patchBody;
-                    if (
-                        !Array.isArray(document.pekerjaan) ||
-                        fromIndex < 0 ||
-                        fromIndex >= document.pekerjaan.length
-                    ) {
-                        throw new PatchIndexError(fromIndex);
-                    }
-                    if (toIndex < 0 || toIndex >= document.pekerjaan.length) {
-                        throw new PatchIndexError(toIndex);
-                    }
-                    const [moved] = document.pekerjaan.splice(fromIndex, 1);
-                    document.pekerjaan.splice(toIndex, 0, moved);
-
-                    // Remap butuh_konfirmasi indices
-                    document.butuh_konfirmasi = (
-                        document.butuh_konfirmasi || []
-                    ).map((b) => {
-                        const match = b.field.match(
-                            /^pekerjaan\[(\d+)\]\.(.*)$/
-                        );
-                        if (match) {
-                            const i = parseInt(match[1], 10);
-                            const nextI = remapIndex(i, fromIndex, toIndex);
-                            return {
-                                ...b,
-                                field: `pekerjaan[${nextI}].${match[2]}`,
-                            };
-                        }
-                        return b;
-                    });
-
-                    // Remap field_changes indices
-                    const updatedFieldChanges = (ctx?.fieldChanges || []).map(
-                        (c) => {
-                            const match = c.field.match(
-                                /^pekerjaan\[(\d+)\]\.(.*)$/
-                            );
-                            if (match) {
-                                const i = parseInt(match[1], 10);
-                                const nextI = remapIndex(i, fromIndex, toIndex);
-                                return {
-                                    ...c,
-                                    field: `pekerjaan[${nextI}].${match[2]}`,
-                                };
-                            }
-                            return c;
-                        }
-                    );
-
-                    recomputeTotals(document);
-                    return {
-                        document,
-                        fieldChanges: updatedFieldChanges,
-                        status: "draf",
-                    };
-                }
-            }
-
-            // Scalar edit
-            const { field, nilai } = patchBody;
-            if (
-                field === "proyek.nama" ||
-                field === "proyek.lokasi" ||
-                field === "proyek.klien"
-            ) {
-                const subfield = field.slice("proyek.".length) as keyof Proyek;
-                document.proyek[subfield] = String(nilai).trim();
-                document.butuh_konfirmasi = (
-                    document.butuh_konfirmasi || []
-                ).filter((item) => item.field !== field);
-                // AC 4: update project name only, no total recalc
-                return { document, status: "draf" };
-            }
-
-            if (field === "tanggal") {
-                document.tanggal = String(nilai).trim();
-                document.butuh_konfirmasi = (
-                    document.butuh_konfirmasi || []
-                ).filter((item) => item.field !== field);
-                return { document, status: "draf" };
-            }
-
-            const match = field.match(
-                /^pekerjaan\[(\d+)\]\.(volume|harga_satuan|satuan|uraian|sumber_kutipan)$/
-            )!;
-            const idx = parseInt(match[1], 10);
-            const subfield = match[2];
-
-            if (
-                !Array.isArray(document.pekerjaan) ||
-                idx < 0 ||
-                idx >= document.pekerjaan.length
-            ) {
-                throw new PatchIndexError(idx);
-            }
-
-            const lineItem = document.pekerjaan[idx];
-
-            if (subfield === "sumber_kutipan") {
-                lineItem.sumber_kutipan = String(nilai).trim();
-                document.butuh_konfirmasi = (
-                    document.butuh_konfirmasi || []
-                ).filter((item) => item.field !== field);
-                return { document, status: "draf" };
-            }
-
-            const oldValue = lineItem[subfield as keyof PekerjaanItem];
-            let newValue: string | number;
-
-            if (subfield === "volume" || subfield === "harga_satuan") {
-                newValue =
-                    typeof nilai === "number"
-                        ? nilai
-                        : Number(String(nilai).trim());
-                lineItem[subfield] = newValue;
-            } else if (subfield === "satuan") {
-                newValue = String(nilai).trim() as CanonicalUnit;
-                lineItem.satuan = newValue as CanonicalUnit;
-            } else {
-                newValue = String(nilai).trim();
-                lineItem.uraian = newValue;
-            }
-
-            const nextChanges = [...(ctx?.fieldChanges || [])];
-            if (
-                typeof lineItem.sumber_kutipan === "string" &&
-                lineItem.sumber_kutipan.startsWith("turn_")
-            ) {
-                const existingIdx = nextChanges.findIndex(
-                    (c) => c.field === field
-                );
-                const nowIso = new Date().toISOString();
-                if (existingIdx >= 0) {
-                    nextChanges[existingIdx] = {
-                        ...nextChanges[existingIdx],
-                        current: newValue,
-                        changed_by: session.user.id,
-                        changed_at: nowIso,
-                    };
-                } else {
-                    nextChanges.push({
-                        field,
-                        original: oldValue,
-                        current: newValue,
-                        changed_by: session.user.id,
-                        changed_at: nowIso,
-                    });
-                }
-            }
-
-            document.butuh_konfirmasi = (
-                document.butuh_konfirmasi || []
-            ).filter((item) => item.field !== field);
-
-            recomputeTotals(document);
-
-            return {
-                document,
-                fieldChanges: nextChanges,
-                status: "draf",
-            };
-        });
-    } catch (cause) {
-        if (cause instanceof PatchIndexError) {
-            indexError = cause;
-        } else if (cause instanceof DocumentLockedError) {
-            lockedError = cause;
-        } else {
-            console.error(
-                redactSecrets(`[documents] patch failed: ${String(cause)}`)
-            );
+        if (cause instanceof DraftMutationConflict) {
             return NextResponse.json(
                 {
-                    error: "store_failure",
-                    message: "Failed to persist document",
+                    error: cause.code,
+                    message:
+                        cause.code === "stale_revision"
+                            ? "Draft revision changed. Reload and review the latest draft."
+                            : "Idempotency-Key was already used for a different request.",
+                    draft_revision: cause.revision,
                 },
-                { status: 500 }
+                { status: 409 }
             );
         }
-    }
-    if (lockedError) {
-        return NextResponse.json(
-            {
-                error: "locked",
-                message: lockedError.message,
-            },
-            { status: 409 }
+        if (cause instanceof DocumentLockedError) {
+            return NextResponse.json(
+                { error: "locked", message: cause.message },
+                { status: 409 }
+            );
+        }
+        console.error(
+            redactSecrets(`[documents] patch failed: ${String(cause)}`)
         );
-    }
-    if (indexError) {
         return NextResponse.json(
-            {
-                error: "invalid_request",
-                message: indexError.message,
-            },
-            { status: 400 }
+            { error: "store_failure", message: "Failed to persist document" },
+            { status: 500 }
         );
     }
     if (!result) {
@@ -518,6 +240,7 @@ async function handlePatch(
             }),
             butuh_konfirmasi: result.document.butuh_konfirmasi,
             status: result.status,
+            draft_revision: result.draftRevision,
             field_changes: result.fieldChanges ?? [],
         },
         { status: 200 }
@@ -582,8 +305,10 @@ async function handleGet(
 
     let lineage: StoredDocument[];
     try {
-        lineage = (await getPostgresDocumentStore().listByRootId(stored.rootId)).filter(
-            (sibling) => canAccessDocument(session, sibling.userId ?? null)
+        lineage = (
+            await getPostgresDocumentStore().listByRootId(stored.rootId)
+        ).filter((sibling) =>
+            canAccessDocument(session, sibling.userId ?? null)
         );
     } catch {
         return NextResponse.json(
@@ -606,6 +331,7 @@ async function handleGet(
             }),
             butuh_konfirmasi: stored.document.butuh_konfirmasi,
             status: stored.status,
+            draft_revision: stored.draftRevision,
             field_changes: stored.fieldChanges ?? [],
             sent_to: stored.sentTo ?? null,
             sent_at: stored.sentAt ? stored.sentAt.toISOString() : null,

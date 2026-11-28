@@ -1,10 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
+import {
+    newDraftItemIds,
+    withDraftItemIds,
+} from "@/lib/server/guard/draftIdentity";
 import { allocateDocumentNumber } from "./documentNumber";
 
 import { Pool } from "pg";
 
 import { redactSecrets } from "@/lib/server/asr/log";
-import type { DocumentStatus, QuotationDocument } from "@/lib/server/guard/types";
+import type {
+    DocumentStatus,
+    QuotationDocument,
+} from "@/lib/server/guard/types";
 
 export type FieldChange = {
     field: string;
@@ -12,6 +19,17 @@ export type FieldChange = {
     current: unknown;
     changed_by: string;
     changed_at: string;
+    item_id?: string;
+    source_before?: string | null;
+    source_after?: string | null;
+    original_source?: string | null;
+    kind?:
+        | "edit"
+        | "source"
+        | "remove"
+        | "move"
+        | "derived_confirmation"
+        | "confirmation";
 };
 
 export class DocumentLockedError extends Error {
@@ -23,7 +41,25 @@ export class DocumentLockedError extends Error {
     }
 }
 
+export type DraftMutationOptions = {
+    revision: number;
+    actorId: string;
+    key: string;
+    fingerprint: string;
+};
+
+export class DraftMutationConflict extends Error {
+    constructor(
+        readonly code: "stale_revision" | "idempotency_conflict",
+        readonly revision: number
+    ) {
+        super(code);
+        this.name = "DraftMutationConflict";
+    }
+}
+
 export type StoredDocument = {
+    draftRevision: number;
     id: string;
     sessionId: string;
     nomor: string | null; // null while the draft has not been approved (ticket 01)
@@ -87,6 +123,7 @@ export type CreateDocumentInput = {
     turnsHash: string;
     document: QuotationDocument;
     userId?: string | null;
+    fieldChanges?: FieldChange[];
 };
 
 export type DocumentListItem = {
@@ -143,7 +180,8 @@ export interface DocumentStore {
                   document: QuotationDocument;
                   fieldChanges?: FieldChange[];
                   status?: DocumentStatus;
-              }
+              },
+        options?: DraftMutationOptions
     ): Promise<StoredDocument | null>;
     /**
      * Records a successful email send: sets status `terkirim` and persists
@@ -172,10 +210,7 @@ export interface DocumentStore {
         userId: string,
         query: DocumentListQuery
     ): Promise<DocumentListItem[]>;
-    listOwnedVersions(
-        userId: string,
-        id: string
-    ): Promise<DocumentListItem[]>;
+    listOwnedVersions(userId: string, id: string): Promise<DocumentListItem[]>;
     listByUser(userId: string): Promise<StoredDocument[]>;
     listByRootId(rootId: string): Promise<StoredDocument[]>;
     listAll(): Promise<AdminDocument[]>;
@@ -191,17 +226,19 @@ export function turnsHashOf(
     // Length-prefixed parts, so a transcript containing a separator character
     // cannot alias a different turn sequence.
     const parts = turns.map(
-        (turn) => `${turn.startMs}:${turn.endMs}:${turn.transcript.length}:${turn.transcript}`
+        (turn) =>
+            `${turn.startMs}:${turn.endMs}:${turn.transcript.length}:${turn.transcript}`
     );
     if (context) {
         parts.push(`locale:${context.locale ?? ""}`);
-        if (context.project) parts.push(`project:${JSON.stringify(context.project)}`);
+        if (context.project)
+            parts.push(`project:${JSON.stringify(context.project)}`);
     }
     return createHash("sha256").update(parts.join("\n")).digest("hex");
 }
 
 const DOCUMENT_COLUMNS =
-    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash";
+    "id, session_id, nomor, status, data_json, pdf_path, sent_to, sent_at, created_at, user_id, field_changes, approved_at, approved_by, version, root_id, parent_id, superseded_by, turns_hash, draft_revision";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -225,7 +262,8 @@ export function createPostgresDocumentStore(
         pdf_path?: string | null;
         sent_to?: string | null;
         sent_at?: Date | null;
-        created_at: Date;
+        created_at: Date | string;
+        draft_revision?: number;
         user_id?: string | null;
         field_changes?: unknown;
         approved_at?: Date | string | null;
@@ -250,8 +288,12 @@ export function createPostgresDocumentStore(
             nomor: row.nomor,
             status,
             rawStatus: row.status,
-            createdAt: row.created_at,
-            document: row.data_json,
+            createdAt: new Date(row.created_at),
+            draftRevision: row.draft_revision ?? 1,
+            document:
+                status === "draf"
+                    ? withDraftItemIds(row.data_json, row.id)
+                    : row.data_json,
             pdfPath: row.pdf_path ?? null,
             sentTo: row.sent_to ?? null,
             sentAt: row.sent_at
@@ -305,9 +347,10 @@ export function createPostgresDocumentStore(
             let clientReleased = false;
             try {
                 await client.query("begin");
-                await client.query("select pg_advisory_xact_lock(hashtext($1))", [
-                    input.sessionId,
-                ]);
+                await client.query(
+                    "select pg_advisory_xact_lock(hashtext($1))",
+                    [input.sessionId]
+                );
                 const existing = await client.query(
                     `select ${DOCUMENT_COLUMNS}
                      from documents
@@ -324,16 +367,30 @@ export function createPostgresDocumentStore(
                     await client.query("commit");
                     return toStored(existing.rows[0]);
                 }
+                const draft = newDraftItemIds(input.document);
+                const fieldChanges = (input.fieldChanges ?? []).map(
+                    (change) => {
+                        const match = /^pekerjaan\[(\d+)\]/.exec(change.field);
+                        return match
+                            ? {
+                                  ...change,
+                                  item_id:
+                                      draft.pekerjaan[Number(match[1])]?.id,
+                              }
+                            : change;
+                    }
+                );
                 const result = await client.query(
-                    `insert into documents (session_id, locale, status, turns_hash, data_json, user_id)
-                     values ($1, $2, 'draf', $3, $4, $5)
+                    `insert into documents (session_id, locale, status, turns_hash, data_json, user_id, field_changes)
+                     values ($1, $2, 'draf', $3, $4, $5, $6)
                      returning ${DOCUMENT_COLUMNS}`,
                     [
                         input.sessionId,
                         input.locale,
                         input.turnsHash,
-                        JSON.stringify(input.document),
+                        JSON.stringify(draft),
                         input.userId ?? null,
+                        JSON.stringify(fieldChanges),
                     ]
                 );
                 await client.query("commit");
@@ -364,11 +421,19 @@ export function createPostgresDocumentStore(
             return toStored(result.rows[0]);
         },
 
-        async update(id, transform) {
+        async update(id, transform, options) {
             if (!UUID_RE.test(id)) return null;
             const client = await pool.connect();
             let clientReleased = false;
             try {
+                // Purge expired receipts across documents in a short, separate transaction.
+                // SKIP LOCKED avoids waiting on another mutation's receipt.
+                if (options)
+                    await client.query(`delete from document_patch_receipts
+                    where (document_id, actor_id, request_key) in (
+                        select document_id, actor_id, request_key from document_patch_receipts
+                        where expires_at <= now() order by expires_at limit 1000 for update skip locked
+                    )`);
                 await client.query("begin");
                 // Serializes overlapping PATCHes on this document: the second
                 // one reads the first one's committed payload, so its recomputed
@@ -383,7 +448,37 @@ export function createPostgresDocumentStore(
                     return null;
                 }
                 const stored = toStored(locked.rows[0]);
-                const isLocked = stored.status === "terkirim" || stored.status === "disetujui";
+                if (options) {
+                    await client.query(
+                        "delete from document_patch_receipts where document_id=$1 and expires_at <= now()",
+                        [id]
+                    );
+                    const receipt = await client.query(
+                        "select fingerprint, result from document_patch_receipts where document_id=$1 and actor_id=$2 and request_key=$3 and expires_at > now()",
+                        [id, options.actorId, options.key]
+                    );
+                    if (receipt.rows[0]) {
+                        if (
+                            receipt.rows[0].fingerprint !== options.fingerprint
+                        ) {
+                            throw new DraftMutationConflict(
+                                "idempotency_conflict",
+                                stored.draftRevision
+                            );
+                        }
+                        await client.query("commit");
+                        return toStored(receipt.rows[0].result);
+                    }
+                    if (options.revision !== stored.draftRevision) {
+                        throw new DraftMutationConflict(
+                            "stale_revision",
+                            stored.draftRevision
+                        );
+                    }
+                }
+                const isLocked =
+                    stored.status === "terkirim" ||
+                    stored.status === "disetujui";
                 if (isLocked) {
                     await client.query("rollback");
                     throw new DocumentLockedError(stored.status);
@@ -417,6 +512,7 @@ export function createPostgresDocumentStore(
                     `update documents
                      set data_json = $2,
                          field_changes = $3,
+                         draft_revision = draft_revision + 1,
                          status = $4,
                          sent_to = null,
                          sent_at = null,
@@ -430,6 +526,18 @@ export function createPostgresDocumentStore(
                         nextStatus,
                     ]
                 );
+                if (options) {
+                    await client.query(
+                        "insert into document_patch_receipts(document_id,actor_id,request_key,fingerprint,result) values($1,$2,$3,$4,$5)",
+                        [
+                            id,
+                            options.actorId,
+                            options.key,
+                            options.fingerprint,
+                            JSON.stringify(result.rows[0]),
+                        ]
+                    );
+                }
                 await client.query("commit");
                 return toStored(result.rows[0]);
             } catch (cause) {
@@ -537,7 +645,10 @@ export function createPostgresDocumentStore(
 
                 const approvalYear =
                     options?.approvalYear ?? new Date().getUTCFullYear();
-                const nomor = await allocateDocumentNumber(client, approvalYear);
+                const nomor = await allocateDocumentNumber(
+                    client,
+                    approvalYear
+                );
 
                 const updatedDoc: QuotationDocument = {
                     ...stored.document,
@@ -771,7 +882,7 @@ export function createPostgresDocumentStore(
         async listAll(): Promise<AdminDocument[]> {
             const result = await pool.query(
                 `select d.id, d.session_id, d.nomor, d.status, d.data_json, d.pdf_path, d.sent_to, d.sent_at, d.created_at, d.user_id, d.field_changes,
-                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash,
+                        d.approved_at, d.approved_by, d.version, d.root_id, d.parent_id, d.superseded_by, d.turns_hash, d.draft_revision,
                         u.email as user_email, u.name as user_name
                  from documents d
                  left join auth_user u on d.user_id = u.id

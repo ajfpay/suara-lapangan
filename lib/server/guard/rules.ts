@@ -1,3 +1,6 @@
+import { resolveDerivedConfirmations } from "./draftConfirmations";
+import { applyTermProposals } from "./draftTerms";
+import { DraftInputError, lineMoney, recalculateDraft } from "./draftMoney";
 import type {
     ButuhKonfirmasiItem,
     CanonicalUnit,
@@ -12,12 +15,10 @@ import type {
     Turn,
 } from "./types";
 import {
-    amountInWords,
     extractNumbersWithContext,
     PRICE_KEYWORDS,
     SPOKEN_UNITS,
     spokenUnitsIn,
-    terbilang,
 } from "./words";
 
 export type GuardContext = {
@@ -68,7 +69,7 @@ export function applyGuard(
         typeof candidate.tanggal === "string" &&
         /^\d{4}-\d{2}-\d{2}$/.test(candidate.tanggal)
             ? candidate.tanggal
-            : context?.date ?? formatDate(new Date());
+            : (context?.date ?? formatDate(new Date()));
 
     const nomor = context?.nomor ?? "";
 
@@ -82,19 +83,22 @@ export function applyGuard(
         nama:
             typeof rawProyek?.nama === "string" && rawProyek.nama.trim()
                 ? rawProyek.nama
-                : typeof context?.project?.nama === "string" && context.project.nama.trim()
+                : typeof context?.project?.nama === "string" &&
+                    context.project.nama.trim()
                   ? context.project.nama
                   : "Proyek Lapangan",
         lokasi:
             typeof rawProyek?.lokasi === "string" && rawProyek.lokasi.trim()
                 ? rawProyek.lokasi
-                : typeof context?.project?.lokasi === "string" && context.project.lokasi.trim()
+                : typeof context?.project?.lokasi === "string" &&
+                    context.project.lokasi.trim()
                   ? context.project.lokasi
                   : "Lokasi Proyek",
         klien:
             typeof rawProyek?.klien === "string" && rawProyek.klien.trim()
                 ? rawProyek.klien
-                : typeof context?.project?.klien === "string" && context.project.klien.trim()
+                : typeof context?.project?.klien === "string" &&
+                    context.project.klien.trim()
                   ? context.project.klien
                   : "Klien",
     };
@@ -120,19 +124,31 @@ export function applyGuard(
                 ? rawItem.uraian.trim()
                 : `Pekerjaan ${index + 1}`;
 
-        const volume =
-            typeof rawItem.volume === "number" && !isNaN(rawItem.volume)
-                ? rawItem.volume
-                : typeof rawItem.volume === "string" &&
-                    !isNaN(parseFloat(rawItem.volume))
-                  ? parseFloat(rawItem.volume)
-                  : 0;
+        const amounts = (() => {
+            try {
+                return lineMoney(
+                    rawItem.volume,
+                    rawItem.harga_satuan,
+                    mata_uang
+                );
+            } catch (cause) {
+                if (cause instanceof DraftInputError)
+                    throw new DraftInputError(
+                        `${itemFieldPrefix}: ${cause.message}`
+                    );
+                throw cause;
+            }
+        })();
+        const volume = amounts.volume;
 
         if (!isCanonicalUnit(rawItem.satuan)) {
             butuh_konfirmasi.push({
                 field: `${itemFieldPrefix}.satuan`,
                 alasan: `Satuan '${rawItem.satuan}' bukan satuan kanonikal yang valid`,
-                sumber_kutipan: typeof rawItem.sumber_kutipan === "string" ? rawItem.sumber_kutipan : null,
+                sumber_kutipan:
+                    typeof rawItem.sumber_kutipan === "string"
+                        ? rawItem.sumber_kutipan
+                        : null,
             });
         }
 
@@ -140,14 +156,17 @@ export function applyGuard(
             ? rawItem.satuan
             : "unit";
 
-        const harga_satuan =
-            typeof rawItem.harga_satuan === "number" &&
-            !isNaN(rawItem.harga_satuan)
-                ? rawItem.harga_satuan
-                : typeof rawItem.harga_satuan === "string" &&
-                    !isNaN(parseFloat(rawItem.harga_satuan))
-                  ? parseFloat(rawItem.harga_satuan)
-                  : 0;
+        const harga_satuan = amounts.harga_satuan;
+        if (amounts.harga_satuan_minor === null) {
+            butuh_konfirmasi.push({
+                field: `${itemFieldPrefix}.harga_satuan`,
+                alasan: "Harga satuan belum diisi",
+                sumber_kutipan:
+                    typeof rawItem.sumber_kutipan === "string"
+                        ? rawItem.sumber_kutipan.trim()
+                        : null,
+            });
+        }
 
         const rawJumlah =
             typeof rawItem.jumlah === "number"
@@ -159,7 +178,7 @@ export function applyGuard(
 
         const sumber_kutipan =
             typeof rawItem.sumber_kutipan === "string"
-                ? rawItem.sumber_kutipan
+                ? rawItem.sumber_kutipan.trim()
                 : "";
 
         // Rule 1: Citation isolation (evaluated for non-manual citations; manual lines pass)
@@ -266,7 +285,10 @@ export function applyGuard(
                         ext.wordsAfter.some((w) => PRICE_KEYWORDS.test(w)))
             );
 
-            if (matchingRateMatches.length === 0) {
+            if (
+                amounts.harga_satuan_minor !== null &&
+                matchingRateMatches.length === 0
+            ) {
                 butuh_konfirmasi.push({
                     field: `${itemFieldPrefix}.harga_satuan`,
                     alasan: `Angka harga_satuan (${harga_satuan}) tidak cocok dengan transkrip ternormalisasi pada giliran (${sumber_kutipan})`,
@@ -289,6 +311,8 @@ export function applyGuard(
                     butuh_konfirmasi.push({
                         field: `${itemFieldPrefix}.jumlah`,
                         alasan: `Nilai jumlah (${rawJumlah}) tidak cocok dengan transkrip ternormalisasi (${spokenAmount.value})`,
+                        kind: "source",
+                        proposed_value: rawJumlah,
                         sumber_kutipan,
                     });
                 }
@@ -296,10 +320,10 @@ export function applyGuard(
         }
 
         // Rule 5: Server-computed jumlah = volume × harga_satuan
-        const computedJumlah =
-            Math.round(volume * harga_satuan * 100) / 100;
+        const computedJumlah = amounts.jumlah;
 
         if (
+            amounts.jumlah_minor !== null &&
             rawJumlah !== undefined &&
             Math.abs(rawJumlah - computedJumlah) > 1e-4
         ) {
@@ -312,6 +336,8 @@ export function applyGuard(
                 butuh_konfirmasi.push({
                     field: `${itemFieldPrefix}.jumlah`,
                     alasan: `jumlah (${rawJumlah}) tidak cocok dengan volume (${volume}) × harga_satuan (${harga_satuan}) = ${computedJumlah}`,
+                    kind: "derived",
+                    proposed_value: rawJumlah,
                     sumber_kutipan: sumber_kutipan || null,
                 });
             }
@@ -319,19 +345,27 @@ export function applyGuard(
 
         pekerjaan.push({
             uraian,
-            volume,
+            ...amounts,
             satuan,
-            harga_satuan,
-            jumlah: computedJumlah,
             sumber_kutipan,
         });
     });
 
-    // Rule 5: Server-computed total_nominal and terbilang
-    const computedTotal = pekerjaan.reduce(
-        (sum, item) => sum + item.jumlah,
-        0
-    );
+    // Compute and validate the exact minor-unit sum before inspecting the proposed total.
+    const doc: QuotationDocument = {
+        jenis: "surat_penawaran",
+        locale,
+        mata_uang,
+        nomor,
+        tanggal,
+        proyek,
+        pekerjaan,
+        total_nominal: 0,
+        terbilang: "",
+        butuh_konfirmasi,
+    };
+    recalculateDraft(doc);
+    const computedTotal = doc.total_nominal;
 
     const rawTotal =
         typeof candidate.total_nominal === "number"
@@ -341,37 +375,49 @@ export function applyGuard(
               ? parseFloat(candidate.total_nominal)
               : undefined;
 
-    if (
-        rawTotal !== undefined &&
-        Math.abs(rawTotal - computedTotal) > 1e-4
-    ) {
+    if (rawTotal !== undefined && Math.abs(rawTotal - computedTotal) > 1e-4) {
         butuh_konfirmasi.push({
             field: "total_nominal",
             alasan: `total_nominal (${rawTotal}) tidak cocok dengan jumlah total pekerjaan (${computedTotal})`,
+            kind: "derived",
+            proposed_value: rawTotal,
             sumber_kutipan: null,
         });
     }
 
-    const computedTerbilang =
-        locale === "en"
-            ? amountInWords(computedTotal)
-            : terbilang(computedTotal);
-
-    const doc: QuotationDocument = {
-        jenis: "surat_penawaran",
-        locale,
-        mata_uang,
-        nomor,
-        tanggal,
-        proyek,
-        pekerjaan,
-        total_nominal: computedTotal,
-        terbilang: computedTerbilang,
-        butuh_konfirmasi,
-    };
+    // Explicit spoken totals are evidence, not a model arithmetic error.
+    for (const turn of turns.filter((t) => t.final)) {
+        const stated = extractNumbersWithContext(turn.transcript, locale).find(
+            (n) =>
+                /(?:^|\s)(?:total|jumlah(?:\s+keseluruhan)?|grand\s+total)(?:\s+(?:is|adalah|sebesar|rp|rupiah))?\s*$/i.test(
+                    n.wordsBefore.join(" ")
+                )
+        );
+        if (stated && Math.abs(stated.value - computedTotal) > 1e-4) {
+            const existing = doc.butuh_konfirmasi.find(
+                (c) => c.field === "total_nominal"
+            );
+            if (existing)
+                Object.assign(existing, {
+                    kind: "source",
+                    proposed_value: stated.value,
+                    sumber_kutipan: turn.turn_id,
+                });
+            else
+                doc.butuh_konfirmasi.push({
+                    field: "total_nominal",
+                    alasan: "Total yang diucapkan tidak cocok dengan hitungan server",
+                    kind: "source",
+                    proposed_value: stated.value,
+                    sumber_kutipan: turn.turn_id,
+                });
+        }
+    }
+    applyTermProposals(doc, candidate, turns);
+    const automaticFieldChanges = resolveDerivedConfirmations(doc, "server");
 
     if (pekerjaan.length === 0) {
-        butuh_konfirmasi.push({
+        doc.butuh_konfirmasi.push({
             field: "pekerjaan",
             alasan: "Daftar pekerjaan kosong, minimal harus ada satu pekerjaan",
             sumber_kutipan: null,
@@ -379,10 +425,11 @@ export function applyGuard(
     }
 
     const status: DocumentStatus =
-        butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
+        doc.butuh_konfirmasi.length > 0 ? "perlu_konfirmasi" : "siap";
     return {
         document: doc,
-        butuh_konfirmasi,
+        butuh_konfirmasi: doc.butuh_konfirmasi,
         status,
+        automaticFieldChanges,
     };
 }

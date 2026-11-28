@@ -15,31 +15,23 @@ export interface KonfirmasiItem {
     field: string;
     alasan: string;
     sumber_kutipan: string | null;
+    kind?: "derived" | "source";
 }
 
 interface Props {
     item: KonfirmasiItem;
     locale: string;
     onPlayEvidence: (turnId: string) => void;
-    onResolved: (field: string, response: PatchResponse) => void;
-    documentId: string;
-}
-
-export interface PatchResponse {
-    document: {
-        butuh_konfirmasi?: KonfirmasiItem[];
-        status?: "draf" | "disetujui";
-    };
-    butuh_konfirmasi?: KonfirmasiItem[];
-    status?: "draf" | "disetujui";
+    mutate: (operation: Record<string, unknown>) => Promise<boolean>;
+    busy?: boolean;
 }
 
 export function KonfirmasiCard({
     item,
     locale,
     onPlayEvidence,
-    onResolved,
-    documentId,
+    mutate,
+    busy,
 }: Props) {
     const isIndo = locale === "id";
     const isCitation = isCitationField(item.field);
@@ -51,27 +43,22 @@ export function KonfirmasiCard({
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const derived =
+        item.field === "total_nominal" || /\.jumlah$/.test(item.field);
     async function patch(nilai: string | number) {
         setSaving(true);
         setError(null);
         try {
-            const res = await fetch(
-                `/api/documents/${encodeURIComponent(documentId)}`,
-                {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ field: item.field, nilai }),
-                }
-            );
-            if (!res.ok) {
-                const j = await res.json().catch(() => null);
-                throw new Error(
-                    j?.message ??
-                        (isIndo ? "Gagal menyimpan." : "Failed to save.")
-                );
-            }
-            const body = (await res.json()) as PatchResponse;
-            onResolved(item.field, body);
+            const operation = derived
+                ? {
+                      op:
+                          item.kind === "derived"
+                              ? "confirm_derived"
+                              : "confirm_source",
+                      field: item.field,
+                  }
+                : { field: item.field, nilai };
+            await mutate(operation);
         } catch (e) {
             setError(e instanceof Error ? e.message : String(e));
         } finally {
@@ -103,13 +90,20 @@ export function KonfirmasiCard({
                     {isIndo ? "Dengar bukti" : "Play evidence"}
                 </button>
             )}
-            {options.length > 0 && (
+            {item.field === "pekerjaan" && (
+                <p>
+                    {isIndo
+                        ? "Tambah item melalui editor draf."
+                        : "Add an item in the draft editor."}
+                </p>
+            )}
+            {item.field !== "pekerjaan" && !derived && options.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                     {options.map((opt) => (
                         <button
                             key={opt}
                             type="button"
-                            disabled={saving}
+                            disabled={saving || busy}
                             onClick={() => patch(opt)}
                             className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl border border-amber-500 bg-white px-4 py-2 font-bold text-amber-950 disabled:opacity-50"
                         >
@@ -118,33 +112,53 @@ export function KonfirmasiCard({
                     ))}
                 </div>
             )}
-            <form
-                className="mt-3 flex gap-2"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    const v = manual.trim();
-                    if (!v) return;
-                    patch(numeric ? Number(v) : v);
-                }}
-            >
-                <input
-                    type={numeric ? "number" : "text"}
-                    value={manual}
-                    onChange={(e) => setManual(e.target.value)}
-                    placeholder={
-                        isIndo ? "Ketik koreksi…" : "Type correction…"
-                    }
-                    aria-label={isIndo ? "Koreksi manual" : "Manual correction"}
-                    className="min-h-[44px] flex-1 rounded-xl border border-input bg-background px-3 text-foreground"
-                />
+            {item.field === "pekerjaan" ? null : derived ? (
                 <button
-                    type="submit"
-                    disabled={saving || !manual.trim()}
-                    className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl bg-secondary px-4 font-bold text-secondary-foreground disabled:opacity-50"
+                    type="button"
+                    disabled={saving || busy}
+                    onClick={() => patch(0)}
+                    className="mt-3 min-h-[44px] rounded-xl border border-input px-4 font-bold"
                 >
-                    {isIndo ? "Simpan" : "Save"}
+                    {isIndo
+                        ? item.kind === "derived"
+                            ? "Konfirmasi hitungan server"
+                            : "Setujui hitungan server setelah meninjau bukti suara"
+                        : item.kind === "derived"
+                          ? "Confirm calculated amount"
+                          : "Accept calculated amount after reviewing audio evidence"}
                 </button>
-            </form>
+            ) : (
+                <form
+                    className="mt-3 flex gap-2"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        const v = manual.trim();
+                        if (!v) return;
+                        patch(v);
+                    }}
+                >
+                    <input
+                        type={numeric ? "number" : "text"}
+                        step={numeric ? "any" : undefined}
+                        value={manual}
+                        onChange={(e) => setManual(e.target.value)}
+                        placeholder={
+                            isIndo ? "Ketik koreksi…" : "Type correction…"
+                        }
+                        aria-label={
+                            isIndo ? "Koreksi manual" : "Manual correction"
+                        }
+                        className="min-h-[44px] flex-1 rounded-xl border border-input bg-background px-3 text-foreground"
+                    />
+                    <button
+                        type="submit"
+                        disabled={saving || busy || !manual.trim()}
+                        className="transition-transform duration-150 ease-out active:[transform:scale(0.97)] min-h-[44px] rounded-xl bg-secondary px-4 font-bold text-secondary-foreground disabled:opacity-50"
+                    >
+                        {isIndo ? "Simpan" : "Save"}
+                    </button>
+                </form>
+            )}
             <p className="mt-2 text-xs text-muted-foreground">
                 {isIndo
                     ? "Rekam ulang satu kalimat: kembali ke Rekam, ucapkan ulang kalimat ini saja."

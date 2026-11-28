@@ -3,11 +3,14 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
-
+import { DraftEditor } from "./DraftEditor";
 import {
-    KonfirmasiCard,
-    type KonfirmasiItem,
-} from "./KonfirmasiCard";
+    isDraftSnapshot,
+    useDraftPatch,
+    type DraftSnapshot,
+} from "./draftClient";
+
+import { KonfirmasiCard, type KonfirmasiItem } from "./KonfirmasiCard";
 import {
     buildShareSummary,
     buildWhatsAppShareUrl,
@@ -25,10 +28,21 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
     const [docId, setDocId] = useState<string | null>(null);
     const [nomor, setNomor] = useState<string | null>(null);
     const [items, setItems] = useState<KonfirmasiItem[]>([]);
-    const [status, setStatus] = useState<"draf" | "disetujui" | null>(
-        null
-    );
+    const [status, setStatus] = useState<"draf" | "disetujui" | null>(null);
     const [total, setTotal] = useState<number | null>(null);
+    const [snapshot, setSnapshot] = useState<DraftSnapshot | null>(null);
+    const acceptSnapshot = (next: DraftSnapshot) => {
+        setSnapshot(next);
+        setItems(next.butuh_konfirmasi ?? next.document.butuh_konfirmasi ?? []);
+        setStatus(next.status === "draf" ? "draf" : "disetujui");
+        if (next.document.nomor) setNomor(next.document.nomor);
+        setTotal(next.document.total_nominal);
+    };
+    const {
+        mutate,
+        busy: editing,
+        error: editError,
+    } = useDraftPatch(locale, snapshot, acceptSnapshot);
     const [creating, setCreating] = useState(false);
     const [approving, setApproving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -84,13 +98,12 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                 return;
             }
             setDocId(doc.id);
+            if (isDraftSnapshot(data)) setSnapshot(data);
             if (doc.nomor) {
                 setNomor(doc.nomor);
             }
             setTotal(
-                typeof doc.total_nominal === "number"
-                    ? doc.total_nominal
-                    : null
+                typeof doc.total_nominal === "number" ? doc.total_nominal : null
             );
             const rawItems =
                 data.butuh_konfirmasi ?? doc.butuh_konfirmasi ?? [];
@@ -113,7 +126,7 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
 
     const hasPending = items.length > 0;
     const blocked = status === "draf" || hasPending;
-    const canApprove = status === "draf" && !hasPending;
+    const canApprove = status === "draf" && !hasPending && !editing;
     const shareBlocked = isShareBlocked(status, items.length);
     const shareUrl = buildWhatsAppShareUrl(
         buildShareSummary({
@@ -254,7 +267,10 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                     <Link
                         href={`/${locale}/login?callbackUrl=${encodeURIComponent(
                             typeof window !== "undefined"
-                                ? window.location.pathname + (sessionId ? `?sessionId=${sessionId}` : "")
+                                ? window.location.pathname +
+                                      (sessionId
+                                          ? `?sessionId=${sessionId}`
+                                          : "")
                                 : `/${locale}/susun`
                         )}`}
                         className="font-bold underline"
@@ -344,8 +360,8 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
                             >
                                 {creating
                                     ? isIndo
-                                         ? "Membuat…"
-                                         : "Creating…"
+                                        ? "Membuat…"
+                                        : "Creating…"
                                     : isIndo
                                       ? "Buat dokumen"
                                       : "Create document"}
@@ -357,25 +373,27 @@ export function KonfirmasiPanel({ locale, sessionId, onPlayEvidence }: Props) {
 
             {docId && (
                 <>
+                    {editError && (
+                        <p role="alert" className="text-sm text-destructive">
+                            {editError}
+                        </p>
+                    )}
+                    {snapshot?.status === "draf" && status === "draf" && (
+                        <DraftEditor
+                            locale={locale}
+                            snapshot={snapshot}
+                            mutate={mutate}
+                            busy={editing}
+                        />
+                    )}
                     {items.map((item) => (
                         <KonfirmasiCard
                             key={item.field}
                             item={item}
                             locale={locale}
-                            documentId={docId}
                             onPlayEvidence={onPlayEvidence}
-                            onResolved={(_field, response) => {
-                                const serverItems =
-                                    response.butuh_konfirmasi ??
-                                    response.document?.butuh_konfirmasi ??
-                                    [];
-                                setItems(serverItems);
-                                const serverStatus =
-                                    response.status ??
-                                    response.document?.status ??
-                                    "draf";
-                                setStatus(serverStatus);
-                            }}
+                            mutate={mutate}
+                            busy={editing || !snapshot}
                         />
                     ))}
                     <div className="flex flex-wrap gap-2">

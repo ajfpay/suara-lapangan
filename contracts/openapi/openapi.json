@@ -427,7 +427,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocumentResult"
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/DocumentResult"
+                    },
+                    {
+                      "required": ["draft_revision"]
+                    }
+                  ]
                 }
               }
             }
@@ -473,7 +480,7 @@
             }
           },
           "409": {
-            "description": "Request rejected or operation failed",
+            "description": "stale_revision, idempotency_conflict, or locked",
             "content": {
               "application/json": {
                 "schema": {
@@ -532,6 +539,17 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Replay same request/result for 24 hours; different request under same key returns 409."
           }
         ]
       }
@@ -1783,7 +1801,10 @@
             "description": "Rate limit exceeded",
             "headers": {
               "X-Retry-After": {
-                "schema": { "type": "integer", "minimum": 1 }
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
               }
             },
             "content": {
@@ -2587,6 +2608,11 @@
           },
           "message": {
             "type": "string"
+          },
+          "draft_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Current revision on stale_revision."
           }
         },
         "required": ["error", "message"]
@@ -2917,7 +2943,7 @@
           },
           "pekerjaan": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "description": "One row per priced item. Every row must cite the turn it came from.",
             "items": {
               "type": "object",
@@ -2937,7 +2963,9 @@
                 },
                 "volume": {
                   "type": "number",
-                  "exclusiveMinimum": 0
+                  "exclusiveMinimum": 0,
+                  "maximum": 1000000,
+                  "multipleOf": 0.001
                 },
                 "satuan": {
                   "type": "string",
@@ -2974,6 +3002,23 @@
                   "type": "string",
                   "pattern": "^(turn_[1-9][0-9]*|manual)$",
                   "description": "Turn id (K3) inside the same session, final=true only."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "Stable server-issued draft item ID."
+                },
+                "harga_satuan_minor": {
+                  "type": ["integer", "null"],
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Authoritative minor units: IDR rupiah or USD cents; null means unpriced."
+                },
+                "jumlah_minor": {
+                  "type": ["integer", "null"],
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "Authoritative minor units: IDR rupiah or USD cents; null means unpriced."
                 }
               }
             }
@@ -3008,6 +3053,13 @@
                   "type": ["string", "null"],
                   "pattern": "^turn_[1-9][0-9]*$",
                   "description": "The turn being questioned, or null when the field is simply missing and no turn can be quoted."
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": ["source", "derived"]
+                },
+                "proposed_value": {
+                  "type": "number"
                 }
               }
             }
@@ -3018,6 +3070,20 @@
           },
           "_spark_path": {
             "type": "boolean"
+          },
+          "total_nominal_minor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "syarat_pembayaran": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "masa_berlaku_hari": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
           }
         }
       },
@@ -3164,6 +3230,10 @@
                 "type": "null"
               }
             ]
+          },
+          "draft_revision": {
+            "type": "integer",
+            "minimum": 1
           }
         },
         "required": ["document", "status", "butuh_konfirmasi"]
@@ -3183,11 +3253,20 @@
                   },
                   {
                     "type": "number"
+                  },
+                  {
+                    "type": "null"
                   }
                 ]
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
               }
             },
-            "required": ["field", "nilai"]
+            "required": ["field", "nilai", "draft_revision"],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -3222,14 +3301,24 @@
                       },
                       {
                         "type": "number"
+                      },
+                      {
+                        "type": "null"
                       }
                     ]
                   }
                 },
-                "required": ["uraian", "volume", "satuan", "harga_satuan"]
+                "required": ["uraian", "volume", "satuan", "harga_satuan"],
+                "additionalProperties": false
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
               }
             },
-            "required": ["op", "item"]
+            "required": ["op", "item", "draft_revision"],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -3240,9 +3329,15 @@
               },
               "index": {
                 "type": "integer"
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
               }
             },
-            "required": ["op", "index"]
+            "required": ["op", "index", "draft_revision"],
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -3256,9 +3351,136 @@
               },
               "toIndex": {
                 "type": "integer"
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
               }
             },
-            "required": ["op", "fromIndex", "toIndex"]
+            "required": ["op", "fromIndex", "toIndex", "draft_revision"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "remove_line"
+              },
+              "item_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            },
+            "required": ["op", "item_id", "draft_revision"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "move_line"
+              },
+              "item_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "toIndex": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            },
+            "required": ["op", "item_id", "toIndex", "draft_revision"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "const": "update_line"
+              },
+              "item_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "changes": {
+                "type": "object",
+                "properties": {
+                  "uraian": {
+                    "type": "string"
+                  },
+                  "volume": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "satuan": {
+                    "type": "string"
+                  },
+                  "harga_satuan": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sumber_kutipan": {
+                    "type": "string",
+                    "pattern": "^(manual|turn_[1-9][0-9]*)$"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            },
+            "required": ["op", "item_id", "changes", "draft_revision"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "op": {
+                "enum": ["confirm_derived", "confirm_source"],
+                "description": "Explicit acknowledgement of a pending calculated amount; source conflicts require confirm_source."
+              },
+              "field": {
+                "type": "string",
+                "pattern": "^(total_nominal|pekerjaan\\[\\d+\\]\\.jumlah)$"
+              },
+              "draft_revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              }
+            },
+            "required": ["op", "field", "draft_revision"],
+            "additionalProperties": false
           }
         ]
       },
@@ -3318,6 +3540,11 @@
       "CreateDocumentResult": {
         "type": "object",
         "properties": {
+          "draft_revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Revision of the persisted draft, absent if no document was persisted."
+          },
           "document": {
             "$ref": "#/components/schemas/Quotation"
           },

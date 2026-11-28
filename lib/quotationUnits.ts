@@ -1,0 +1,18 @@
+export const CANONICAL_UNITS = [
+    "m2",
+    "m3",
+    "meter",
+    "sq_ft",
+    "lin_ft",
+    "sak",
+    "batang",
+    "titik",
+    "bag",
+    "sheet",
+    "bar",
+    "point",
+    "hour",
+    "unit",
+    "hari",
+    "fixture",
+] as const;

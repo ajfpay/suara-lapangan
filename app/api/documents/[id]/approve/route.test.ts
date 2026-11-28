@@ -101,15 +101,13 @@ describe
 
         beforeAll(async () => {
             pool = new Pool({ connectionString: TEST_DATABASE_URL });
-            for (const file of [
-                "0001_sessions_turns.sql",
-                "0002_usage_meter.sql",
-                "0003_documents.sql",
-                "0004_email_sends.sql",
-                "0007_auth_tables.sql",
-                "0008_documents_user_id.sql",
-                "0009_review_before_pdf.sql",
-            ]) {
+            for (const file of (
+                await import("node:fs/promises").then((fs) =>
+                    fs.readdir("db/migrations")
+                )
+            )
+                .filter((name) => name.endsWith(".sql"))
+                .sort()) {
                 const sql = await fs.readFile(`db/migrations/${file}`, "utf8");
                 await pool.query(sql);
             }
@@ -293,8 +291,12 @@ describe
             const patchRes = await PATCH(
                 new Request(`http://localhost/api/documents/${id}`, {
                     method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Idempotency-Key": "ticket22-regression",
+                    },
                     body: JSON.stringify({
+                        draft_revision: 1,
                         field: "pekerjaan[0].sumber_kutipan",
                         nilai: "manual",
                     }),
@@ -316,7 +318,9 @@ describe
             expect(approveRes.status).toBe(200);
             const approveData = await approveRes.json();
             expect(approveData.status).toBe("disetujui");
-            expect(approveData.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
+            expect(approveData.document.nomor).toMatch(
+                /^SL\/QTN\/\d{4}\/\d{4}$/
+            );
         });
 
         it("returns 409 invalid_state when document status is not draf (e.g. terkirim)", async () => {

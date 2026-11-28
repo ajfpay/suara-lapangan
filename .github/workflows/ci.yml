@@ -7,7 +7,8 @@ on:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Hurl 8.1.0 requires libxml2, available on Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     services:
@@ -96,7 +97,41 @@ jobs:
           # so the seeded session in e2e/auth-setup.ts must sign with the same
           # value the server uses. Keep this equal to the config's default.
           BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
-        run: npm run test:e2e
+        # Each invocation owns a fresh production server. Both viewports otherwise
+        # share the same process-local document rate-limit bucket on loopback.
+        run: |
+          desktop_status=0
+          mobile_status=0
+          npm run test:e2e -- --project=desktop || desktop_status=$?
+          npm run test:e2e -- --project=mobile || mobile_status=$?
+          test "$desktop_status" -eq 0 && test "$mobile_status" -eq 0
+
+      - name: Install Hurl
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/hurl.deb" https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl_8.1.0_amd64.deb
+          echo "c56222c8923d3940533ac3d7085f66cb6fa6c05639f33aaeef8d857ab70622f9  $RUNNER_TEMP/hurl.deb" | sha256sum --check
+          sudo apt-get install -y "$RUNNER_TEMP/hurl.deb"
+          hurl --version
+
+      - name: Draft HTTP contract (Hurl)
+        env:
+          DATABASE_URL: postgres://suara:suara@localhost:5432/suara_test
+          BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
+          BETTER_AUTH_URL: http://127.0.0.1:3010
+          TRUSTED_ORIGINS: http://127.0.0.1:3010,http://localhost:3010
+          SLM_HURL_CI: "1"
+        run: |
+          set -eu
+          node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3010 > "$RUNNER_TEMP/draft-server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true; wait "$server" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS --max-time 2 http://127.0.0.1:3010/api/health >/dev/null; then break; fi
+            kill -0 "$server"
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3010/api/health >/dev/null
+          npm run test:draft:http
 
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -1,3 +1,4 @@
+import { DraftInputError } from "@/lib/server/guard/draftMoney";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getTurnsStore, type TurnsStore } from "@/lib/server/db/store";
@@ -94,7 +95,10 @@ async function handlePost(request: Request): Promise<Response> {
 
         if (!session) {
             return NextResponse.json(
-                { error: "session_not_found", message: `Session '${sessionId}' not found` },
+                {
+                    error: "session_not_found",
+                    message: `Session '${sessionId}' not found`,
+                },
                 { status: 404 }
             );
         }
@@ -118,7 +122,9 @@ async function handlePost(request: Request): Promise<Response> {
                     audioSha256: session.audioSha256,
                     audioBytes: 1,
                     metaSessionId: null,
-                    transcript: session.turns.map((t) => t.transcript).join(" "),
+                    transcript: session.turns
+                        .map((t) => t.transcript)
+                        .join(" "),
                     audioDurationMs: null,
                     turns: session.turns,
                 });
@@ -137,7 +143,10 @@ async function handlePost(request: Request): Promise<Response> {
 
     if (!session.turns || session.turns.length === 0) {
         return NextResponse.json(
-            { error: "empty_turns", message: "Session contains no speech turns" },
+            {
+                error: "empty_turns",
+                message: "Session contains no speech turns",
+            },
             { status: 400 }
         );
     }
@@ -184,6 +193,8 @@ async function handlePost(request: Request): Promise<Response> {
             return NextResponse.json(
                 {
                     document: toResponseDocument({ ...doc, id: existing.id }),
+                    draft_revision: existing.draftRevision,
+                    field_changes: existing.fieldChanges ?? [],
                     butuh_konfirmasi: doc.butuh_konfirmasi ?? [],
                     // Ticket 01: every create is a draft; the number is
                     // allocated at approval (ticket 03).
@@ -216,7 +227,8 @@ async function handlePost(request: Request): Promise<Response> {
 
     async function persistAndRespond(
         document: QuotationDocument,
-        fromModel: boolean
+        fromModel: boolean,
+        fieldChanges?: import("@/lib/server/db/documentStore").FieldChange[]
     ): Promise<Response> {
         // Ticket 01: drafts carry no number; force null even if the guard
         // echoed a candidate nomor.
@@ -229,6 +241,7 @@ async function handlePost(request: Request): Promise<Response> {
                 turnsHash: fingerprint,
                 document: draft,
                 userId,
+                fieldChanges,
             });
         } catch (cause) {
             console.error(
@@ -254,9 +267,13 @@ async function handlePost(request: Request): Promise<Response> {
         return NextResponse.json(
             {
                 document: toResponseDocument(documentWithId),
+                draft_revision: stored.draftRevision,
+                field_changes: stored.fieldChanges ?? [],
                 butuh_konfirmasi: butuhKonfirmasi,
                 status,
-                ...sparkPathMarker(stored.document._spark_path === true || fromModel),
+                ...sparkPathMarker(
+                    stored.document._spark_path === true || fromModel
+                ),
             },
             { status: 200 }
         );
@@ -269,7 +286,11 @@ async function handlePost(request: Request): Promise<Response> {
             project,
             { sessionId }
         );
-        return persistAndRespond(result.document, false);
+        return persistAndRespond(
+            result.document,
+            false,
+            result.automaticFieldChanges
+        );
     }
 
     // Call Muse Spark 1.3 inline with strict schema
@@ -282,7 +303,10 @@ async function handlePost(request: Request): Promise<Response> {
         });
     } catch (err) {
         if (err instanceof SparkError) {
-            if (err.code === "upstream_unreachable" || err.code === "schema_rejected") {
+            if (
+                err.code === "upstream_unreachable" ||
+                err.code === "schema_rejected"
+            ) {
                 const result = documentFromTurns(
                     session.turns,
                     resolvedLocale,
@@ -340,10 +364,26 @@ async function handlePost(request: Request): Promise<Response> {
     if (candidate._spark_path) {
         result.document._spark_path = true;
     }
-    return persistAndRespond(result.document, candidate._spark_path === true);
+    return persistAndRespond(
+        result.document,
+        candidate._spark_path === true,
+        result.automaticFieldChanges
+    );
 }
 
-export const POST = withRateLimitFlat(handlePost, {
+async function validatedPost(request: Request): Promise<Response> {
+    try {
+        return await handlePost(request);
+    } catch (error) {
+        if (error instanceof DraftInputError)
+            return NextResponse.json(
+                { error: "invalid_request", message: error.message },
+                { status: 400 }
+            );
+        throw error;
+    }
+}
+export const POST = withRateLimitFlat(validatedPost, {
     route: "/api/documents",
 });
 
@@ -426,10 +466,10 @@ async function handleList(request: Request): Promise<Response> {
         );
     }
     try {
-        const rows = await store.listOwnedLatest(
-            session.user.id,
-            { ...query, cursor }
-        );
+        const rows = await store.listOwnedLatest(session.user.id, {
+            ...query,
+            cursor,
+        });
         const items = rows.slice(0, query.limit);
         const last = items.at(-1);
         const nextCursor =
@@ -453,4 +493,6 @@ async function handleList(request: Request): Promise<Response> {
     }
 }
 
-export const GET = withRateLimitFlat(handleList, { route: "/api/documents/list" });
+export const GET = withRateLimitFlat(handleList, {
+    route: "/api/documents/list",
+});

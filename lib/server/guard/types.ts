@@ -4,22 +4,7 @@ import type { Turn } from "@/lib/server/asr/turns";
 export type { Locale, Turn };
 
 export type CanonicalUnit =
-    | "m2"
-    | "m3"
-    | "meter"
-    | "sq_ft"
-    | "lin_ft"
-    | "sak"
-    | "batang"
-    | "titik"
-    | "bag"
-    | "sheet"
-    | "bar"
-    | "point"
-    | "hour"
-    | "unit"
-    | "hari"
-    | "fixture";
+    (typeof import("@/lib/quotationUnits").CANONICAL_UNITS)[number];
 
 export type Proyek = {
     nama: string;
@@ -28,11 +13,14 @@ export type Proyek = {
 };
 
 export type PekerjaanItem = {
+    id?: string;
     uraian: string;
     volume: number;
     satuan: CanonicalUnit;
     harga_satuan: number;
+    harga_satuan_minor?: number | null;
     jumlah: number;
+    jumlah_minor?: number | null;
     sumber_kutipan: string;
 };
 
@@ -40,6 +28,8 @@ export type ButuhKonfirmasiItem = {
     field: string;
     alasan: string;
     sumber_kutipan: string | null;
+    kind?: "derived" | "source";
+    proposed_value?: number;
 };
 
 export type QuotationDocument = {
@@ -54,8 +44,11 @@ export type QuotationDocument = {
     proyek: Proyek;
     pekerjaan: PekerjaanItem[];
     total_nominal: number;
+    total_nominal_minor?: number;
     terbilang: string;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
+    syarat_pembayaran?: string;
+    masa_berlaku_hari?: number;
     _spark_path?: boolean;
 };
 
@@ -70,6 +63,7 @@ export type DocumentResult = {
     document: QuotationDocument;
     butuh_konfirmasi: ButuhKonfirmasiItem[];
     status: DocumentStatus;
+    automaticFieldChanges?: import("@/lib/server/db/documentStore").FieldChange[];
 };
 
 export type CandidatePekerjaanItem = {
@@ -92,5 +86,7 @@ export type CandidateDocument = {
     total_nominal?: unknown;
     terbilang?: unknown;
     butuh_konfirmasi?: unknown;
+    syarat_pembayaran?: unknown;
+    masa_berlaku_hari?: unknown;
     _spark_path?: boolean;
 };

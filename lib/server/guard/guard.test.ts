@@ -9,7 +9,9 @@ const validDir = path.join(repoRoot, "fixtures", "transcripts");
 const defectiveDir = path.join(repoRoot, "fixtures", "defective");
 
 describe("Guard Rules §B2 - Defective Fixtures", () => {
-    const files = fs.readdirSync(defectiveDir).filter((f) => f.endsWith(".json"));
+    const files = fs
+        .readdirSync(defectiveDir)
+        .filter((f) => f.endsWith(".json"));
 
     it("has 12 defective fixtures", () => {
         expect(files.length).toBe(12);
@@ -26,6 +28,30 @@ describe("Guard Rules §B2 - Defective Fixtures", () => {
             const locale = data.locale;
 
             const result = applyGuard(doc, turns, { locale, project });
+
+            if (/^d1[01]-/.test(file)) {
+                expect(result.status).toBe("siap");
+                if (file.startsWith("d10-")) {
+                    expect(result.document.pekerjaan[0]).toMatchObject({
+                        jumlah: 1240000,
+                        jumlah_minor: 1240000,
+                    });
+                    expect(result.document.total_nominal_minor).toBe(1240000);
+                } else {
+                    expect(result.document.total_nominal).toBe(620);
+                    expect(result.document.total_nominal_minor).toBe(62000);
+                }
+                expect(result.butuh_konfirmasi).toEqual([]);
+                expect(result.automaticFieldChanges).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            field: data.expectation.field,
+                            kind: "derived_confirmation",
+                        }),
+                    ])
+                );
+                return;
+            }
 
             expect(result.status).toBe("perlu_konfirmasi");
             expect(result.butuh_konfirmasi.length).toBeGreaterThan(0);
@@ -73,7 +99,23 @@ describe("Guard Rules §B2 - Clean Fixtures with Expected Documents", () => {
             expect(result.status).toBe("siap");
             expect(result.butuh_konfirmasi).toEqual([]);
             expect(result.document.nomor).toMatch(/^SL\/QTN\/\d{4}\/\d{4}$/);
-            expect(result.document).toEqual(doc);
+            expect(result.document).toEqual({
+                ...doc,
+                total_nominal_minor: Math.round(
+                    doc.total_nominal * (locale === "en" ? 100 : 1)
+                ),
+                pekerjaan: doc.pekerjaan.map(
+                    (line: (typeof doc.pekerjaan)[number]) => ({
+                        ...line,
+                        harga_satuan_minor: Math.round(
+                            line.harga_satuan * (locale === "en" ? 100 : 1)
+                        ),
+                        jumlah_minor: Math.round(
+                            line.jumlah * (locale === "en" ? 100 : 1)
+                        ),
+                    })
+                ),
+            });
         });
     }
 });

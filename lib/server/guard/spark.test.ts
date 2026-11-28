@@ -170,4 +170,47 @@ describe("callMuseSpark", () => {
             status: 502,
         });
     });
+    it.each(["id", "en"] as const)(
+        "sends strict nullable terms and locale-specific monetary bounds for %s",
+        async (locale) => {
+            const fetchMock = vi.fn().mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: async () =>
+                    JSON.stringify({
+                        output_text: JSON.stringify({ pekerjaan: [] }),
+                    }),
+            });
+            global.fetch = fetchMock;
+            await callMuseSpark({ turns: mockTurns, locale });
+            const schema = JSON.parse(fetchMock.mock.calls[0][1].body).text
+                .format.schema;
+            expect(schema.properties.syarat_pembayaran).toMatchObject({
+                type: ["object", "null"],
+                additionalProperties: false,
+                required: ["nilai", "sumber_kutipan"],
+            });
+            expect(schema.properties.masa_berlaku_hari).toMatchObject({
+                type: ["object", "null"],
+                properties: {
+                    nilai: { type: "integer", minimum: 1, maximum: 365 },
+                },
+            });
+            const item = schema.properties.pekerjaan.items.properties;
+            expect(item.volume).toMatchObject({
+                exclusiveMinimum: 0,
+                maximum: 1000000,
+                multipleOf: 0.001,
+            });
+            expect(item.harga_satuan).toMatchObject({
+                type: ["number", "null"],
+                minimum: 0,
+                maximum:
+                    locale === "id"
+                        ? 1000000000000
+                        : Number.MAX_SAFE_INTEGER / 100,
+                multipleOf: locale === "id" ? 1 : 0.01,
+            });
+        }
+    );
 });
