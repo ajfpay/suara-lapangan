@@ -1,9 +1,16 @@
 import { betterAuth } from "better-auth";
 import { admin } from "better-auth/plugins";
 import { expo } from "@better-auth/expo";
-import { APIError, createAuthMiddleware } from "better-auth/api";
-import { Pool } from "pg";
+import {
+    APIError,
+    createAuthEndpoint,
+    createAuthMiddleware,
+    sessionMiddleware,
+} from "better-auth/api";
+import { Pool, types } from "pg";
 import crypto from "node:crypto";
+import { isIP } from "node:net";
+import { normalizeIP } from "@better-auth/core/utils/ip";
 import { getEmailConfig } from "@/lib/server/email/config";
 import { sendEmail } from "@/lib/server/email/send";
 import { createResetRequestLimiter } from "@/lib/server/reset-request-limiter";
@@ -15,7 +22,18 @@ const authConnectionString =
     "postgres://suara:suara@localhost:5432/suara_test";
 
 function getAuthDbPool(): Pool {
-    const pool = new Pool({ connectionString: authConnectionString });
+    const pool = new Pool({
+        connectionString: authConnectionString,
+        connectionTimeoutMillis: 5000,
+        query_timeout: 10000,
+        types: {
+            // Better Auth 1.5.5 expects numeric millisecond timestamps, not pg's int8 strings.
+            getTypeParser: (oid, format) =>
+                oid === types.builtins.INT8 && format !== "binary"
+                    ? (value: string) => Number(value)
+                    : types.getTypeParser(oid, format),
+        },
+    });
     pool.on("error", (err) => {
         console.error(redactSecrets(`[auth] pool error: ${String(err)}`));
     });
@@ -23,6 +41,25 @@ function getAuthDbPool(): Pool {
 }
 
 const pool = getAuthDbPool();
+
+const atomicAuthLimits = new Map([
+    [
+        "/api/auth/sign-up/email",
+        { window: 60, max: 10, refreshOnAttempt: false },
+    ],
+    [
+        "/api/auth/sign-in/email",
+        { window: 60, max: 10, refreshOnAttempt: false },
+    ],
+    [
+        "/api/auth/request-password-reset",
+        { window: 900, max: 5, refreshOnAttempt: true },
+    ],
+    [
+        "/api/auth/reset-password",
+        { window: 60, max: 10, refreshOnAttempt: true },
+    ],
+]);
 
 const DEV_FALLBACK_SECRET =
     "suara-lapangan-secret-key-development-minimum-32-chars";
@@ -144,6 +181,42 @@ async function sendAuthMail(
     }
 }
 
+const credentialCapabilityPlugin = {
+    id: "credential-capability",
+    endpoints: {
+        credentialCapability: createAuthEndpoint(
+            "/credential-capability",
+            { method: "GET", use: [sessionMiddleware] },
+            async (ctx) => {
+                ctx.setHeader("Cache-Control", "private, no-store");
+                let status: "password" | "none" | "unknown" = "unknown";
+                try {
+                    const accounts =
+                        await ctx.context.internalAdapter.findAccounts(
+                            ctx.context.session.user.id
+                        );
+                    const credentials = accounts.filter(
+                        (account) => account.providerId === "credential"
+                    );
+                    if (
+                        credentials.some((account) => Boolean(account.password))
+                    ) {
+                        status = "password";
+                    } else if (
+                        accounts.length > 0 &&
+                        credentials.length === 0
+                    ) {
+                        status = "none";
+                    }
+                } catch {
+                    // The client must not infer capability from its login method.
+                }
+                return ctx.json({ status });
+            }
+        ),
+    },
+};
+
 export const auth = betterAuth({
     database: pool,
     secret: AUTH_SECRET,
@@ -155,9 +228,15 @@ export const auth = betterAuth({
     },
     rateLimit: {
         enabled: true,
+        storage: "database",
+        modelName: "auth_rate_limit",
+        fields: { lastRequest: "last_request" },
         customRules: {
-            "/request-password-reset": { window: 900, max: 5 },
-            "/reset-password": { window: 60, max: 10 },
+            // These endpoints reserve attempts atomically before invoking Better Auth.
+            "/sign-up/email": false,
+            "/sign-in/email": false,
+            "/request-password-reset": false,
+            "/reset-password": false,
         },
     },
     hooks: {
@@ -218,6 +297,7 @@ export const auth = betterAuth({
         },
     },
     plugins: [
+        credentialCapabilityPlugin,
         { ...nativePlugin, init: () => ({ options: { trustedOrigins: [] } }) },
         admin({
             schema: {
@@ -236,6 +316,7 @@ export const auth = betterAuth({
         }),
     ],
     advanced: {
+        ipAddress: { ipAddressHeaders: ["x-auth-client-ip"] },
         disableOriginCheck: false,
         disableCSRFCheck: false,
         database: {
@@ -312,13 +393,131 @@ export const auth = betterAuth({
 
 let resetLockPool: Pool | undefined;
 
+function authUnavailable(): Response {
+    return Response.json(
+        { code: "SERVICE_UNAVAILABLE", message: "Try again later" },
+        { status: 503 }
+    );
+}
+
+async function invokeAuth(request: Request): Promise<Response> {
+    try {
+        const path = new URL(request.url).pathname.replace(/\/+$/, "");
+        const rule = atomicAuthLimits.get(path);
+        if (rule && request.method === "POST") {
+            const ip = request.headers.get("x-auth-client-ip") ?? "0.0.0.0";
+            const key = ip + "|" + path.slice("/api/auth".length);
+            const now = Date.now();
+            const duration = rule.window * 1000;
+            const { rows } = await pool.query<{
+                count: number;
+                last_request: number;
+            }>(
+                `insert into auth_rate_limit (id, key, count, last_request)
+                 values ($1, $2, 1, $3)
+                 on conflict (key) do update set
+                     count = case
+                         when auth_rate_limit.last_request <= $3::bigint - $4::bigint then 1
+                         else least(auth_rate_limit.count + 1, $5::integer + 1)
+                     end,
+                     last_request = case
+                         when auth_rate_limit.last_request <= $3::bigint - $4::bigint then $3::bigint
+                         when $6::boolean and auth_rate_limit.count < $5::integer then greatest(auth_rate_limit.last_request, $3::bigint)
+                         else auth_rate_limit.last_request
+                     end
+                 returning count, last_request`,
+                [
+                    crypto.randomUUID(),
+                    key,
+                    now,
+                    duration,
+                    rule.max,
+                    rule.refreshOnAttempt,
+                ]
+            );
+            const row = rows[0];
+            if (!row) return authUnavailable();
+            if (row.count > rule.max) {
+                if (ip === "0.0.0.0") {
+                    console.warn(
+                        "[auth] shared fallback IP limit reached; verify trusted ingress configuration"
+                    );
+                }
+                const retryAfter = Math.max(
+                    1,
+                    Math.ceil((row.last_request + duration - now) / 1000)
+                );
+                return Response.json(
+                    { message: "Too many requests. Please try again later." },
+                    {
+                        status: 429,
+                        headers: { "X-Retry-After": String(retryAfter) },
+                    }
+                );
+            }
+        }
+        return await auth.handler(request);
+    } catch (error) {
+        // Log only a known error category or SQLSTATE; exception text may contain secrets.
+        const code = (error as { code?: unknown } | null)?.code;
+        const category =
+            typeof code === "string" &&
+            /^(?:[0-9A-Z]{5}|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH)$/.test(
+                code
+            )
+                ? code
+                : "unexpected_error";
+        console.error("[auth] request failed:", category);
+        return authUnavailable();
+    }
+}
+
+function withAuthClientAddress(request: Request): Request {
+    const headers = new Headers(request.headers);
+    // Only a verified ingress may supply the last hop. Never trust a client-
+    // supplied internal header, or disable rate limiting when the IP is missing.
+    const trustProxy =
+        process.env.NODE_ENV !== "production" ||
+        process.env.AUTH_TRUST_PROXY === "true";
+    const forwarded = trustProxy
+        ? headers.get("x-forwarded-for")?.split(",").at(-1)?.trim()
+        : undefined;
+    let clientIp = "0.0.0.0";
+    if (forwarded && !forwarded.includes("%")) {
+        const version = isIP(forwarded);
+        if (version === 4) clientIp = forwarded;
+        if (version === 6) {
+            // URL canonicalization also converts dotted IPv4-mapped IPv6 to hex.
+            const canonical = new URL(`http://[${forwarded}]/`).hostname.slice(
+                1,
+                -1
+            );
+            clientIp = normalizeIP(canonical, { ipv6Subnet: 64 });
+        }
+    }
+    headers.set("x-auth-client-ip", clientIp);
+    // Next.js wraps Request in a Proxy; the native constructor cannot read its internal slots.
+    const init: RequestInit & { duplex: "half" } = {
+        method: request.method,
+        headers,
+        signal: request.signal,
+        body:
+            request.method === "GET" || request.method === "HEAD"
+                ? null
+                : request.body,
+        duplex: "half",
+    };
+    return new Request(request.url, init);
+}
+
 export async function handleAuthRequest(request: Request): Promise<Response> {
+    request = withAuthClientAddress(request);
     if (
         request.method !== "POST" ||
         new URL(request.url).pathname.replace(/\/+$/, "") !==
             "/api/auth/reset-password"
     ) {
-        return auth.handler(request);
+        return invokeAuth(request);
     }
     const invalid = () =>
         Response.json(
@@ -334,11 +533,6 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
     }
     if (typeof token !== "string" || !token || token.length > 128)
         return invalid();
-    const unavailable = () =>
-        Response.json(
-            { code: "SERVICE_UNAVAILABLE", message: "Try again later" },
-            { status: 503 }
-        );
     const key = crypto
         .createHash("sha256")
         .update("password-reset:" + token)
@@ -363,7 +557,7 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
         });
     }
     const client = await resetLockPool.connect().catch(() => null);
-    if (!client) return unavailable();
+    if (!client) return authUnavailable();
     try {
         await client.query("begin");
         const lock = await client.query<{ locked: boolean }>(
@@ -376,9 +570,9 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
                 { status: 409 }
             );
         }
-        return await auth.handler(request);
+        return await invokeAuth(request);
     } catch {
-        return unavailable();
+        return authUnavailable();
     } finally {
         try {
             await client.query("rollback");

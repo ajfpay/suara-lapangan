@@ -1516,6 +1516,15 @@
           },
           "429": {
             "description": "Request rejected or operation failed",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1526,6 +1535,16 @@
           },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -1563,7 +1582,7 @@
           }
         },
         "security": [],
-        "description": "Better Auth 1.5.5 email/password registration. Email verification is required; duplicate registration can return generic success without confirming account existence."
+        "description": "Better Auth 1.5.5 email/password registration. Email verification is required; duplicate registration can return generic success without confirming account existence. IP limit: 10 attempts per fixed 60-second window from the first accepted attempt, shared across instances."
       }
     },
     "/api/auth/sign-in/email": {
@@ -1651,6 +1670,15 @@
           },
           "429": {
             "description": "Request rejected or operation failed",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1661,6 +1689,16 @@
           },
           "500": {
             "description": "Request rejected or operation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -1697,7 +1735,76 @@
           }
         },
         "security": [],
-        "description": "Better Auth existing email/password endpoint; login requires verified email."
+        "description": "Better Auth existing email/password endpoint; login requires verified email. IP limit: 10 attempts per fixed 60-second window from the first accepted attempt, shared across instances."
+      }
+    },
+    "/api/auth/credential-capability": {
+      "get": {
+        "operationId": "getCredentialCapability",
+        "description": "Returns the signed-in owner's credential capability. A linked credential with a password takes precedence over social providers. Unknown means capability cannot be established; do not infer it from the login method.",
+        "responses": {
+          "200": {
+            "description": "Owner credential capability",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "private, no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": ["password", "none", "unknown"]
+                    }
+                  },
+                  "required": ["status"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "headers": {
+              "X-Retry-After": {
+                "schema": { "type": "integer", "minimum": 1 }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/auth/get-session": {
@@ -2235,6 +2342,15 @@
           },
           "429": {
             "description": "Request rejected",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2245,6 +2361,16 @@
           },
           "500": {
             "description": "Request rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Authentication is temporarily unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -2335,6 +2461,15 @@
           },
           "429": {
             "description": "Request rejected",
+            "headers": {
+              "X-Retry-After": {
+                "description": "Seconds until another attempt is permitted; present for the IP limit.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomInt, randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getAuthTables } from "@better-auth/core/db";
@@ -20,6 +20,8 @@ describe.skipIf(!database)("authentication lifecycle", () => {
     const origin = "http://localhost:3010";
     let ownerId: string;
     let source = 0;
+    const prefix = "198.19." + randomInt(0, 256) + ".";
+    const usedRateKeys = new Set<string>();
 
     function request(
         path: string,
@@ -29,12 +31,13 @@ describe.skipIf(!database)("authentication lifecycle", () => {
     ) {
         const headers = new Headers({
             origin,
-            "x-forwarded-for": "192.0.2." + ((++source % 250) + 1),
+            "x-forwarded-for": prefix + ((++source % 250) + 1),
             ...extra,
         });
         if (extra?.["expo-origin"]) headers.delete("origin");
         if (body) headers.set("content-type", "application/json");
         if (cookie) headers.set("cookie", cookie);
+        usedRateKeys.add(headers.get("x-forwarded-for") + "|/" + path);
         return server.handleAuthRequest(
             new Request(origin + "/api/auth/" + path, {
                 method: body ? "POST" : "GET",
@@ -88,6 +91,10 @@ describe.skipIf(!database)("authentication lifecycle", () => {
             await pool.query(
                 "delete from auth_user where email=any($1::text[])",
                 [[email, googleEmail]]
+            );
+            await pool.query(
+                "delete from auth_rate_limit where key=any($1::text[])",
+                [[...usedRateKeys]]
             );
             await pool.end();
         }
