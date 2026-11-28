@@ -33,4 +33,14 @@ describe("draft editor",()=>{
         view.rerender(<DraftEditor locale="en" snapshot={{...snapshot,draft_revision:2,document:{...snapshot.document,syarat_pembayaran:"Net 14"}}} mutate={mutate} busy={false}/>);
         expect((screen.getByLabelText("Payment terms (optional)") as HTMLTextAreaElement).value).toBe("Net 30");
     });
+    it("shows server corrections and distinguishes unpriced items from free items", () => {
+        const withAudit: DraftSnapshot = {...snapshot,document:{...snapshot.document,pekerjaan:[{...snapshot.document.pekerjaan[0],harga_satuan:0,harga_satuan_minor:null,jumlah:0,jumlah_minor:null},{...snapshot.document.pekerjaan[1],harga_satuan:0,harga_satuan_minor:0,jumlah:0,jumlah_minor:0}]},field_changes:[{field:"total_nominal",original:35,current:30,changed_by:"server",changed_at:"2026-11-28T00:00:00Z",kind:"derived_confirmation"}]};
+        render(<DraftEditor locale="en" snapshot={withAudit} mutate={vi.fn()} busy={false}/>);
+        expect(screen.getByText("Server corrections")).toBeTruthy();
+        expect(screen.getByText(/35 → 30/)).toBeTruthy();
+        const prices = screen.getAllByLabelText(/Unit price/);
+        expect((prices[0] as HTMLInputElement).value).toBe("");
+        expect((prices[1] as HTMLInputElement).value).toBe("0");
+    });
+
 });
