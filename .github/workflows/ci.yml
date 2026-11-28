@@ -96,7 +96,11 @@ jobs:
           # so the seeded session in e2e/auth-setup.ts must sign with the same
           # value the server uses. Keep this equal to the config's default.
           BETTER_AUTH_SECRET: suara-lapangan-e2e-test-secret-minimum-32-chars
-        run: npm run test:e2e
+        # Each invocation owns a fresh production server. Both viewports otherwise
+        # share the same process-local document rate-limit bucket on loopback.
+        run: |
+          npm run test:e2e -- --project=desktop
+          npm run test:e2e -- --project=mobile
 
       - name: Install Hurl
         run: |
